@@ -4,29 +4,37 @@ on:
   push:
     branches: [main]
 
+# Add this permissions block
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # This is important for deployment
     steps:
-      - uses: actions/checkout@v4 # Updated to v4 for better performance and security
+      - uses: actions/checkout@v3 # Updated to v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # Updated to v4
+        uses: actions/setup-node@v3 # Updated to v3
         with:
           node-version: '18'
-          cache: 'npm' # Added caching for faster installations
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
+        env:
+          BASE_PATH: '/snapgrade'
         run: npm run build
+
+      - name: Create .nojekyll file
+        run: touch build/.nojekyll
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4 # Updated to v4
         with:
           branch: gh-pages
           folder: build
-          token: ${{ secrets.ACCESS_TOKEN }} # Added token for authentication
+          token: ${{ secrets.ACCESS_TOKEN }} # Add this line
