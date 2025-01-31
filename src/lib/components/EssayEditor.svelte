@@ -69,7 +69,7 @@ The ~~old text~~ [new text] can be mixed with speling !spelling! corrections.`
 		<div class="editor-ui">
 			<div class="editor-container">
 				<div class="header">
-					<h2>Enhanced Essay Editor</h2>
+					<h2>Snapgrade</h2>
 					<div class="controls">
 						<button onclick={handlePrint} class="print-button">Print Document</button>
 					</div>
