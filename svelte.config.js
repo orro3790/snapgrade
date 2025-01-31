@@ -6,11 +6,11 @@ const config = {
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
-			fallback: 'index.html', // Enable SPA mode
-			strict: false // Allow dynamic routes
+			fallback: 'index.html',
+			strict: false
 		}),
 		paths: {
-			base: process.env.NODE_ENV === 'production' ? '/snapgrade' : ''
+			base: '/snapgrade'
 		}
 	}
 };

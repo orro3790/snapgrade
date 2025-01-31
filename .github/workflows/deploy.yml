@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
 
-# Add this permissions block!
 permissions:
   contents: write
   pages: write
@@ -14,10 +13,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # Updated to v3
+      - uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3 # Updated to v3
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
 
@@ -25,16 +24,16 @@ jobs:
         run: npm ci
 
       - name: Build
-        env:
-          BASE_PATH: '/snapgrade'
         run: npm run build
 
       - name: Create .nojekyll file
-        run: touch build/.nojekyll
+        run: |
+          touch build/.nojekyll
+          cp build/index.html build/404.html
 
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4 # Updated to v4
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
           folder: build
-          token: ${{ secrets.ACCESS_TOKEN }} # Add this line
+          token: ${{ secrets.ACCESS_TOKEN }}
