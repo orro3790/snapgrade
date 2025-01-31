@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 
-# Add this permissions block
+# Add this permissions block!
 permissions:
   contents: write
   pages: write
