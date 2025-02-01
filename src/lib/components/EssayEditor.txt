@@ -1,0 +1,469 @@
+<script lang="ts">
+	import Tooltip from './Tooltip.svelte';
+	import { escapeHtml, calculateWordPosition } from '$lib/utils/editor';
+
+	const { initialContent = '', onContentChange = () => {} } = $props<{
+		initialContent?: string;
+		onContentChange?: (content: string) => void;
+	}>();
+
+	// Separate content and UI state
+	const contentState = $state({
+		content: initialContent || 'Type your text here and use Tab to navigate through words.',
+		words: [] as string[]
+	});
+
+	const editorState = $state({
+		currentWordIndex: -1,
+		selectionStart: 0,
+		selectionEnd: 0
+	});
+
+	const modeState = $state({
+		isInCorrectionMode: false,
+		correctionText: ''
+	});
+
+	let textareaRef: HTMLTextAreaElement;
+
+	// Word processing utilities
+	function splitIntoWords(text: string): string[] {
+		const words = text.split(/(\s+)/);
+		return words.filter((word) => word.length > 0);
+	}
+
+	function getWordBoundaries() {
+		let currentPosition = 0;
+		const nonWhitespaceWords = contentState.words.reduce(
+			(boundaries, word, i) => {
+				if (!word.match(/^\s+$/)) {
+					boundaries.push({
+						start: currentPosition,
+						end: currentPosition + word.length,
+						word,
+						index: i
+					});
+				}
+				currentPosition += word.length;
+				return boundaries;
+			},
+			[] as Array<{ start: number; end: number; word: string; index: number }>
+		);
+		return nonWhitespaceWords;
+	}
+
+	// Navigation
+	function moveToWord(index: number) {
+		const boundaries = getWordBoundaries();
+		const boundaryIndex = boundaries.findIndex((b) => b.index === index);
+		if (boundaryIndex >= 0) {
+			const { start, end } = boundaries[boundaryIndex];
+			textareaRef.focus();
+			textareaRef.setSelectionRange(start, end);
+			editorState.currentWordIndex = index;
+			editorState.selectionStart = start;
+			editorState.selectionEnd = end;
+		}
+	}
+
+	function findNextWordIndex(cursorPosition: number, moveForward = true) {
+		const boundaries = getWordBoundaries();
+		if (moveForward) {
+			const nextWord = boundaries.find((b) => b.start > cursorPosition);
+			return nextWord?.index ?? boundaries[0]?.index ?? 0;
+		}
+		const prevWord = [...boundaries].reverse().find((b) => b.end < cursorPosition);
+		return prevWord?.index ?? boundaries[boundaries.length - 1]?.index ?? 0;
+	}
+
+	// Word operations
+	function handleDeleteAction() {
+		if (editorState.currentWordIndex >= 0) {
+			const currentWord = contentState.words[editorState.currentWordIndex];
+			const isMarkedForDeletion = currentWord.startsWith('~') && currentWord.endsWith('~');
+
+			contentState.words[editorState.currentWordIndex] = isMarkedForDeletion
+				? currentWord.slice(1, -1)
+				: `~${currentWord}~`;
+
+			const nextIndex = findNextWordIndex(editorState.selectionEnd, true);
+			updateContent();
+			setTimeout(() => moveToWord(nextIndex), 0);
+		}
+	}
+
+	function handleCorrectionMode(event: KeyboardEvent) {
+		if (!modeState.isInCorrectionMode) {
+			modeState.isInCorrectionMode = true;
+			modeState.correctionText = '';
+		} else if (modeState.correctionText) {
+			const currentIndex = editorState.currentWordIndex;
+			const currentWord = contentState.words[currentIndex];
+			// Format the correction with exclamation marks
+			contentState.words[currentIndex] = `${currentWord} !${modeState.correctionText}!`;
+			updateContent();
+			setTimeout(() => moveToWord(currentIndex + 1), 0);
+			modeState.isInCorrectionMode = false;
+			modeState.correctionText = '';
+		}
+		event.preventDefault();
+	}
+
+	// Event handlers
+	function handleKeyDown(event: KeyboardEvent) {
+		const { key, shiftKey } = event;
+		const hasSelection = textareaRef.selectionStart !== textareaRef.selectionEnd;
+
+		if (modeState.isInCorrectionMode) {
+			handleCorrectionModeKeyDown(event);
+			return;
+		}
+
+		if (key === 'Tab') {
+			event.preventDefault();
+			const cursorPosition = textareaRef.selectionStart;
+			const nextIndex = findNextWordIndex(cursorPosition, !shiftKey);
+			moveToWord(nextIndex);
+		} else if (hasSelection) {
+			if (key === '-') {
+				event.preventDefault();
+				handleDeleteAction();
+			} else if (key === '`') {
+				handleCorrectionMode(event);
+			}
+		}
+	}
+
+	function handleCorrectionModeKeyDown(event: KeyboardEvent) {
+		const { key } = event;
+		if (key === '`') {
+			handleCorrectionMode(event);
+		} else if (key === 'Escape') {
+			modeState.isInCorrectionMode = false;
+			modeState.correctionText = '';
+			event.preventDefault();
+		} else if (key === 'Backspace' && modeState.correctionText.length > 0) {
+			modeState.correctionText = modeState.correctionText.slice(0, -1);
+			event.preventDefault();
+		} else if (key.length === 1) {
+			modeState.correctionText += key;
+			event.preventDefault();
+		}
+	}
+
+	function handleClick(event: MouseEvent) {
+		const target = event.target as HTMLTextAreaElement;
+		const cursorPosition = target.selectionStart;
+		const boundaries = getWordBoundaries();
+
+		const clickedBoundary = boundaries.find(
+			(boundary) => cursorPosition >= boundary.start && cursorPosition <= boundary.end
+		);
+
+		if (clickedBoundary) {
+			editorState.currentWordIndex = clickedBoundary.index;
+			editorState.selectionStart = clickedBoundary.start;
+			editorState.selectionEnd = clickedBoundary.end;
+			moveToWord(clickedBoundary.index);
+		}
+	}
+
+	// Content management
+	function updateContent() {
+		contentState.content = contentState.words.join('');
+		onContentChange(contentState.content);
+	}
+
+	$effect(() => {
+		if (initialContent) {
+			contentState.content = initialContent;
+		}
+		contentState.words = splitIntoWords(contentState.content);
+	});
+
+	function generateHTML() {
+		let html = contentState.content;
+		// Escape HTML characters
+		html = escapeHtml(html);
+
+		// Replace correction marks with styled spans
+		html = html.replace(
+			/(\S+)\s+!([^!]+)!/g,
+			(match, word, correction) => `
+				<span class="correction-container">
+					<span class="correction-text">${correction}</span>
+					<span class="underlined">${word}</span>
+				</span>`
+		);
+
+		// Replace deletion marks
+		html = html.replace(/~([^~]+)~/g, '<span class="deleted">$1</span>');
+
+		// Convert newlines to paragraphs
+		return html
+			.split('\n\n')
+			.map((paragraph) => (paragraph.trim() ? `<p>${paragraph.replace(/\n/g, '<br>')}</p>` : ''))
+			.join('');
+	}
+</script>
+
+<!-- Main editor wrapper -->
+<div class="editor-wrapper">
+	<div class="split-view">
+		<!-- Left side: Editor UI -->
+		<div class="editor-ui">
+			<div class="editor-container">
+				<!-- Header section -->
+				<div class="header">
+					<h2>Snapgrade</h2>
+					<button class="print-button" onclick={() => window.print()}> Print Document </button>
+				</div>
+
+				<!-- Instructions section -->
+				<div class="instructions">
+					<h3>Keyboard Controls:</h3>
+					<ul>
+						<li>Tab / Shift+Tab: Navigate through words</li>
+						<li>- (minus): Toggle deletion of current word</li>
+						<li>` (backtick): Start/end correction mode</li>
+						<li>Escape: Cancel current action</li>
+					</ul>
+				</div>
+
+				<!-- Editor content area -->
+				<div class="editor-content-wrapper">
+					<!-- Main textarea input -->
+					<textarea
+						bind:this={textareaRef}
+						bind:value={contentState.content}
+						onkeydown={handleKeyDown}
+						onclick={handleClick}
+						class="essay-textarea"
+						placeholder="Type your text here and use Tab to navigate through words..."
+					></textarea>
+
+					<!-- Overlay for corrections -->
+					{#if modeState.isInCorrectionMode}
+						<Tooltip
+							tooltip={modeState.correctionText || 'Type correction...'}
+							position="top"
+							delay={0}
+						></Tooltip>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<!-- Right side: Preview -->
+		<div class="preview-container">
+			<div class="a4-content">
+				{@html generateHTML()}
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+	.editor-wrapper {
+		width: 100%;
+		min-height: 100vh;
+		padding: 1rem;
+	}
+
+	.split-view {
+		display: grid;
+		grid-template-columns: minmax(300px, 1fr) auto;
+		gap: 2rem;
+		max-width: 1800px;
+		margin: 0 auto;
+		align-items: start;
+	}
+
+	.editor-container {
+		background-color: var(--background-secondary);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: 0.5rem;
+		padding: 1.5rem;
+		box-shadow: 0 4px 6px var(--background-modifier-box-shadow);
+		position: sticky;
+		top: 1rem;
+	}
+
+	.editor-content-wrapper {
+		position: relative;
+		width: 100%;
+	}
+
+	.corrections-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		pointer-events: none;
+	}
+
+	.correction-word {
+		background-color: var(--background-modifier-accent);
+		padding: 0.2em 0.4em;
+		border-radius: 0.25rem;
+		font-family: monospace;
+		font-size: inherit;
+		line-height: inherit;
+		pointer-events: auto;
+	}
+
+	.header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 2rem;
+	}
+
+	h2 {
+		color: var(--text-normal);
+		font-size: 1.25rem;
+		font-weight: 600;
+		margin: 0;
+	}
+
+	.print-button {
+		background-color: var(--interactive-accent);
+		color: var(--text-on-accent);
+		padding: 0.5rem 1rem;
+		border-radius: 0.375rem;
+		border: none;
+		cursor: pointer;
+		font-weight: 500;
+		transition: background-color 0.2s ease;
+	}
+
+	.print-button:hover {
+		background-color: var(--interactive-accent-hover);
+	}
+
+	.instructions {
+		margin-bottom: 1.5rem;
+	}
+
+	h3 {
+		color: var(--text-normal);
+		font-size: 1rem;
+		font-weight: 500;
+		margin-bottom: 0.75rem;
+	}
+
+	.essay-textarea {
+		width: 100%;
+		height: calc(100vh - 300px);
+		min-height: 16rem;
+		background-color: var(--background-secondary-alt);
+		color: var(--text-normal);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: 0.375rem;
+		padding: 1rem;
+		font-family: monospace;
+		resize: vertical;
+	}
+
+	.preview-container {
+		background-color: var(--background-secondary);
+		width: 210mm;
+		min-height: 297mm;
+		padding: 20mm;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+		border-radius: 0.5rem;
+	}
+
+	.a4-content {
+		color: var(--text-normal);
+		font-size: 12pt;
+		line-height: 2.75;
+		font-family: 'Times New Roman', serif;
+	}
+
+	:global(.correction-container) {
+		position: relative;
+		display: inline-flex;
+		margin-right: 0.25em;
+	}
+
+	:global(.correction-text) {
+		position: absolute;
+		top: -1.2em;
+		left: 0;
+		color: var(--text-accent);
+		font-size: 0.9em;
+		font-weight: bold;
+		white-space: nowrap;
+	}
+
+	:global(.underlined) {
+		border-bottom: 2px dashed var(--text-error);
+		opacity: 0.7;
+		text-decoration: none;
+	}
+
+	:global(.deleted) {
+		color: var(--text-error) !important;
+		text-decoration: line-through;
+		opacity: 0.75;
+	}
+
+	ul {
+		list-style-type: disc;
+		padding-left: 1.5rem;
+		color: var(--text-muted);
+	}
+
+	/* Print styles */
+	@media print {
+		.editor-wrapper {
+			padding: 0;
+		}
+
+		.split-view {
+			display: block;
+		}
+
+		.editor-ui {
+			display: none !important;
+		}
+
+		.preview-container {
+			background-color: white;
+			width: 100%;
+			min-height: 0;
+			padding: 0;
+			box-shadow: none;
+			border-radius: 0;
+		}
+
+		.a4-content {
+			color: black;
+		}
+
+		@page {
+			size: A4;
+			margin: 20mm;
+		}
+
+		:global(.correction-text) {
+			color: var(--interactive-success) !important;
+			print-color-adjust: exact;
+			-webkit-print-color-adjust: exact;
+		}
+
+		:global(.underlined) {
+			border-bottom: 2px dashed var(--text-error);
+			print-color-adjust: exact;
+			-webkit-print-color-adjust: exact;
+		}
+
+		:global(.deleted) {
+			color: var(--text-error) !important;
+			print-color-adjust: exact;
+			-webkit-print-color-adjust: exact;
+		}
+	}
+</style>
