@@ -26,6 +26,7 @@
     font-display: swap;
   }
 
+
 :root {
     /* Background Colors */
     --background-primary: #202020;
@@ -60,6 +61,7 @@
     --interactive-accent: #483699;
     --interactive-accent-hover: #4d3ca6;
     --interactive-success: #197300;
+    --interactive-highlight: #ffd700;
 
     /* Scrollbar Styling */
     --scrollbar-active-thumb-bg: rgba(255, 255, 255, 0.2);
