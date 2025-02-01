@@ -36,6 +36,16 @@
 			return;
 		}
 
+		// Handle ALT + Click for toggle deletion
+		if (event.altKey && !event.button) {
+			if (node.type === 'deletion') {
+				editorStore.updateNode(node.id, node.text, undefined, 'normal');
+			} else {
+				editorStore.updateNode(node.id, node.text, undefined, 'deletion');
+			}
+			return;
+		}
+
 		// For deletion nodes, revert to normal on click
 		if (node.type === 'deletion') {
 			editorStore.updateNode(node.id, node.text, undefined, 'normal');

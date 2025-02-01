@@ -9,6 +9,7 @@
 	import KeycapA from '$lib/icons/CtrlCap.svelte';
 	import Mouse from '$lib/icons/Mouse.svelte';
 	import PlusCap from '$lib/icons/PlusCap.svelte';
+	import KeyboardControls from './KeyboardControls.svelte';
 
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
@@ -107,21 +108,7 @@
 >
 	<StatsDisplay />
 	<div class="control-instructions">
-		<div id="ctrl-left-click" class="command-row">
-			<KeycapA />
-			<PlusCap />
-			<!-- <Mouse isLeftActive={true} /> -->
-		</div>
-		<div id="ctrl-right-click" class="command-row">
-			<KeycapA />
-			<PlusCap />
-			<!-- <Mouse isRightActive={true} /> -->
-		</div>
-		<div id="click-to-edit" class="command-row">
-			<KeycapA />
-			<PlusCap />
-			<!-- <Mouse isRightActive={true} /> -->
-		</div>
+		<KeyboardControls />
 	</div>
 	<div class="main-content" class:sidebar-expanded={$sidebarStore.isOpen}>
 		<!-- Preview/Print content -->
