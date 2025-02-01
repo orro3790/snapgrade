@@ -5,6 +5,10 @@
 	import TextNode from './TextNode.svelte';
 	import Sidebar from './Sidebar.svelte';
 	import EditModal from './EditModal.svelte';
+	import StatsDisplay from './StatsDisplay.svelte';
+	import KeycapA from '$lib/icons/CtrlCap.svelte';
+	import Mouse from '$lib/icons/Mouse.svelte';
+	import PlusCap from '$lib/icons/PlusCap.svelte';
 
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
@@ -59,6 +63,20 @@
 			.join('\n');
 	}
 
+	// Handle keyboard shortcuts
+	function handleKeyDown(event: KeyboardEvent) {
+		// Undo: Ctrl+Z
+		if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
+			event.preventDefault();
+			editorStore.undo();
+		}
+		// Redo: Ctrl+Y
+		else if (event.ctrlKey && event.key === 'y') {
+			event.preventDefault();
+			editorStore.redo();
+		}
+	}
+
 	// Print handling with proper A4 formatting
 	function handlePrint() {
 		const printContent = generatePrintableHTML(paragraphs);
@@ -79,7 +97,32 @@
 	});
 </script>
 
-<div class="editor-wrapper">
+<div
+	class="editor-wrapper"
+	onkeydown={handleKeyDown}
+	tabindex="-1"
+	aria-multiline="true"
+	aria-label="Text editor content"
+	role="textbox"
+>
+	<StatsDisplay />
+	<div class="control-instructions">
+		<div id="ctrl-left-click" class="command-row">
+			<KeycapA />
+			<PlusCap />
+			<!-- <Mouse isLeftActive={true} /> -->
+		</div>
+		<div id="ctrl-right-click" class="command-row">
+			<KeycapA />
+			<PlusCap />
+			<!-- <Mouse isRightActive={true} /> -->
+		</div>
+		<div id="click-to-edit" class="command-row">
+			<KeycapA />
+			<PlusCap />
+			<!-- <Mouse isRightActive={true} /> -->
+		</div>
+	</div>
 	<div class="main-content" class:sidebar-expanded={$sidebarStore.isOpen}>
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">
@@ -131,6 +174,14 @@
 		color: var(--text-normal);
 		font-size: 12pt;
 		line-height: 1.5;
+	}
+
+	.command-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
 	}
 
 	/* Print styles */

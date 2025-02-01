@@ -1,6 +1,7 @@
 <!-- file: src/lib/components/TextNode.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
+	import { hoveredNodeType } from '$lib/stores/statsStore';
 	import EditModal from './EditModal.svelte';
 
 	const { node, isActive = false } = $props<{
@@ -95,8 +96,8 @@
 			node.hasNextCorrection ? 'has-next-correction' : '',
 			isEditing ? 'highlighted' : '',
 			node.isPunctuation ? 'punctuation' : '',
-			node.mispunctuation ? 'mispunctuation' : '',
-			isSaved ? 'saved-flash' : ''
+			isSaved ? 'saved-flash' : '',
+			$hoveredNodeType === node.type ? `highlight-${node.type}` : ''
 		]
 			.filter(Boolean)
 			.join(' ')
@@ -149,7 +150,7 @@
 	.text-node.correction,
 	.text-node.deletion,
 	.text-node.addition {
-		border: 2px dotted var(--background-secondary);
+		border: 2px solid var(--background-secondary);
 	}
 
 	/* Punctuation styling */
@@ -164,10 +165,6 @@
 		justify-content: center;
 	}
 
-	.mispunctuation {
-		border-color: var(--text-error);
-	}
-
 	/* Interactive states */
 	.text-node:hover {
 		background-color: var(--interactive-hover);
@@ -178,7 +175,7 @@
 	}
 
 	.text-node.highlighted {
-		border-color: #ffd700;
+		border: 2px dotted var(--interactive-highlight);
 		z-index: 1;
 	}
 
@@ -189,7 +186,7 @@
 
 	@keyframes saveFlash {
 		0% {
-			background-color: #ffeb3b;
+			background-color: var(--interactive-highlight);
 		}
 		100% {
 			background-color: transparent;
@@ -204,11 +201,28 @@
 		color: var(--text-accent);
 		font-weight: bold;
 		white-space: nowrap;
+		padding: 0 4px;
+		z-index: 2;
+	}
+
+	/* Stack corrections when they're adjacent */
+	.has-next-correction .correction-text {
+		top: -32px; /* Double the offset for adjacent corrections */
 	}
 
 	.underlined {
 		border-bottom: 1px dashed var(--text-error);
 		opacity: 0.7;
+		position: relative; /* Ensure proper stacking context */
+	}
+
+	/* Highlight states for stats hover */
+	.text-node.highlight-correction,
+	.text-node.highlight-deletion,
+	.text-node.highlight-addition,
+	.text-node.highlight-normal {
+		border: 2px solid var(--text-accent);
+		transition: border-color 0.2s ease;
 	}
 
 	/* Deletion and addition styling */
@@ -222,12 +236,18 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: -2px;
-		right: -2px;
+		left: 50%;
+		width: min(100%, 1.75em); /* Limit width to either 100% of text or 2em */
 		height: 1px;
 		background: var(--text-error);
-		transform: rotate(135deg);
+		transform: translate(-50%, 0) rotate(135deg);
 		transform-origin: center;
+	}
+
+	/* Special handling for punctuation marks */
+	.punctuation .deleted::before {
+		width: 1.75em; /* Fixed width for punctuation */
+		left: 0%; /* Slightly adjusted position for better visual alignment */
 	}
 
 	.added {
@@ -243,7 +263,7 @@
 	/* Empty node styling */
 	.empty {
 		min-width: 1.5em;
-		border-style: dashed;
+		border: 2px dotted var(--interactive-normal);
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;

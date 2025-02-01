@@ -21,7 +21,7 @@
 <aside
 	class="sidebar"
 	class:collapsed={!isOpen}
-	role="complementary"
+	role="navigation"
 	aria-label="Editor controls and instructions"
 >
 	<div class="sidebar-content">
@@ -74,7 +74,7 @@
 					type="button"
 					class="control-button reset-button"
 					disabled={!canReset}
-					onclick={() => editorStore.resetToInitial()}
+					onclick={() => console.log('Reset to original text function not yet implemented')}
 					title="Reset to original text"
 					aria-label="Reset"
 				>

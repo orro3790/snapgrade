@@ -18,7 +18,6 @@
 	let inputRef = $state<HTMLInputElement>();
 	let isProcessingEdit = $state(false);
 
-	// Focus input on mount
 	$effect(() => {
 		if (inputRef) {
 			inputRef.focus();
@@ -27,11 +26,9 @@
 	});
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
+		if (event.key === 'Enter' || event.key === 'Escape') {
 			event.preventDefault();
 			finishEditing();
-		} else if (event.key === 'Escape') {
-			onClose();
 		}
 	}
 
@@ -41,64 +38,62 @@
 
 		const trimmedText = editableText.trim();
 
-		// Handle empty nodes differently
-		if (node.type === 'empty') {
-			if (trimmedText) {
-				editorStore.updateNode(node.id, trimmedText, undefined, 'addition');
+		try {
+			if (node.type === 'empty') {
+				if (trimmedText) {
+					editorStore.updateNode(node.id, trimmedText, undefined, 'addition');
+				} else {
+					editorStore.removeNode(node.id);
+				}
+				return;
+			}
+
+			if (!trimmedText || trimmedText === node.text) {
+				if (!trimmedText) {
+					editorStore.updateNode(node.id, node.text, undefined, 'normal');
+				}
+				return;
+			}
+
+			if (trimmedText.startsWith('`')) {
+				editorStore.updateNode(node.id, node.text, undefined, 'deletion');
+			} else if (trimmedText.startsWith('@')) {
+				const newText = trimmedText.slice(1);
+				if (newText) {
+					editorStore.updateNode(node.id, node.text);
+					editorStore.insertNodeAfter(node.id, newText);
+				}
+			} else if (trimmedText.startsWith('!')) {
+				const plainText = trimmedText.slice(1);
+				if (plainText !== node.text) {
+					editorStore.updateNode(node.id, plainText);
+				}
 			} else {
-				editorStore.removeNode(node.id);
+				editorStore.updateNode(node.id, node.text, trimmedText, 'correction');
 			}
+		} finally {
+			isProcessingEdit = false;
 			onClose();
-			return;
-		}
-
-		// Handle empty submission for non-empty nodes - revert to normal text
-		if (!trimmedText) {
-			editorStore.updateNode(node.id, node.text, undefined, 'normal');
-			onClose();
-			return;
-		}
-
-		// Handle special character submissions
-		if (trimmedText.startsWith('`')) {
-			// Mark as deletion without changing text
-			editorStore.updateNode(node.id, node.text, undefined, 'deletion');
-		} else if (trimmedText.startsWith('@')) {
-			// Create a new node after this one
-			const newText = trimmedText.slice(1);
-			if (newText) {
-				// First update the current node back to its original text
-				editorStore.updateNode(node.id, node.text);
-				// Then create a new node after this one
-				editorStore.insertNodeAfter(node.id, newText);
-			}
-		} else if (trimmedText.startsWith('!')) {
-			// Plain text update (no correction)
-			const plainText = trimmedText.slice(1);
-			editorStore.updateNode(node.id, plainText);
-		} else {
-			// Default behavior: create correction
-			editorStore.updateNode(node.id, node.text, trimmedText, 'correction');
-		}
-
-		onClose();
-	}
-
-	function handleOverlayClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			finishEditing();
 		}
 	}
 </script>
 
-<div class="modal-overlay" onclick={handleOverlayClick} role="dialog" aria-modal="true">
-	<div class="modal-content">
+<div
+	class="modal-overlay"
+	role="dialog"
+	aria-modal="true"
+	aria-label="Edit text modal"
+	tabindex="-1"
+>
+	<div class="modal-content" role="document">
 		<input
 			bind:this={inputRef}
 			bind:value={editableText}
 			class="edit-input"
 			onkeydown={handleKeyDown}
+			onblur={finishEditing}
 			aria-label="Edit text"
+			type="text"
 		/>
 	</div>
 </div>
@@ -129,7 +124,8 @@
 		width: 100%;
 		font-size: 1rem;
 		padding: 0.5rem;
-		border: 2px solid var(--interactive-accent);
+		border: 2px solid var(--interactive-normal);
+		transition: border-color 0.2s ease;
 		border-radius: 0.25rem;
 		background-color: var(--background-secondary-alt);
 		color: var(--text-normal);
@@ -137,6 +133,8 @@
 
 	.edit-input:focus {
 		outline: none;
-		border-color: var(--interactive-accent-hover);
+		border-color: var(--interactive-accent);
+		box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+		transition: border-color 0.2s ease;
 	}
 </style>
