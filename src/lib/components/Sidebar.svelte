@@ -1,11 +1,15 @@
 <!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
+	import KeyboardControls from './KeyboardControls.svelte';
+
 	let { user } = $props<{
 		user?: {
 			displayName: string;
 			photoURL?: string;
 		};
 	}>();
+
+	let showKeyboardControls = $state(false);
 
 	const navItems = [
 		{ id: 'home', label: 'Dashboard', icon: '🏠' },
@@ -25,10 +29,19 @@
 		isExpanded = !isExpanded;
 	}
 
+	function handleNavClick(itemId: string) {
+		activeItem = itemId;
+		if (itemId === 'how-to-use') {
+			showKeyboardControls = true;
+		} else {
+			showKeyboardControls = false;
+		}
+	}
+
 	function handleKeyNav(event: KeyboardEvent, itemId: string) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			activeItem = itemId;
+			handleNavClick(itemId);
 		}
 	}
 </script>
@@ -72,7 +85,7 @@
 						<button
 							type="button"
 							class="nav-item {activeItem === item.id ? 'active' : ''}"
-							onclick={() => (activeItem = item.id)}
+							onclick={() => handleNavClick(item.id)}
 							onkeydown={(e) => handleKeyNav(e, item.id)}
 							aria-label={item.label}
 						>
@@ -101,6 +114,28 @@
 		{/if}
 	</div>
 </nav>
+{#if showKeyboardControls}
+	<button
+		type="button"
+		class="keyboard-controls-overlay"
+		role="textbox"
+		aria-label="Keyboard Controls"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) {
+				showKeyboardControls = false;
+			}
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') {
+				showKeyboardControls = false;
+			}
+		}}
+	>
+		<div class="keyboard-controls-content">
+			<KeyboardControls />
+		</div>
+	</button>
+{/if}
 
 <style>
 	.sidebar {
@@ -270,5 +305,27 @@
 
 	.profile-arrow:hover {
 		color: var(--text-normal);
+	}
+
+	.keyboard-controls-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 100;
+	}
+
+	.keyboard-controls-content {
+		position: relative;
+		background: var(--background-primary);
+		border-radius: 8px;
+		max-width: 90vw;
+		max-height: 90vh;
+		overflow-y: auto;
 	}
 </style>
