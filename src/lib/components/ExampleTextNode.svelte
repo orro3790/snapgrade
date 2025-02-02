@@ -15,16 +15,18 @@
 
 <span class={classList}>
 	{#if type === 'correction'}
-		<span class="correction-text">{correctionText}</span>
-		<span class="underlined">{text}</span>
+		<div class="correction-wrapper">
+			<div class="correction-text">{correctionText}</div>
+			<div class="text-content">{text}</div>
+		</div>
 	{:else if type === 'deletion'}
-		<span class="deleted">{text}</span>
+		<div class="text-content deleted">{text}</div>
 	{:else if type === 'addition'}
-		<span class="added">{text}</span>
+		<div class="text-content">{text}</div>
 	{:else if type === 'empty'}
-		<span class="empty-placeholder">+</span>
+		<div class="text-content">+</div>
 	{:else}
-		{text}
+		<div class="text-content">{text}</div>
 	{/if}
 </span>
 
@@ -47,15 +49,61 @@
 		border: 2px dotted var(--interactive-normal);
 
 		/* Establish minimum dimensions */
-
 		min-width: 1em;
 	}
 
 	/* Special node types (correction, deletion, addition) get solid borders */
-	.text-node.correction,
+	.text-node.correction {
+		border: 2px solid var(--background-secondary);
+		border-bottom: 2px dotted var(--text-error-hover);
+	}
+
 	.text-node.deletion,
 	.text-node.addition {
 		border: 2px solid var(--background-secondary);
+	}
+
+	/* Correction node specific styling */
+	.correction-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+		min-width: max-content;
+		justify-content: center;
+	}
+
+	.correction-text {
+		color: var(--text-accent);
+		font-weight: bold;
+		white-space: nowrap;
+		min-width: max-content;
+	}
+
+	/* Base text content styling */
+	.text-content {
+		display: flex;
+		align-items: end;
+	}
+
+	/* Deleted text styling */
+	.deleted {
+		color: var(--text-error);
+		opacity: 0.75;
+		position: relative;
+		min-width: min-content;
+	}
+
+	/* Strikethrough line for deleted text */
+	.deleted::before {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: min(100%, 1.75em);
+		height: 1px;
+		background: var(--text-error);
+		transform: translate(-50%, 0) rotate(135deg);
+		transform-origin: center;
 	}
 
 	/* Punctuation nodes get special treatment */
@@ -102,28 +150,6 @@
 		}
 	}
 
-	/* Correction node specific styling */
-	.correction-wrapper {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5em;
-		min-width: max-content;
-		justify-content: center;
-	}
-
-	.correction-text {
-		color: var(--text-accent);
-		font-weight: bold;
-		white-space: nowrap;
-		min-width: max-content;
-	}
-
-	/* Base text content styling */
-	.text-content {
-		display: flex;
-		align-items: end;
-	}
-
 	/* Highlight states for different node types */
 	.text-node.highlight-correction,
 	.text-node.highlight-deletion,
@@ -131,27 +157,6 @@
 	.text-node.highlight-normal {
 		border: 2px solid var(--text-accent);
 		transition: border-color 0.2s ease;
-	}
-
-	/* Deleted text styling */
-	.deleted {
-		color: var(--text-error);
-		opacity: 0.75;
-		position: relative;
-		min-width: min-content;
-	}
-
-	/* Strikethrough line for deleted text */
-	.deleted::before {
-		content: '';
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: min(100%, 1.75em);
-		height: 1px;
-		background: var(--text-error);
-		transform: translate(-50%, 0) rotate(135deg);
-		transform-origin: center;
 	}
 
 	/* Special case for punctuation deletion */

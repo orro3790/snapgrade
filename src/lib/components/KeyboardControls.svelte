@@ -42,7 +42,6 @@
 				<span class="pointer-container">
 					<Pointer stroke="var(--text-normal)" />
 				</span>
-				<CommaCap />
 			</div>
 			<div class="step">
 				<div class="modal-preview">
@@ -55,10 +54,8 @@
 					</div>
 				</div>
 			</div>
-			<div class="line-row">
-				<div class="step">
-					<ExampleTextNode type="correction" text="misstake" correctionText="mistake" />
-				</div>
+			<div class="last-step">
+				<ExampleTextNode type="correction" text="misstake" correctionText="mistake" />
 			</div>
 		</div>
 	</div>
@@ -67,15 +64,11 @@
 	<div class="control-row">
 		<span class="label">Cross-out</span>
 		<div class="steps">
-			<div class="step">
-				<AltCap size={iconSize} />
-			</div>
-			<div class="step">
-				<PlusCap size={iconSize} />
-			</div>
-			<div class="step">
-				<ExampleTextNode text="word" />
-			</div>
+			<AltCap size={iconSize} />
+
+			<PlusCap size={iconSize} />
+
+			<ExampleTextNode text="word" />
 		</div>
 	</div>
 
@@ -83,31 +76,21 @@
 	<div class="control-row">
 		<span class="label">Insert Word</span>
 		<div class="steps">
-			<div class="step">
-				<CtrlCap size={iconSize} />
-			</div>
-			<div class="step">
-				<PlusCap size={iconSize} />
-			</div>
-			<div class="step">
-				<Mouse isLeftActive={true} size={iconSize} />
-			</div>
+			<CtrlCap size={iconSize} />
+			<PlusCap size={iconSize} />
+			<Mouse isLeftActive={true} size={iconSize} />
 		</div>
 	</div>
 
-	<!-- Remove Word -->
+	<!-- Erase Word -->
 	<div class="control-row">
 		<span class="label">Erase Word</span>
 		<div class="steps">
-			<div class="step">
-				<CtrlCap size={iconSize} />
-			</div>
-			<div class="step">
-				<PlusCap size={iconSize} />
-			</div>
-			<div class="step">
-				<Mouse isRightActive={true} size={iconSize} />
-			</div>
+			<CtrlCap size={iconSize} />
+
+			<PlusCap size={iconSize} />
+
+			<Mouse isRightActive={true} size={iconSize} />
 		</div>
 	</div>
 
@@ -115,15 +98,9 @@
 	<div class="control-row">
 		<span class="label">Undo</span>
 		<div class="steps">
-			<div class="step">
-				<CtrlCap size={iconSize} />
-			</div>
-			<div class="step">
-				<PlusCap size={iconSize} />
-			</div>
-			<div class="step">
-				<KeyCapZ size={iconSize} />
-			</div>
+			<CtrlCap size={iconSize} />
+			<PlusCap size={iconSize} />
+			<KeyCapZ size={iconSize} />
 		</div>
 	</div>
 
@@ -131,15 +108,9 @@
 	<div class="control-row">
 		<span class="label">Redo</span>
 		<div class="steps">
-			<div class="step">
-				<CtrlCap size={iconSize} />
-			</div>
-			<div class="step">
-				<PlusCap size={iconSize} />
-			</div>
-			<div class="step">
-				<KeyCapY size={iconSize} />
-			</div>
+			<CtrlCap size={iconSize} />
+			<PlusCap size={iconSize} />
+			<KeyCapY size={iconSize} />
 		</div>
 	</div>
 </div>
@@ -176,13 +147,19 @@
 		display: flex;
 		align-items: center;
 		position: relative;
+		padding-right: 1rem;
+		border-right: 1px solid var(--background-modifier-border);
+	}
+
+	.last-step {
+		padding-left: 1rem;
 	}
 
 	.pointer-container {
 		position: absolute;
 		width: 0;
-		left: 100%;
-		top: 1.2rem;
+		left: -2.5rem;
+		top: 0.5rem;
 		z-index: 1;
 	}
 
@@ -226,14 +203,6 @@
 		width: 0.1rem;
 		background-color: var(--text-normal);
 		animation: blink 1s step-end infinite;
-	}
-
-	.line-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		align-items: end;
-		min-height: 2rem; /* Ensures consistent height for empty rows */
 	}
 
 	@keyframes blink {
