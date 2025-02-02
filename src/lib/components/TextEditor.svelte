@@ -104,9 +104,6 @@
 	role="textbox"
 >
 	<StatsDisplay />
-	<div class="control-instructions">
-		<KeyboardControls />
-	</div>
 	<div class="main-content" class:sidebar-expanded={$sidebarStore.isOpen}>
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">

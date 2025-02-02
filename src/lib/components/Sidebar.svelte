@@ -1,287 +1,274 @@
-<!-- file: src/lib/components/Sidebar.svelte -->
+<!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
-	import { sidebarStore, toggleSidebar } from '$lib/stores/sidebarStore';
-	import { editorStore } from '$lib/stores/editorStore';
+	let { user } = $props<{
+		user?: {
+			displayName: string;
+			photoURL?: string;
+		};
+	}>();
 
-	// Use derived values for reactive state
-	let isOpen = $derived($sidebarStore.isOpen);
-	let canUndo = $derived($editorStore.undoStack.length > 0);
-	let canRedo = $derived($editorStore.redoStack.length > 0);
-	let canReset = $derived(!!$editorStore.initialState);
+	const navItems = [
+		{ id: 'home', label: 'Dashboard', icon: '🏠' },
+		{ id: 'messages', label: 'Messages', icon: '✉️' },
+		{ id: 'analytics', label: 'Analytics', icon: '📊' },
+		{ id: 'schedules', label: 'Schedules', icon: '📅' },
+		{ id: 'calendar', label: 'Calendar', icon: '📆' },
+		{ id: 'how-to-use', label: 'How to use', icon: '💡' },
+		{ id: 'files', label: 'File Manager', icon: '📁' },
+		{ id: 'settings', label: 'Setting', icon: '⚙️' }
+	];
 
-	// Handle keyboard navigation for the toggle button
-	function handleKeyDown(event: KeyboardEvent) {
+	let isExpanded = $state(false);
+	let activeItem = $state('home');
+
+	function toggleSidebar() {
+		isExpanded = !isExpanded;
+	}
+
+	function handleKeyNav(event: KeyboardEvent, itemId: string) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			toggleSidebar();
+			activeItem = itemId;
 		}
 	}
 </script>
 
-<aside
-	class="sidebar"
-	class:collapsed={!isOpen}
-	role="navigation"
-	aria-label="Editor controls and instructions"
->
+<nav class="sidebar" class:expanded={isExpanded} aria-label="Main navigation">
 	<div class="sidebar-content">
 		<!-- Header -->
 		<div class="header">
-			<h2>Snapgrade</h2>
 			<button
 				type="button"
-				class="toggle-button"
-				onclick={() => toggleSidebar()}
-				onkeydown={handleKeyDown}
-				aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-				aria-expanded={isOpen}
-				tabindex="0"
+				class="menu-toggle"
+				onclick={toggleSidebar}
+				aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
 			>
-				{isOpen ? '◀' : '▶'}
+				≡
 			</button>
 		</div>
 
-		<!-- Controls -->
-		<div class="controls" aria-label="Editor controls">
-			<div class="edit-controls">
-				<button
-					type="button"
-					class="control-button"
-					disabled={!canUndo}
-					onclick={() => editorStore.undo()}
-					title="Undo last change"
-					aria-label="Undo"
-				>
-					↺
-					{#if isOpen}
-						<span class="button-text">Undo</span>
-					{/if}
-				</button>
-				<button
-					type="button"
-					class="control-button"
-					disabled={!canRedo}
-					onclick={() => editorStore.redo()}
-					title="Redo last undone change"
-					aria-label="Redo"
-				>
-					↻
-					{#if isOpen}
-						<span class="button-text">Redo</span>
-					{/if}
-				</button>
-				<button
-					type="button"
-					class="control-button reset-button"
-					disabled={!canReset}
-					onclick={() => console.log('Reset to original text function not yet implemented')}
-					title="Reset to original text"
-					aria-label="Reset"
-				>
-					⟲
-					{#if isOpen}
-						<span class="button-text">Reset</span>
-					{/if}
-				</button>
+		<!-- Main Content -->
+		<div class="main-content">
+			<!-- Search -->
+			<!-- <button type="button" class="nav-item" aria-label="Search">
+				<span class="icon">🔍</span>
+				<input
+					type="search"
+					placeholder="Search..."
+					aria-label="Search"
+					class="search-input"
+					tabindex={0}
+					style:opacity={isExpanded ? 1 : 0}
+					style:width={isExpanded ? 'auto' : '0'}
+					style:padding={isExpanded ? '0.5rem' : '0'}
+					style:margin={isExpanded ? '0' : '0'}
+				/>
+			</button> -->
+
+			<!-- Navigation -->
+			<div class="navigation-section">
+				<div class="nav-items">
+					{#each navItems as item}
+						<button
+							type="button"
+							class="nav-item {activeItem === item.id ? 'active' : ''}"
+							onclick={() => (activeItem = item.id)}
+							onkeydown={(e) => handleKeyNav(e, item.id)}
+							aria-label={item.label}
+						>
+							<span class="icon">{item.icon}</span>
+							{#if isExpanded}
+								<span class="label">{item.label}</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
 			</div>
 		</div>
 
-		<!-- Instructions -->
-		{#if isOpen}
-			<div class="instructions" role="region" aria-label="Correction instructions">
-				<h3>Correction Marks:</h3>
-				<ul>
-					<li>
-						For major changes: Use <code>-deleted text-</code> and <code>[new text]</code>
-					</li>
-					<li>
-						For spelling corrections: Write the word, then the correction in exclamation marks:
-						<code>word !correction!</code>
-					</li>
-				</ul>
+		<!-- User Section -->
+		{#if user}
+			<div class="user-section" class:expanded={isExpanded}>
+				<img src={user.photoURL ?? '/default-avatar.png'} alt="Profile" class="avatar" />
+				{#if isExpanded}
+					<div class="user-info">
+						<p class="greeting">Good noon,</p>
+						<p class="name">{user.displayName}</p>
+					</div>
+					<button type="button" class="profile-arrow" aria-label="View profile options"> → </button>
+				{/if}
 			</div>
 		{/if}
-
-		<!-- Print Button -->
-		<div class="print-section">
-			<button
-				type="button"
-				class="print-button"
-				onclick={() => window.print()}
-				aria-label="Print document"
-			>
-				🖨️
-				{#if isOpen}
-					<span class="button-text">Print Document</span>
-				{/if}
-			</button>
-		</div>
 	</div>
-</aside>
+</nav>
 
 <style>
 	.sidebar {
 		position: fixed;
-		left: 0;
 		top: 0;
+		left: 0;
+		width: var(--sidebar-width, 80px);
 		height: 100vh;
-		width: 300px;
-		background-color: var(--background-secondary);
-		border-right: 1px solid var(--background-modifier-border);
-		transition:
-			width 0.3s ease,
-			transform 0.3s ease;
-		overflow-x: hidden;
-		z-index: 100;
+		background: var(--background-secondary-alt);
+		transition: width 0.3s ease;
+		z-index: 50;
+		overflow: hidden;
 	}
 
-	.sidebar.collapsed {
-		width: 60px;
+	.sidebar.expanded {
+		--sidebar-width: 300px;
 	}
 
 	.sidebar-content {
-		width: 300px;
 		height: 100%;
-		padding: 1.5rem;
+		width: 300px;
 		display: flex;
 		flex-direction: column;
-		gap: 2rem;
+		padding: 1rem 0;
 	}
 
 	.header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 1rem;
+		gap: 1rem;
+		padding: 0 1rem;
+		margin-bottom: 2rem;
+		height: 48px;
 	}
 
-	h2 {
-		color: var(--text-normal);
-		font-size: 1.5rem;
-		font-weight: 600;
-		margin: 0;
-		opacity: 1;
-		transition: opacity 0.2s ease;
-	}
-
-	.collapsed h2 {
-		opacity: 0;
-	}
-
-	.toggle-button {
-		background: var(--interactive-accent);
+	.menu-toggle {
+		color: var(--text-faint);
+		background: none;
 		border: none;
-		color: var(--text-on-accent);
-		width: 24px;
-		height: 24px;
-		border-radius: 4px;
+		font-size: 1.5rem;
 		cursor: pointer;
+		padding: 0.5rem;
+		transition: color 0.2s;
+		flex-shrink: 0;
+	}
+
+	.menu-toggle:hover {
+		color: var(--text-normal);
+	}
+
+	.main-content {
+		flex: 1;
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: background-color 0.2s ease;
+		flex-direction: column;
+		gap: 2rem;
+		overflow-y: auto;
 	}
 
-	.toggle-button:hover {
-		background-color: var(--interactive-accent-hover);
-	}
-
-	.controls {
+	.navigation-section {
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
 	}
 
-	.edit-controls {
+	.nav-items {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 	}
 
-	.control-button {
-		background-color: var(--interactive-normal);
-		color: var(--text-normal);
-		border: 1px solid var(--background-modifier-border);
-		padding: 0.5rem;
-		border-radius: 4px;
-		cursor: pointer;
+	.nav-item {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		transition: background-color 0.2s ease;
-		width: 100%;
-	}
-
-	.control-button:hover:not(:disabled) {
-		background-color: var(--interactive-hover);
-	}
-
-	.control-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.button-text {
-		transition: opacity 0.2s ease;
-	}
-
-	.collapsed .button-text {
-		display: none;
-	}
-
-	.instructions {
-		color: var(--text-normal);
-		transition: opacity 0.2s ease;
-	}
-
-	.instructions h3 {
-		font-size: 1rem;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-	}
-
-	.instructions ul {
-		list-style-type: none;
-		padding: 0;
-	}
-
-	.instructions li {
-		margin-bottom: 0.5rem;
-		font-size: 0.9rem;
-	}
-
-	code {
-		background-color: var(--background-modifier-form-field);
-		padding: 0.2rem 0.4rem;
-		border-radius: 3px;
-		font-family: monospace;
-	}
-
-	.print-section {
-		margin-top: auto;
-	}
-
-	.print-button {
-		background-color: var(--interactive-accent);
-		color: var(--text-on-accent);
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background: none;
 		border: none;
-		padding: 0.5rem;
-		border-radius: 4px;
+		color: var(--text-muted);
 		cursor: pointer;
+		transition: all 0.2s;
+		width: 100%;
+		text-align: left;
+		border-radius: 6px;
+		margin: 0 0.5rem;
+		width: calc(100% - 1rem);
+	}
+
+	.nav-item:hover {
+		background: var(--interactive-hover);
+		color: var(--text-normal);
+	}
+
+	.nav-item.active {
+		background: var(--interactive-accent);
+		color: var(--text-on-accent);
+	}
+
+	.icon {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		width: 100%;
-		transition: background-color 0.2s ease;
+		justify-content: center;
 	}
 
-	.print-button:hover {
-		background-color: var(--interactive-accent-hover);
+	.label {
+		flex: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	@media print {
-		.sidebar {
-			display: none;
-		}
+	.user-section {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem;
+		margin-top: auto;
+		border-top: 1px solid var(--background-modifier-border);
+	}
+
+	.user-section.expanded {
+		background: var(--background-modifier-form-field);
+		margin: 0 0.5rem;
+		border-radius: 6px;
+		border-top: none;
+	}
+
+	.avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		object-fit: cover;
+		flex-shrink: 0;
+	}
+
+	.user-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.greeting {
+		color: var(--text-muted);
+		font-size: 0.75rem;
+		margin: 0;
+	}
+
+	.name {
+		color: var(--text-normal);
+		font-size: 0.875rem;
+		font-weight: 500;
+		margin: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.profile-arrow {
+		color: var(--text-faint);
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		transition: color 0.2s;
+	}
+
+	.profile-arrow:hover {
+		color: var(--text-normal);
 	}
 </style>
