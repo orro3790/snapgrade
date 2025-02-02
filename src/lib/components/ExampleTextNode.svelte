@@ -1,7 +1,12 @@
 <script lang="ts">
-	const { text = 'Example', type = 'normal' } = $props<{
+	const {
+		text = 'Example',
+		type = 'normal',
+		correctionText = 'mistake'
+	} = $props<{
 		text?: string;
 		type?: 'normal' | 'deletion' | 'addition' | 'correction' | 'empty';
+		correctionText?: string;
 	}>();
 
 	// Compute classes based on node type
@@ -10,7 +15,7 @@
 
 <span class={classList}>
 	{#if type === 'correction'}
-		<span class="correction-text">correction</span>
+		<span class="correction-text">{correctionText}</span>
 		<span class="underlined">{text}</span>
 	{:else if type === 'deletion'}
 		<span class="deleted">{text}</span>

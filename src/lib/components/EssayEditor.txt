@@ -199,7 +199,7 @@
 		// Replace deletion marks
 		html = html.replace(/~([^~]+)~/g, '<span class="deleted">$1</span>');
 
-		// Convert newlines to paragraphs
+		// Convert newlines to nodeList
 		return html
 			.split('\n\n')
 			.map((paragraph) => (paragraph.trim() ? `<p>${paragraph.replace(/\n/g, '<br>')}</p>` : ''))

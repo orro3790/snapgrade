@@ -3,12 +3,9 @@
 	import { editorStore } from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
-	import Sidebar from './Sidebar.svelte';
-	import EditModal from './EditModal.svelte';
+
 	import StatsDisplay from './StatsDisplay.svelte';
-	import KeycapA from '$lib/icons/CtrlCap.svelte';
-	import Mouse from '$lib/icons/Mouse.svelte';
-	import PlusCap from '$lib/icons/PlusCap.svelte';
+
 	import KeyboardControls from './KeyboardControls.svelte';
 
 	// Props and state
@@ -18,7 +15,7 @@
 	}>();
 
 	// Use derived values for reactive state
-	let paragraphs = $derived($editorStore.paragraphs);
+	let nodeList = $derived($editorStore.nodeList);
 	let activeNodeId = $derived($editorStore.activeNodeId);
 	let editorContent = $derived(editorStore.getContent());
 
@@ -37,8 +34,8 @@
 	});
 
 	// Generate clean HTML for preview and printing
-	function generatePrintableHTML(paragraphs: typeof $editorStore.paragraphs): string {
-		return paragraphs
+	function generatePrintableHTML(nodeList: typeof $editorStore.nodeList): string {
+		return nodeList
 			.map((paragraph) => {
 				const nodeHTML = paragraph.nodes
 					.map((node) => {
@@ -80,7 +77,7 @@
 
 	// Print handling with proper A4 formatting
 	function handlePrint() {
-		const printContent = generatePrintableHTML(paragraphs);
+		const printContent = generatePrintableHTML(nodeList);
 		const printDiv = document.createElement('div');
 		printDiv.className = 'print-only a4-content';
 		printDiv.innerHTML = printContent;
@@ -114,13 +111,15 @@
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">
 			<div class="a4-content">
-				{#each paragraphs as paragraph (paragraph.id)}
-					<div class="paragraph">
-						{#each paragraph.nodes as node (node.id)}
+				{console.log(nodeList)}
+
+				<div class="line-row">
+					{#if nodeList.length > 0}
+						{#each nodeList[0].nodes as node (node.id)}
 							<TextNode {node} isActive={node.id === activeNodeId} />
 						{/each}
-					</div>
-				{/each}
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -142,8 +141,12 @@
 		align-items: flex-start;
 	}
 
-	.paragraph {
-		margin-bottom: 1rem;
+	.line-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: end;
+		min-height: 2rem; /* Ensures consistent height for empty rows */
 	}
 
 	/* Preview section */
@@ -161,14 +164,6 @@
 		color: var(--text-normal);
 		font-size: 12pt;
 		line-height: 1.5;
-	}
-
-	.command-row {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
 	}
 
 	/* Print styles */

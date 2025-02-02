@@ -1,4 +1,4 @@
-<!-- file: src/lib/components/TextNode.svelte -->
+<!-- TextNode.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
 	import { hoveredNodeType } from '$lib/stores/statsStore';
@@ -20,24 +20,29 @@
 	let isEditing = $state(false);
 	let isSaved = $state(false);
 
-	// Prevent context menu on right-click
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
-		if (event.ctrlKey) {
+		// Check specifically for right click (button === 2) with ctrl key
+		if (event.ctrlKey && event.button === 2) {
+			// Remove the node and ensure proper cleanup
 			editorStore.removeNode(node.id);
+			// Force a re-render of the parent component
+			return false;
 		}
 	}
 
-	// Handle node click events
 	function handleClick(event: MouseEvent) {
-		// Handle CTRL + Click for inserting empty node
-		if (event.ctrlKey && !event.button) {
+		// Guard clause for non-left clicks
+		if (event.button !== 0) return;
+
+		// Handle Ctrl + Left Click: Insert empty node
+		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
 			return;
 		}
 
-		// Handle ALT + Click for toggle deletion
-		if (event.altKey && !event.button) {
+		// Handle Alt + Left Click: Toggle deletion state
+		if (event.altKey) {
 			if (node.type === 'deletion') {
 				editorStore.updateNode(node.id, node.text, undefined, 'normal');
 			} else {
@@ -46,19 +51,18 @@
 			return;
 		}
 
-		// For deletion nodes, revert to normal on click
+		// Handle normal clicks on deletion nodes: Restore to normal
 		if (node.type === 'deletion') {
 			editorStore.updateNode(node.id, node.text, undefined, 'normal');
 			return;
 		}
 
+		// Handle active node clicks: Enable editing
 		editorStore.setActiveNode(node.id);
 		if (isActive) {
 			isEditing = true;
 		}
 	}
-
-	// Function to show save flash effect
 	function showSaveEffect() {
 		isSaved = true;
 		setTimeout(() => {
@@ -66,16 +70,13 @@
 		}, 300);
 	}
 
-	// Handle keyboard shortcuts
 	function handleKeydown(event: KeyboardEvent) {
-		// Handle backtick (`) for deletion
 		if (event.key === '`' && !isEditing) {
 			event.preventDefault();
 			editorStore.updateNode(node.id, node.text, undefined, 'deletion');
 			return;
 		}
 
-		// Handle Enter for editing
 		if (event.key === 'Enter') {
 			if (event.ctrlKey) {
 				handleClick(new MouseEvent('click', { ctrlKey: true }));
@@ -84,20 +85,17 @@
 			}
 		}
 
-		// Handle Delete with Ctrl for node removal
 		if (event.key === 'Delete' && event.ctrlKey) {
 			editorStore.removeNode(node.id);
 		}
 	}
 
-	// Handle edit modal close
 	function handleEditClose() {
 		isEditing = false;
 		editorStore.setActiveNode(null);
 		showSaveEffect();
 	}
 
-	// Compute classes based on node type and state
 	let classList = $derived(
 		[
 			'text-node',
@@ -114,7 +112,7 @@
 	);
 </script>
 
-<span
+<div
 	class={classList}
 	onclick={handleClick}
 	oncontextmenu={handleContextMenu}
@@ -123,73 +121,84 @@
 	tabindex="0"
 >
 	{#if node.type === 'correction'}
-		<span class="correction-text">{node.correctionText}</span>
-		<span class="underlined">{node.text}</span>
+		<div class="correction-wrapper">
+			<div class="correction-text">{node.correctionText}</div>
+			<div class="text-content">{node.text}</div>
+		</div>
 	{:else if node.type === 'deletion'}
-		<span class="deleted">{node.text}</span>
-	{:else if node.type === 'addition'}
-		<span class="added">{node.text}</span>
+		<div class="text-content deleted">{node.text}</div>
 	{:else if node.type === 'empty'}
-		<span class="empty-placeholder">+</span>
+		<div class="text-content">+</div>
 	{:else}
-		{node.text || ''}
+		<div class="text-content">{node.text}</div>
 	{/if}
-</span>
+</div>
 
 {#if isEditing}
 	<EditModal {node} onClose={handleEditClose} />
 {/if}
 
 <style>
-	/* Base container styling */
+	/* Base text node styling - applies to all node types */
 	.text-node {
-		display: inline-flex;
-		align-items: center;
+		/* Use flexbox for better content alignment */
+		display: flex;
 		position: relative;
-		min-height: 2em;
-		margin: 0.5em 0.1em;
 		cursor: pointer;
-		padding: 0.1em 0.2em;
+
+		/* Consistent padding for all nodes */
+		padding: 0 0.25em 0 0.25em;
 		border-radius: 0.2em;
+
+		/* Smooth transitions for hover/active states */
 		transition: all 0.2s ease;
+
+		/* Default border style */
 		border: 2px dotted var(--interactive-normal);
-		vertical-align: middle;
+
+		/* Establish minimum dimensions */
+
+		min-width: 1em;
 	}
 
-	/* Specific node type styling */
+	/* Special node types (correction, deletion, addition) get solid borders */
 	.text-node.correction,
 	.text-node.deletion,
 	.text-node.addition {
 		border: 2px solid var(--background-secondary);
 	}
 
-	/* Punctuation styling */
+	/* Punctuation nodes get special treatment */
 	.punctuation {
-		min-width: 1em;
-		min-height: 1em;
+		min-width: 1.5em;
 		border: none;
 		border-radius: 0;
+
+		/* Only show border on bottom for subtle indication */
 		border-bottom: 2px dotted var(--text-accent);
-		display: inline-flex;
-		align-items: center;
+
+		/* Center punctuation marks */
+		display: flex;
 		justify-content: center;
 	}
 
-	/* Interactive states */
+	/* Hover state for all nodes */
 	.text-node:hover {
 		background-color: var(--interactive-hover);
 	}
 
+	/* Active (selected) node state */
 	.text-node.active {
 		background-color: var(--interactive-active);
 	}
 
+	/* Currently editing node state */
 	.text-node.highlighted {
 		border: 2px dotted var(--interactive-highlight);
-		z-index: 1;
+		z-index: 1; /* Ensure highlighted node appears above others */
 	}
 
-	/* Save flash effect */
+	/* Animation for save confirmation */
 	.saved-flash {
 		animation: saveFlash 0.3s ease-out;
 	}
@@ -203,30 +212,36 @@
 		}
 	}
 
-	/* Correction styling */
+	/* Correction node specific styling */
+	.correction-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+		min-width: max-content;
+		justify-content: center;
+	}
+
 	.correction-text {
-		position: absolute;
-		top: -16px;
-		left: 4px;
 		color: var(--text-accent);
 		font-weight: bold;
 		white-space: nowrap;
-		padding: 0 4px;
-		z-index: 2;
+		min-width: max-content;
 	}
 
-	/* Stack corrections when they're adjacent */
-	.has-next-correction .correction-text {
-		top: -32px; /* Double the offset for adjacent corrections */
+	/* Base text content styling */
+	.text-content {
+		display: flex;
+		align-items: end;
 	}
 
+	/* Underlined text for corrections */
 	.underlined {
 		border-bottom: 1px dashed var(--text-error);
 		opacity: 0.7;
-		position: relative; /* Ensure proper stacking context */
+		min-width: min-content;
 	}
 
-	/* Highlight states for stats hover */
+	/* Highlight states for different node types */
 	.text-node.highlight-correction,
 	.text-node.highlight-deletion,
 	.text-node.highlight-addition,
@@ -235,65 +250,52 @@
 		transition: border-color 0.2s ease;
 	}
 
-	/* Deletion and addition styling */
+	/* Deleted text styling */
 	.deleted {
 		color: var(--text-error);
 		opacity: 0.75;
 		position: relative;
+		min-width: min-content;
 	}
 
+	/* Strikethrough line for deleted text */
 	.deleted::before {
 		content: '';
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		width: min(100%, 1.75em); /* Limit width to either 100% of text or 2em */
+		width: min(100%, 1.75em);
 		height: 1px;
 		background: var(--text-error);
 		transform: translate(-50%, 0) rotate(135deg);
 		transform-origin: center;
 	}
 
-	/* Special handling for punctuation marks */
+	/* Special case for punctuation deletion */
 	.punctuation .deleted::before {
-		width: 1.75em; /* Fixed width for punctuation */
-		left: 0%; /* Slightly adjusted position for better visual alignment */
+		width: 1.75em;
+		left: 0%;
 	}
 
-	.added {
+	/* Added text styling */
+	.addition {
 		color: var(--background-modifier-success);
-		font-weight: bold;
 	}
 
-	.has-next-correction {
-		margin-right: 1em;
-	}
-
-	/* Print styles */
 	/* Empty node styling */
 	.empty {
-		min-width: 1.5em;
-		border: 2px dotted var(--interactive-normal);
-		display: inline-flex;
-		justify-content: center;
+		width: 2em;
+		border: 2px dotted var(--interactive-success);
+		display: flex;
 		align-items: center;
+		justify-content: center;
+		color: var(--interactive-success);
 	}
 
-	.empty-placeholder {
-		color: var(--text-muted);
-		font-size: 1.2em;
-		font-weight: bold;
-	}
-
+	/* Print-specific styles */
 	@media print {
 		* {
 			color: #000000 !important;
-		}
-
-		.text-node {
-			margin: 0;
-			padding: 0;
-			border: none;
 		}
 	}
 </style>
