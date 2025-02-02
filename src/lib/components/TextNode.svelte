@@ -43,6 +43,8 @@
 
 		// Handle Alt + Left Click: Toggle deletion state
 		if (event.altKey) {
+			if (node.type === 'empty') return;
+
 			if (node.type === 'deletion') {
 				editorStore.updateNode(node.id, node.text, undefined, 'normal');
 			} else {

@@ -1,9 +1,7 @@
 <script lang="ts">
 	import ExampleTextNode from './ExampleTextNode.svelte';
 	import AltCap from '$lib/icons/AltCap.svelte';
-	import CommaCap from '$lib/icons/CommaCap.svelte';
 	import CtrlCap from '$lib/icons/CtrlCap.svelte';
-	import EnterCap from '$lib/icons/EnterCap.svelte';
 	import KeyCapZ from '$lib/icons/KeyCapZ.svelte';
 	import KeyCapY from '$lib/icons/KeyCapY.svelte';
 	import PlusCap from '$lib/icons/PlusCap.svelte';

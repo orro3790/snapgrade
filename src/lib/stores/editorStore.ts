@@ -16,26 +16,26 @@ interface TextNode {
   mispunctuation?: boolean;
 }
 
-interface Paragraph {
+interface NodeList {
   id: string;
   nodes: TextNode[];
   originalText: string;
 }
 
 interface EditorState {
-  paragraphs: Paragraph[];
+  nodeList: NodeList[];
   activeNodeId: string | null;
-  undoStack: Paragraph[][];
-  redoStack: Paragraph[][];
+  undoStack: NodeList[][];
+  redoStack: NodeList[][];
   isSaving: boolean;
   lastSavedContent: string;
-  initialState: Paragraph[] | null;
+  initialState: NodeList[] | null;
 }
 
 // Create the editor store with a complete set of operations
 export function createEditorStore() {
   const { subscribe, update } = writable<EditorState>({
-    paragraphs: [],
+    nodeList: [],
     activeNodeId: null,
     undoStack: [],
     redoStack: [],
@@ -48,7 +48,7 @@ export function createEditorStore() {
   function saveState(state: EditorState): EditorState {
     return {
       ...state,
-      undoStack: [...state.undoStack, state.paragraphs],
+      undoStack: [...state.undoStack, state.nodeList],
       redoStack: []
     };
   }
@@ -190,7 +190,7 @@ export function createEditorStore() {
     subscribe,
 
     parseContent: (content: string) => {
-      const paragraphs = content.split('\n\n').map((text, index) => ({
+      const nodeList = content.split('\n\n').map((text, index) => ({
         id: crypto.randomUUID(),
         nodes: parseTextIntoNodes(text, index * 1000),
         originalText: text
@@ -198,9 +198,9 @@ export function createEditorStore() {
 
       update(state => ({
         ...state,
-        paragraphs,
+        nodeList,
         lastSavedContent: content,
-        initialState: state.initialState === null ? paragraphs : state.initialState
+        initialState: state.initialState === null ? nodeList : state.initialState
       }));
     },
 
@@ -209,7 +209,7 @@ export function createEditorStore() {
         const newState = saveState(state);
         
         let nodeIndex = -1;
-        const targetParagraph = state.paragraphs.find(para => {
+        const targetParagraph = state.nodeList.find(para => {
           nodeIndex = para.nodes.findIndex(n => n.id === nodeId);
           return nodeIndex !== -1;
         });
@@ -225,7 +225,7 @@ export function createEditorStore() {
           isPunctuation: false
         };
 
-        const paragraphs = state.paragraphs.map(para => {
+        const nodeList = state.nodeList.map(para => {
           if (para.id === targetParagraph.id) {
             const newNodes = [...para.nodes];
             newNodes.splice(nodeIndex + 1, 0, newNode);
@@ -239,7 +239,7 @@ export function createEditorStore() {
 
         return {
           ...newState,
-          paragraphs,
+          nodeList,
           activeNodeId: newNode.id // Set the new node as active
         };
       });
@@ -247,26 +247,29 @@ export function createEditorStore() {
 
     removeNode: (nodeId: string) => {
       update(state => {
-        const newState = saveState(state);
-        
-        const paragraphs = state.paragraphs.map(para => ({
-          ...para,
-          nodes: para.nodes.filter(node => node.id !== nodeId)
-        }));
-
-        return {
-          ...newState,
-          paragraphs,
-          activeNodeId: null
-        };
+          const newState = saveState(state);
+          
+          // Filter out paragraphs with no nodes to prevent empty paragraphs
+          const nodeList = state.nodeList
+              .map(para => ({
+                  ...para,
+                  nodes: para.nodes.filter(node => node.id !== nodeId)
+              }))
+              .filter(para => para.nodes.length > 0);  // Remove empty paragraphs
+  
+          return {
+              ...newState,
+              nodeList,
+              activeNodeId: state.activeNodeId === nodeId ? null : state.activeNodeId
+          };
       });
-    },
+  },
 
     updateNode: (nodeId: string, newText: string, newCorrectionText?: string, newType?: CorrectionType) => {
       update(state => {
         const newState = saveState(state);
         
-        const paragraphs = state.paragraphs.map(para => ({
+        const nodeList = state.nodeList.map(para => ({
           ...para,
           nodes: para.nodes.map(node => 
             node.id === nodeId 
@@ -282,7 +285,7 @@ export function createEditorStore() {
 
         return {
           ...newState,
-          paragraphs
+          nodeList
         };
       });
     },
@@ -300,9 +303,9 @@ export function createEditorStore() {
         
         return {
           ...state,
-          paragraphs: lastState,
+          nodeList: lastState,
           undoStack: newUndoStack,
-          redoStack: [...state.redoStack, state.paragraphs]
+          redoStack: [...state.redoStack, state.nodeList]
         };
       });
     },
@@ -316,8 +319,8 @@ export function createEditorStore() {
         
         return {
           ...state,
-          paragraphs: nextState,
-          undoStack: [...state.undoStack, state.paragraphs],
+          nodeList: nextState,
+          undoStack: [...state.undoStack, state.nodeList],
           redoStack: newRedoStack
         };
       });
@@ -325,7 +328,7 @@ export function createEditorStore() {
 
     getContent: () => {
       const state = get({ subscribe });
-      return state.paragraphs
+      return state.nodeList
         .map(para => 
           para.nodes
             .map(node => {
