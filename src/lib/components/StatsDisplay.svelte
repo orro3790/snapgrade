@@ -15,7 +15,7 @@
 	}
 </script>
 
-<div class="stats-container" role="complementary" aria-label="Document statistics">
+<div class="stats-container print-hide" role="complementary" aria-label="Document statistics">
 	<div class="stat">
 		<span class="label">Total:</span>
 		<span class="value">{stats.total}</span>
@@ -108,5 +108,12 @@
 
 	.stat:first-child:hover {
 		background-color: transparent;
+	}
+
+	/* Add print styles */
+	:global(.print-hide) {
+		@media print {
+			display: none !important;
+		}
 	}
 </style>

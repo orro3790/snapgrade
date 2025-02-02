@@ -6,8 +6,6 @@
 
 	import StatsDisplay from './StatsDisplay.svelte';
 
-	import KeyboardControls from './KeyboardControls.svelte';
-
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
 		initialContent?: string;
@@ -26,40 +24,12 @@
 		}
 	});
 
-	// Notify parent of changes
+	// Notify parent of changes (upon text loading), this allows parent to prevent back navigation on unsaved changes
 	$effect(() => {
 		if (editorContent !== initialContent) {
 			onContentChange(editorContent);
 		}
 	});
-
-	// Generate clean HTML for preview and printing
-	function generatePrintableHTML(nodeList: typeof $editorStore.nodeList): string {
-		return nodeList
-			.map((paragraph) => {
-				const nodeHTML = paragraph.nodes
-					.map((node) => {
-						switch (node.type) {
-							case 'deletion':
-								return `<span class="deleted">${node.text}</span>`;
-							case 'addition':
-								return `<span class="added">${node.text}</span>`;
-							case 'correction':
-								const spacingClass = node.hasNextCorrection ? 'has-next-correction' : '';
-								return `
-					<span class="correction-container ${spacingClass}">
-					  <span class="correction-text">${node.correctionText}</span>
-					  <span class="underlined">${node.text}</span>
-					</span>`;
-							default:
-								return node.text;
-						}
-					})
-					.join(' ');
-				return `<p>${nodeHTML}</p>`;
-			})
-			.join('\n');
-	}
 
 	// Handle keyboard shortcuts
 	function handleKeyDown(event: KeyboardEvent) {
@@ -74,25 +44,6 @@
 			editorStore.redo();
 		}
 	}
-
-	// Print handling with proper A4 formatting
-	function handlePrint() {
-		const printContent = generatePrintableHTML(nodeList);
-		const printDiv = document.createElement('div');
-		printDiv.className = 'print-only a4-content';
-		printDiv.innerHTML = printContent;
-		document.body.appendChild(printDiv);
-
-		window.print();
-
-		document.body.removeChild(printDiv);
-	}
-
-	// Track unsaved changes
-	$effect(() => {
-		const hasUnsavedChanges = editorStore.getContent() !== $editorStore.lastSavedContent;
-		// You could implement auto-save or warning before navigation here
-	});
 </script>
 
 <div
@@ -165,15 +116,54 @@
 
 	/* Print styles */
 	@media print {
-		:global(.print-only) {
+		:global(*) {
+			background-color: transparent !important;
+			color: black !important;
+			box-shadow: none !important;
+		}
+
+		/* Hide UI elements */
+		:global(nav),
+		:global(header),
+		:global(footer),
+		:global(.sidebar),
+		:global(.stats-container),
+		:global(.print-hide) {
+			display: none !important;
+		}
+
+		/* Reset layout for printing */
+		.editor-wrapper {
+			min-height: 0;
+			background: none;
 			display: block !important;
+			padding: 0 !important;
+			margin: 0 !important;
+		}
+
+		.main-content {
+			margin: 0 !important;
+			padding: 0 !important;
+			display: block !important;
+			width: 100% !important;
 		}
 
 		.preview-container {
-			width: 100%;
+			width: 100% !important;
 			min-height: 0;
-			padding: 0;
+			padding: 0 !important;
 			box-shadow: none;
+			margin: 0 !important;
+			border-radius: 0;
+		}
+
+		.a4-content {
+			color: black;
+		}
+
+		.line-row {
+			display: flex;
+			gap: 0;
 		}
 
 		@page {
