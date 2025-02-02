@@ -29,69 +29,119 @@
 </span>
 
 <style>
-	/* Base container styling */
+	/* Base text node styling - applies to all node types */
 	.text-node {
-		display: inline-flex;
-		align-items: center;
+		/* Use flexbox for better content alignment */
+		display: flex;
 		position: relative;
-		min-height: 2em;
-		margin: 0.5em 0.1em;
-		padding: 0.1em 0.2em;
+		cursor: pointer;
+
+		/* Consistent padding for all nodes */
+		padding: 0 0.25em 0 0.25em;
 		border-radius: 0.2em;
+
+		/* Smooth transitions for hover/active states */
+		transition: all 0.2s ease;
+
+		/* Default border style */
 		border: 2px dotted var(--interactive-normal);
-		vertical-align: middle;
-		cursor: pointer;
+
+		/* Establish minimum dimensions */
+
+		min-width: 1em;
 	}
 
-	/* Example specific styling */
-	.example {
-		pointer-events: none;
-		position: relative;
-	}
-
-	.example::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		cursor: pointer;
-		z-index: 1;
-	}
-
-	/* Specific node type styling */
+	/* Special node types (correction, deletion, addition) get solid borders */
 	.text-node.correction,
 	.text-node.deletion,
 	.text-node.addition {
 		border: 2px solid var(--background-secondary);
 	}
 
-	/* Correction styling */
+	/* Punctuation nodes get special treatment */
+	.punctuation {
+		min-width: 1.5em;
+		border: none;
+		border-radius: 0;
+
+		/* Only show border on bottom for subtle indication */
+		border-bottom: 2px dotted var(--text-accent);
+
+		/* Center punctuation marks */
+		display: flex;
+		justify-content: center;
+	}
+
+	/* Hover state for all nodes */
+	.text-node:hover {
+		background-color: var(--interactive-hover);
+	}
+
+	/* Active (selected) node state */
+	.text-node.active {
+		background-color: var(--interactive-active);
+	}
+
+	/* Currently editing node state */
+	.text-node.highlighted {
+		border: 2px dotted var(--interactive-highlight);
+		z-index: 1; /* Ensure highlighted node appears above others */
+	}
+
+	/* Animation for save confirmation */
+	.saved-flash {
+		animation: saveFlash 0.3s ease-out;
+	}
+
+	@keyframes saveFlash {
+		0% {
+			background-color: var(--interactive-highlight);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+
+	/* Correction node specific styling */
+	.correction-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+		min-width: max-content;
+		justify-content: center;
+	}
+
 	.correction-text {
-		position: absolute;
-		top: -16px;
-		left: 4px;
 		color: var(--text-accent);
 		font-weight: bold;
 		white-space: nowrap;
-		padding: 0 4px;
-		z-index: 2;
+		min-width: max-content;
 	}
 
-	.underlined {
-		border-bottom: 1px dashed var(--text-error);
-		opacity: 0.7;
-		position: relative;
+	/* Base text content styling */
+	.text-content {
+		display: flex;
+		align-items: end;
 	}
 
-	/* Deletion and addition styling */
+	/* Highlight states for different node types */
+	.text-node.highlight-correction,
+	.text-node.highlight-deletion,
+	.text-node.highlight-addition,
+	.text-node.highlight-normal {
+		border: 2px solid var(--text-accent);
+		transition: border-color 0.2s ease;
+	}
+
+	/* Deleted text styling */
 	.deleted {
 		color: var(--text-error);
 		opacity: 0.75;
 		position: relative;
+		min-width: min-content;
 	}
 
+	/* Strikethrough line for deleted text */
 	.deleted::before {
 		content: '';
 		position: absolute;
@@ -104,23 +154,31 @@
 		transform-origin: center;
 	}
 
-	.added {
+	/* Special case for punctuation deletion */
+	.punctuation .deleted::before {
+		width: 1.75em;
+		left: 0%;
+	}
+
+	/* Added text styling */
+	.addition {
 		color: var(--background-modifier-success);
-		font-weight: bold;
 	}
 
 	/* Empty node styling */
 	.empty {
-		min-width: 1.5em;
-		border: 2px dotted var(--interactive-normal);
-		display: inline-flex;
-		justify-content: center;
+		width: 2em;
+		border: 2px dotted var(--interactive-success);
+		display: flex;
 		align-items: center;
+		justify-content: center;
+		color: var(--interactive-success);
 	}
 
-	.empty-placeholder {
-		color: var(--text-muted);
-		font-size: 1.2em;
-		font-weight: bold;
+	/* Print-specific styles */
+	@media print {
+		* {
+			color: #000000 !important;
+		}
 	}
 </style>

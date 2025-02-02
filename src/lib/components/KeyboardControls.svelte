@@ -26,26 +26,38 @@
 			clearInterval(interval);
 		};
 	});
+
+	let iconSize = '64px';
 </script>
 
 <div class="keyboard-controls">
 	<!-- Make Correction -->
 	<div class="control-row">
 		<span class="label">Make Correction</span>
-		<ExampleTextNode type="correction" text="misstake" correctionText="mistake" />
-		<div class="sequence">
-			<ExampleTextNode text="word" />
-			<span class="pointer-container">
-				<Pointer stroke="var(--text-normal)" />
-			</span>
-			<CommaCap />
-			<div class="modal-preview">
-				<div class="inner-wrapper">
-					{#key i}
-						<p in:typewriter={{ speed: 1, deleteSpeed: 2 }}>
-							{exampleTextNodeText[i] || ''}
-						</p>
-					{/key}
+		<div class="steps">
+			<div class="step">
+				<ExampleTextNode text="misstake" />
+			</div>
+			<div class="step">
+				<span class="pointer-container">
+					<Pointer stroke="var(--text-normal)" />
+				</span>
+				<CommaCap />
+			</div>
+			<div class="step">
+				<div class="modal-preview">
+					<div class="inner-wrapper">
+						{#key i}
+							<p in:typewriter={{ speed: 1, deleteSpeed: 2 }}>
+								{exampleTextNodeText[i] || ''}
+							</p>
+						{/key}
+					</div>
+				</div>
+			</div>
+			<div class="line-row">
+				<div class="step">
+					<ExampleTextNode type="correction" text="misstake" correctionText="mistake" />
 				</div>
 			</div>
 		</div>
@@ -54,50 +66,80 @@
 	<!-- Cross-out -->
 	<div class="control-row">
 		<span class="label">Cross-out</span>
-		<div class="sequence">
-			<AltCap />
-			<PlusCap />
-			<ExampleTextNode text="word" />
+		<div class="steps">
+			<div class="step">
+				<AltCap size={iconSize} />
+			</div>
+			<div class="step">
+				<PlusCap size={iconSize} />
+			</div>
+			<div class="step">
+				<ExampleTextNode text="word" />
+			</div>
 		</div>
 	</div>
 
 	<!-- Insert Word -->
 	<div class="control-row">
 		<span class="label">Insert Word</span>
-		<div class="sequence">
-			<CtrlCap />
-			<PlusCap />
-			<Mouse isLeftActive={true} />
+		<div class="steps">
+			<div class="step">
+				<CtrlCap size={iconSize} />
+			</div>
+			<div class="step">
+				<PlusCap size={iconSize} />
+			</div>
+			<div class="step">
+				<Mouse isLeftActive={true} size={iconSize} />
+			</div>
 		</div>
 	</div>
 
 	<!-- Remove Word -->
 	<div class="control-row">
 		<span class="label">Erase Word</span>
-		<div class="sequence">
-			<CtrlCap />
-			<PlusCap />
-			<Mouse isRightActive={true} />
+		<div class="steps">
+			<div class="step">
+				<CtrlCap size={iconSize} />
+			</div>
+			<div class="step">
+				<PlusCap size={iconSize} />
+			</div>
+			<div class="step">
+				<Mouse isRightActive={true} size={iconSize} />
+			</div>
 		</div>
 	</div>
 
 	<!-- Undo -->
 	<div class="control-row">
 		<span class="label">Undo</span>
-		<div class="sequence">
-			<CtrlCap />
-			<PlusCap />
-			<KeyCapZ />
+		<div class="steps">
+			<div class="step">
+				<CtrlCap size={iconSize} />
+			</div>
+			<div class="step">
+				<PlusCap size={iconSize} />
+			</div>
+			<div class="step">
+				<KeyCapZ size={iconSize} />
+			</div>
 		</div>
 	</div>
 
 	<!-- Redo -->
 	<div class="control-row">
 		<span class="label">Redo</span>
-		<div class="sequence">
-			<CtrlCap />
-			<PlusCap />
-			<KeyCapY />
+		<div class="steps">
+			<div class="step">
+				<CtrlCap size={iconSize} />
+			</div>
+			<div class="step">
+				<PlusCap size={iconSize} />
+			</div>
+			<div class="step">
+				<KeyCapY size={iconSize} />
+			</div>
 		</div>
 	</div>
 </div>
@@ -106,43 +148,55 @@
 	.keyboard-controls {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 1.5rem;
 		padding: 1rem;
 		background: var(--background-secondary);
 		border-radius: 0.5rem;
-		max-width: 600px;
 		margin: 0 auto;
+		min-width: min-content;
 	}
 
 	.control-row {
+		display: grid;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--background-modifier-border);
+		padding: 0.5rem;
+	}
+
+	.steps {
+		display: grid;
+		grid-template-columns: repeat(4, max-content);
+		align-items: center;
+		justify-content: center;
+	}
+
+	.step {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		position: relative;
 	}
 
 	.pointer-container {
-		position: relative;
-		/* Hide the container */
+		position: absolute;
 		width: 0;
-		left: -1.4rem;
+		left: 100%;
 		top: 1.2rem;
+		z-index: 1;
 	}
 
 	.label {
+		padding: 0.25em 0.75em;
+		border-radius: 0.25rem;
+		background: var(--background-primary);
+		border: 1px solid var(--border-modifier-border);
 		color: var(--text-normal);
-		padding: 0.25rem 0.75rem;
-		border-radius: 1rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		min-width: 120px;
-		text-align: center;
-	}
-
-	.sequence {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		flex: 1;
+		font-size: 0.75rem;
+		font-weight: 600;
+		font-family: var(--brand-font);
+		text-transform: lowercase;
+		letter-spacing: 0.05em;
 	}
 
 	.modal-preview {
@@ -172,6 +226,14 @@
 		width: 0.1rem;
 		background-color: var(--text-normal);
 		animation: blink 1s step-end infinite;
+	}
+
+	.line-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: end;
+		min-height: 2rem; /* Ensures consistent height for empty rows */
 	}
 
 	@keyframes blink {

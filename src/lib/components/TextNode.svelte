@@ -161,11 +161,15 @@
 		min-width: 1em;
 	}
 
-	/* Special node types (correction, deletion, addition) get solid borders */
-	.text-node.correction,
+	/* Special node types (deletion, addition) get solid borders */
 	.text-node.deletion,
 	.text-node.addition {
 		border: 2px solid var(--background-secondary);
+	}
+
+	.text-node.correction {
+		border: 2px solid var(--background-secondary);
+		border-bottom: 2px dotted var(--text-error-hover);
 	}
 
 	/* Punctuation nodes get special treatment */
@@ -174,8 +178,8 @@
 		border: none;
 		border-radius: 0;
 
-		/* Only show border on bottom for subtle indication */
-		border-bottom: 2px dotted var(--text-accent);
+		/* We can style bottom border to help distinguish between commas and periods if helpful */
+		/* border-bottom: 2px dotted var(--interactive-accent); */
 
 		/* Center punctuation marks */
 		display: flex;
@@ -232,13 +236,6 @@
 	.text-content {
 		display: flex;
 		align-items: end;
-	}
-
-	/* Underlined text for corrections */
-	.underlined {
-		border-bottom: 1px dashed var(--text-error);
-		opacity: 0.7;
-		min-width: min-content;
 	}
 
 	/* Highlight states for different node types */
