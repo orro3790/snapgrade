@@ -59,8 +59,6 @@
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">
 			<div class="a4-content">
-				{console.log(nodeList)}
-
 				<div class="line-row">
 					{#if nodeList.length > 0}
 						{#each nodeList[0].nodes as node (node.id)}

@@ -1,26 +1,56 @@
 <!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
-	import KeyboardControls from './KeyboardControls.svelte';
+	import { modalStore } from '$lib/stores/modalStore';
+	import { userStore } from '$lib/stores/userStore';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { settingsStore } from '$lib/stores/settingsStore';
 
-	let { user } = $props<{
-		user?: {
-			displayName: string;
-			photoURL?: string;
-		};
-	}>();
+	// Import icons
+	import Home from '$lib/icons//Home.svelte';
+	import Files from '$lib/icons//Files.svelte';
+	import Upload from '$lib/icons//Upload.svelte';
+	import HowTo from '$lib/icons//HowTo.svelte';
+	import Analytics from '$lib/icons//Analytics.svelte';
+	import ClassManager from '$lib/icons//ClassManager.svelte';
+	import Settings from '$lib/icons//Settings.svelte';
+	import Menu from '$lib/icons//Menu.svelte';
+	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import Logout from '$lib/icons/Logout.svelte';
+	import Login from '$lib/icons/Login.svelte';
+	import Avatar from '$lib/icons/Avatar.svelte';
 
-	let showKeyboardControls = $state(false);
+	// Define the NavItem type
+	type NavItem = {
+		id: string;
+		label: string;
+		Icon: any; // You might want to define a more specific type for the Icon component
+	};
 
-	const navItems = [
-		{ id: 'home', label: 'Dashboard', icon: '🏠' },
-		{ id: 'messages', label: 'Messages', icon: '✉️' },
-		{ id: 'analytics', label: 'Analytics', icon: '📊' },
-		{ id: 'schedules', label: 'Schedules', icon: '📅' },
-		{ id: 'calendar', label: 'Calendar', icon: '📆' },
-		{ id: 'how-to-use', label: 'How to use', icon: '💡' },
-		{ id: 'files', label: 'File Manager', icon: '📁' },
-		{ id: 'settings', label: 'Setting', icon: '⚙️' }
+	// Get user from store
+	let user = $derived($userStore);
+	let isLoggingOut = $state(false);
+	$effect(() => {
+		console.log(user);
+	});
+
+	// Define base nav items
+	const baseNavItems: NavItem[] = [
+		{ id: 'home', label: 'Dashboard', Icon: Home },
+		{ id: 'how-to-use', label: 'How to use', Icon: HowTo }
 	];
+
+	// Define authenticated nav items
+	const authenticatedNavItems: NavItem[] = [
+		{ id: 'files', label: 'File Manager', Icon: Files },
+		{ id: 'direct-upload', label: 'Upload', Icon: Upload },
+		{ id: 'analytics', label: 'Analytics', Icon: Analytics },
+		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager },
+		{ id: 'settings', label: 'Setting', Icon: Settings }
+	];
+
+	// Use $derived for navItems
+	let navItems = $derived(user ? [...baseNavItems, ...authenticatedNavItems] : baseNavItems);
 
 	let isExpanded = $state(false);
 	let activeItem = $state('home');
@@ -32,9 +62,7 @@
 	function handleNavClick(itemId: string) {
 		activeItem = itemId;
 		if (itemId === 'how-to-use') {
-			showKeyboardControls = true;
-		} else {
-			showKeyboardControls = false;
+			modalStore.open('keyboard');
 		}
 	}
 
@@ -44,98 +72,144 @@
 			handleNavClick(itemId);
 		}
 	}
+
+	function handleLogin(event: MouseEvent | KeyboardEvent) {
+		event.preventDefault();
+		modalStore.open('login');
+	}
+
+	const enhanceLogout: SubmitFunction = () => {
+		isLoggingOut = true;
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				// Clear all stores
+				userStore.set(null);
+				settingsStore.set(null);
+
+				// Reset active item to home
+				activeItem = 'home';
+
+				// Show success toast
+				toastStore.show({
+					message: 'Successfully logged out',
+					type: 'success'
+				});
+			} else {
+				toastStore.show({
+					message: 'Logout failed. Please try again.',
+					type: 'error'
+				});
+			}
+			isLoggingOut = false;
+		};
+	};
 </script>
 
 <nav class="sidebar" class:expanded={isExpanded} aria-label="Main navigation">
 	<div class="sidebar-content">
-		<!-- Header -->
-		<div class="header">
-			<button
-				type="button"
-				class="menu-toggle"
-				onclick={toggleSidebar}
-				aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
-			>
-				≡
-			</button>
-		</div>
-
-		<!-- Main Content -->
-		<div class="main-content">
-			<!-- Search -->
-			<!-- <button type="button" class="nav-item" aria-label="Search">
-				<span class="icon">🔍</span>
-				<input
-					type="search"
-					placeholder="Search..."
-					aria-label="Search"
-					class="search-input"
-					tabindex={0}
-					style:opacity={isExpanded ? 1 : 0}
-					style:width={isExpanded ? 'auto' : '0'}
-					style:padding={isExpanded ? '0.5rem' : '0'}
-					style:margin={isExpanded ? '0' : '0'}
-				/>
-			</button> -->
-
-			<!-- Navigation -->
-			<div class="navigation-section">
-				<div class="nav-items">
-					{#each navItems as item}
-						<button
-							type="button"
-							class="nav-item {activeItem === item.id ? 'active' : ''}"
-							onclick={() => handleNavClick(item.id)}
-							onkeydown={(e) => handleKeyNav(e, item.id)}
-							aria-label={item.label}
-						>
-							<span class="icon">{item.icon}</span>
-							{#if isExpanded}
-								<span class="label">{item.label}</span>
-							{/if}
-						</button>
-					{/each}
+		<!-- User Profile Section -->
+		<div class="user-section" class:expanded={isExpanded}>
+			{#if user?.photoUrl}
+				<img src={user.photoUrl} class="avatar" alt="User avatar" />
+			{:else}
+				<div class="avatar">
+					<Avatar size={48} />
 				</div>
-			</div>
+			{/if}
+			{#if isExpanded}
+				<div class="user-info">
+					<p class="name">{user?.name ?? 'Guest'}</p>
+				</div>
+			{/if}
 		</div>
 
-		<!-- User Section -->
-		{#if user}
-			<div class="user-section" class:expanded={isExpanded}>
-				<img src={user.photoURL ?? '/default-avatar.png'} alt="Profile" class="avatar" />
-				{#if isExpanded}
-					<div class="user-info">
-						<p class="greeting">Good noon,</p>
-						<p class="name">{user.displayName}</p>
-					</div>
-					<button type="button" class="profile-arrow" aria-label="View profile options"> → </button>
-				{/if}
-			</div>
-		{/if}
+		<!-- Toggle Button -->
+		<button
+			type="button"
+			class="menu-toggle"
+			onclick={toggleSidebar}
+			onkeydown={(e) => e.key === 'Enter' && toggleSidebar()}
+			aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
+			aria-expanded={isExpanded}
+		>
+			<Menu size={24} />
+		</button>
+
+		<!-- Navigation Items -->
+		<div class="nav-items">
+			{#each navItems as { id, label, Icon }}
+				<button
+					type="button"
+					class="nav-item"
+					class:active={activeItem === id}
+					onclick={() => handleNavClick(id)}
+					onkeydown={(e) => handleKeyNav(e, id)}
+					aria-label={label}
+				>
+					<span class="icon">
+						<Icon
+							size={24}
+							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+						/>
+					</span>
+					{#if isExpanded}
+						<span class="label">{label}</span>
+					{/if}
+				</button>
+			{/each}
+
+			<!-- Login/Logout Button -->
+			{#if user}
+				<form action="?/logout" method="POST" use:enhance={enhanceLogout}>
+					<button
+						type="submit"
+						class="nav-item"
+						class:active={activeItem === 'logout'}
+						aria-label="Logout"
+					>
+						<span class="icon">
+							{#if isLoggingOut}
+								<div class="spinner"></div>
+							{:else}
+								<Logout
+									size={24}
+									stroke={activeItem === 'logout' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+								/>
+							{/if}
+						</span>
+						{#if isExpanded}
+							<span class="label">Logout</span>
+						{/if}
+					</button>
+				</form>
+			{:else}
+				<button
+					type="button"
+					class="nav-item"
+					class:active={activeItem === 'login'}
+					onclick={handleLogin}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							handleLogin(e);
+						}
+					}}
+					aria-label="Login"
+				>
+					<span class="icon">
+						<Login
+							size={24}
+							stroke={activeItem === 'login' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+						/>
+					</span>
+					{#if isExpanded}
+						<span class="label">Login</span>
+					{/if}
+				</button>
+			{/if}
+		</div>
 	</div>
 </nav>
-{#if showKeyboardControls}
-	<button
-		type="button"
-		class="keyboard-controls-overlay"
-		role="textbox"
-		aria-label="Keyboard Controls"
-		onclick={(e) => {
-			if (e.target === e.currentTarget) {
-				showKeyboardControls = false;
-			}
-		}}
-		onkeydown={(e) => {
-			if (e.key === 'Escape') {
-				showKeyboardControls = false;
-			}
-		}}
-	>
-		<div class="keyboard-controls-content">
-			<KeyboardControls />
-		</div>
-	</button>
-{/if}
 
 <style>
 	.sidebar {
@@ -151,137 +225,41 @@
 	}
 
 	.sidebar.expanded {
-		--sidebar-width: 300px;
+		--sidebar-width: 280px;
 	}
 
 	.sidebar-content {
 		height: 100%;
-		width: 300px;
+		width: 280px;
 		display: flex;
 		flex-direction: column;
-		padding: 1rem 0;
-	}
-
-	.header {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 0 1rem;
-		margin-bottom: 2rem;
-		height: 48px;
-	}
-
-	.menu-toggle {
-		color: var(--text-faint);
-		background: none;
-		border: none;
-		font-size: 1.5rem;
-		cursor: pointer;
-		padding: 0.5rem;
-		transition: color 0.2s;
-		flex-shrink: 0;
-	}
-
-	.menu-toggle:hover {
-		color: var(--text-normal);
-	}
-
-	.main-content {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
+		padding: 1rem;
 		gap: 2rem;
-		overflow-y: auto;
-	}
-
-	.navigation-section {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.nav-items {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.nav-item {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: none;
-		border: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.2s;
-		width: 100%;
-		text-align: left;
-		border-radius: 6px;
-		margin: 0 0.5rem;
-		width: calc(100% - 1rem);
-	}
-
-	.nav-item:hover {
-		background: var(--interactive-hover);
-		color: var(--text-normal);
-	}
-
-	.nav-item.active {
-		background: var(--interactive-accent);
-		color: var(--text-on-accent);
-	}
-
-	.icon {
-		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.label {
-		flex: 1;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 
 	.user-section {
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		padding: 1rem;
-		margin-top: auto;
-		border-top: 1px solid var(--background-modifier-border);
-	}
-
-	.user-section.expanded {
 		background: var(--background-modifier-form-field);
-		margin: 0 0.5rem;
-		border-radius: 6px;
-		border-top: none;
+		border-radius: 8px;
+		transition: all 0.3s ease;
 	}
 
 	.avatar {
-		width: 32px;
-		height: 32px;
+		width: 48px;
+		height: 48px;
 		border-radius: 50%;
 		object-fit: cover;
 		flex-shrink: 0;
+		border: 1px solid var(--interactive-accent);
+		box-shadow: 0 0 8px var(--interactive-accent);
+		transition: box-shadow 0.2s ease;
 	}
 
 	.user-info {
 		flex: 1;
 		min-width: 0;
-	}
-
-	.greeting {
-		color: var(--text-muted);
-		font-size: 0.75rem;
-		margin: 0;
 	}
 
 	.name {
@@ -294,38 +272,95 @@
 		text-overflow: ellipsis;
 	}
 
-	.profile-arrow {
-		color: var(--text-faint);
+	.menu-toggle {
+		color: var(--text-muted);
 		background: none;
 		border: none;
+		padding: 0.75rem 1rem;
 		cursor: pointer;
-		padding: 0.5rem;
-		transition: color 0.2s;
+		transition: color 0.2s ease;
+		border-radius: 6px;
 	}
 
-	.profile-arrow:hover {
+	.menu-toggle:hover {
 		color: var(--text-normal);
+		background: var(--interactive-hover);
 	}
 
-	.keyboard-controls-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
+	.nav-items {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.5rem 0;
+	}
+
+	.nav-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		width: 100%;
+		padding: 0.75rem 1rem;
+		border: none;
+		border-radius: 6px;
+		background: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		text-align: left;
+	}
+
+	.nav-item:hover {
+		color: var(--text-normal);
+		background: var(--interactive-hover);
+	}
+
+	.nav-item.active {
+		color: var(--text-on-accent);
+		background: var(--interactive-accent);
+	}
+
+	.icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 100;
+		width: 24px;
+		height: 24px;
+		flex-shrink: 0;
 	}
 
-	.keyboard-controls-content {
-		position: relative;
-		background: var(--background-primary);
-		border-radius: 8px;
-		max-width: 90vw;
-		max-height: 90vh;
-		overflow-y: auto;
+	.label {
+		font-size: 0.875rem;
+		font-weight: 500;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.spinner {
+		width: 20px;
+		height: 20px;
+		border: 3px solid var(--text-normal);
+		border-top: 3px solid transparent;
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
+	}
+
+	@media (max-width: 768px) {
+		.sidebar {
+			--sidebar-width: 0;
+		}
+
+		.sidebar.expanded {
+			--sidebar-width: 100%;
+		}
 	}
 </style>

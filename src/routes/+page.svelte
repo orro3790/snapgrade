@@ -2,6 +2,14 @@
 	import TextEditor from '$lib/components/TextEditor.svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import type { PageData } from './$types';
+	import { setContext } from 'svelte';
+	import LoginModal from '$lib/components/LoginModal.svelte';
+
+	let { data } = $props<{ data: PageData }>();
+
+	// Pass the superForm data directly as context
+	setContext('superform', { form: data.form });
 
 	// Sample text with corrections
 	const sampleText =
@@ -20,28 +28,28 @@
 	};
 
 	// Handle back button navigation
-	const handlePopState = (event: PopStateEvent) => {
-		if (
-			hasUnsavedChanges &&
-			!window.confirm('You have unsaved changes. Are you sure you want to leave?')
-		) {
-			event.preventDefault();
-			history.pushState(null, '', window.location.href);
-		}
-	};
+	// const handlePopState = (event: PopStateEvent) => {
+	// 	if (
+	// 		hasUnsavedChanges &&
+	// 		!window.confirm('You have unsaved changes. Are you sure you want to leave?')
+	// 	) {
+	// 		event.preventDefault();
+	// 		history.pushState(null, '', window.location.href);
+	// 	}
+	// };
 
-	onMount(() => {
-		if (browser) {
-			window.addEventListener('beforeunload', handleBeforeUnload);
-			window.addEventListener('popstate', handlePopState);
-			history.pushState(null, '', window.location.href);
+	// onMount(() => {
+	// 	if (browser) {
+	// 		window.addEventListener('beforeunload', handleBeforeUnload);
+	// 		window.addEventListener('popstate', handlePopState);
+	// 		history.pushState(null, '', window.location.href);
 
-			return () => {
-				window.removeEventListener('beforeunload', handleBeforeUnload);
-				window.removeEventListener('popstate', handlePopState);
-			};
-		}
-	});
+	// 		return () => {
+	// 			window.removeEventListener('beforeunload', handleBeforeUnload);
+	// 			window.removeEventListener('popstate', handlePopState);
+	// 		};
+	// 	}
+	// });
 
 	// We so we can prevent the user from leave accidentally
 	function handleContentChange(content: string) {

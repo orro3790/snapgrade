@@ -26,6 +26,20 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 - TypeScript
 
+### 2.3 Forms and Validation
+
+- Superforms with Zod for validation
+
+### 2.4 Backend Services
+
+#### 2.4.1 Authentication
+
+- Firebase Authentication
+
+#### 2.4.2 Database
+
+- Firestore
+
 ## 3. Forbidden To Use
 
 ### 3.1 Frameworks
@@ -55,30 +69,48 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 - **Forbidden**: `<div ... />`
 - **Use instead**: `<div ...></div>`
 
+#### 3.2.5 createEventDispatcher
+
+- **Forbidden**: `createEventDispatcher()`
+- **Use instead**: `Use callback props and/or the $host() rune instead`
+- **Example Implementation**: `Components should accept callback props - which means you then pass functions as properties to these components: @https://svelte.dev/docs/svelte/v5-migration-guide#Event-changes-Component-events`
+
 ## 4. Code Style and Structure
 
 ### 4.1 Project Tree Structure
 
 ```javascript
+
 leap/
 ├── src/
 │   ├── lib/
 │   │   ├── components/      # Reusable Svelte components
+│   │   ├── icons/           # Tabler.io SVG components
+│   │   ├── schemas/         # Zod validation schemas
+│   │   ├── firebase/        # Firebase services
 │   │   └── utils/           # Shared utility functions
 │   ├── routes/
 │   │   ├── api/             # API endpoints
 ├── static/
-│   ├── fonts/              # Geist font files
-│   ├── icons/              # Brand/assets
+│   ├── fonts/               # Geist font files
+│   ├── icons/               # Brand/assets
 ```
 
-### 5.0 Accessibility Requirements
+## 5. UI Components
+
+### 5.1 Icons
+
+- **Source**: tabler.io
+- **Implementation**:
+  - **Reference File**: `Pointer.svelte`
+
+### 5.2 Accessibility Requirements
 
 - **Click Events**: Must include keyboard handlers
 - **Alternatives**: `<button type="button">`, `<a>`
 - **Documentation**: Accessibility Warnings
 
-### 5.1 HTML Elements
+### 5.3 HTML Elements
 
 - **Div Requirements**:
   - ARIA role
