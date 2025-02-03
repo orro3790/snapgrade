@@ -2,7 +2,7 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY } from '$env/static/private';
+import { FIREBASE_SNAPGRADE_ADMIN_PROJECT_ID, FIREBASE_SNAPGRADE_ADMIN_CLIENT_EMAIL, FIREBASE_SNAPGRADE_ADMIN_PRIVATE_KEY } from '$env/static/private';
 
 function initializeAdminApp(): App {
     // Check for existing apps first
@@ -11,17 +11,17 @@ function initializeAdminApp(): App {
     }
 
     // Validate environment variables
-    if (!FIREBASE_ADMIN_PROJECT_ID || !FIREBASE_ADMIN_CLIENT_EMAIL || !FIREBASE_ADMIN_PRIVATE_KEY) {
+    if (!FIREBASE_SNAPGRADE_ADMIN_PROJECT_ID || !FIREBASE_SNAPGRADE_ADMIN_CLIENT_EMAIL || !FIREBASE_SNAPGRADE_ADMIN_PRIVATE_KEY) {
         throw new Error('Missing Firebase Admin SDK environment variables');
     }
 
     try {
         return initializeApp({
             credential: cert({
-                projectId: FIREBASE_ADMIN_PROJECT_ID,
-                clientEmail: FIREBASE_ADMIN_CLIENT_EMAIL,
+                projectId: FIREBASE_SNAPGRADE_ADMIN_PROJECT_ID,
+                clientEmail: FIREBASE_SNAPGRADE_ADMIN_CLIENT_EMAIL,
                 // Handle newlines in the private key
-                privateKey: FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
+                privateKey: FIREBASE_SNAPGRADE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
             })
         });
     } catch (error) {
