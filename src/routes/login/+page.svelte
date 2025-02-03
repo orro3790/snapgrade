@@ -1,13 +1,8 @@
-<!-- File: src/lib/components/LoginModal.svelte -->
-
 <script lang="ts">
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { LoginFormData } from '$lib/schemas/auth';
-	import { userStore } from '$lib/stores/userStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { modalStore } from '$lib/stores/modalStore';
-	import Button from './Button.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import SuperDebug from 'sveltekit-superforms';
 
 	let { data } = $props<{ data: LoginFormData }>();
 
@@ -25,32 +20,22 @@
 		},
 		onResult: async ({ result }) => {
 			if (result.type === 'success') {
-				// User account successfully created. Set user and settings state immediately
-				userStore.set(result.data?.user);
-				settingsStore.set(result.data?.settings);
-			} else if (result.type === 'failure' && result.data?.error) {
-				// Handle server-side error messages
+				// Redirect to root on successful login
+				window.location.href = '/';
+			} else {
 				isSubmitting = false;
 				isLoading = false;
 			}
 		},
-		onError({ result }) {
-			$message = result.error.message || 'Unknown error';
+		onError() {
 			isSubmitting = false;
 			isLoading = false;
-		},
-		onUpdate({ form }) {
-			// Reset loading states if there are client-side validation errors
-			if (form.valid === false) {
-				isSubmitting = false;
-				isLoading = false;
-			}
-		},
-		applyAction: true
+		}
 	});
 </script>
 
-<div class="login-modal">
+<div class="login-container">
+	<SuperDebug data={$form} />
 	<h2>Sign In</h2>
 
 	<form class="login-form" id="login" method="POST" action="?/login" use:enhance novalidate>
@@ -99,7 +84,7 @@
 </div>
 
 <style>
-	.login-modal {
+	.login-container {
 		background: var(--background-primary);
 		padding: 1rem;
 		border-radius: 8px;

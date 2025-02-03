@@ -183,15 +183,16 @@
 					</button>
 				</form>
 			{:else}
-				<button
-					type="button"
+				<a
+					href="/snapgrade/login"
 					class="nav-item"
 					class:active={activeItem === 'login'}
-					onclick={handleLogin}
+					role="button"
+					tabindex="0"
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
 							e.preventDefault();
-							handleLogin(e);
+							window.location.href = '/login';
 						}
 					}}
 					aria-label="Login"
@@ -205,7 +206,7 @@
 					{#if isExpanded}
 						<span class="label">Login</span>
 					{/if}
-				</button>
+				</a>
 			{/if}
 		</div>
 	</div>
