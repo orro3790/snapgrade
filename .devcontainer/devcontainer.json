@@ -1,0 +1,92 @@
+{
+	"name": "SvelteKit + Firebase Development",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "18"
+		},
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"svelte.svelte-vscode",
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				"toba.vsfire",
+				"bradlc.vscode-tailwindcss",
+				"ms-azuretools.vscode-docker",
+				"github.copilot",
+				"PKief.material-icon-theme"
+			],
+			"settings": {
+				"workbench.iconTheme": "material-icon-theme",
+				"editor.formatOnSave": true,
+				"editor.fontLigatures": true,
+				"editor.fontFamily": "Fira Code",
+				"editor.wordWrap": "on",
+				"explorer.confirmDelete": false,
+				"window.menuBarVisibility": "visible",
+				"typescript.updateImportsOnFileMove.enabled": "always",
+				"editor.stickyScroll.enabled": false,
+				"svelte.enable-ts-plugin": true,
+				"[svelte]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[javascript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[json]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[jsonc]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				}
+			}
+		}
+	},
+
+	"forwardPorts": [5173, 9099, 8080, 4000],
+
+	"postCreateCommand": "npm install -g firebase-tools && npm install && sudo apt-get update && sudo apt-get install -y fonts-firacode",
+
+	"remoteUser": "node",
+
+	// Add environment variables configuration
+	"remoteEnv": {
+		// Firebase Client Config
+		"VITE_FIREBASE_API_KEY": "${localEnv:VITE_FIREBASE_API_KEY}",
+		"VITE_FIREBASE_AUTH_DOMAIN": "${localEnv:VITE_FIREBASE_AUTH_DOMAIN}",
+		"VITE_FIREBASE_PROJECT_ID": "${localEnv:VITE_FIREBASE_PROJECT_ID}",
+		"VITE_FIREBASE_STORAGE_BUCKET": "${localEnv:VITE_FIREBASE_STORAGE_BUCKET}",
+		"VITE_FIREBASE_MESSAGING_SENDER_ID": "${localEnv:VITE_FIREBASE_MESSAGING_SENDER_ID}",
+		"VITE_FIREBASE_APP_ID": "${localEnv:VITE_FIREBASE_APP_ID}",
+		"VITE_FIREBASE_MEASUREMENT_ID": "${localEnv:VITE_FIREBASE_MEASUREMENT_ID}",
+		"VITE_API_URL": "${localEnv:VITE_API_URL}",
+
+		// Firebase Admin SDK Config
+		"FIREBASE_ADMIN_PROJECT_ID": "${localEnv:FIREBASE_ADMIN_PROJECT_ID}",
+		"FIREBASE_ADMIN_PRIVATE_KEY_ID": "${localEnv:FIREBASE_ADMIN_PRIVATE_KEY_ID}",
+		"FIREBASE_ADMIN_PRIVATE_KEY": "${localEnv:FIREBASE_ADMIN_PRIVATE_KEY}",
+		"FIREBASE_ADMIN_CLIENT_EMAIL": "${localEnv:FIREBASE_ADMIN_CLIENT_EMAIL}",
+		"FIREBASE_ADMIN_CLIENT_ID": "${localEnv:FIREBASE_ADMIN_CLIENT_ID}",
+
+		"NODE_ENV": "development"
+	},
+
+	// Optional: Add mounts for persistent storage
+	"mounts": [
+		"source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+	],
+
+	// Optional: Add container env settings
+	"containerEnv": {
+		"SHELL": "/bin/bash"
+	},
+
+	// Optional: Add shutdown action
+	"shutdownAction": "stopContainer"
+}
