@@ -25,7 +25,7 @@
 <div class="app-container">
 	<Sidebar />
 
-	<TextEditor initialContent={response} />
+	<TextEditor initialContent={sampleText} />
 </div>
 
 <style>
