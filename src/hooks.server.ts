@@ -1,6 +1,6 @@
 // File: src/hooks.server.ts
 import { adminAuth, adminDb } from "$lib/firebase/admin";
-import type { Handle } from "@sveltejs/kit";
+import type { RequestHandler } from "./routes/api/documents/$types";
 
 
 // Define all routes that require authentication and their specific requirements These routes will redirect to login if no session exists
@@ -19,7 +19,7 @@ const isProtectedRoute = (path: string): boolean => {
   return PROTECTED_ROUTES.includes(path);
 };
 
-export const handle: Handle = async ({ event, resolve }) => {
+export const handle = async ({ event, resolve }) => {
   const sessionCookie = event.cookies.get('session');
   const path = event.url.pathname;
   const routeConfig = isProtectedRoute(path) ? path : undefined;

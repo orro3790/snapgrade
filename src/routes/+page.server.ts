@@ -1,5 +1,4 @@
 // File: src/routes/+page.server.ts
-// src/routes/+page.server.ts
 
 import type { PageServerLoad } from './$types';
 
