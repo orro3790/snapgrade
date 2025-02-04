@@ -7,6 +7,8 @@ export const documentSchema = z.object({
   documentName: z.string(),
   documentBody: z.string(),
   userId: z.string(),
+  status: z.enum(['staged', 'editing', 'completed']),
+  sourceType: z.enum(['telegram', 'manual']),
 });
 
 

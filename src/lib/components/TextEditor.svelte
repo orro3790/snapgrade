@@ -12,6 +12,8 @@
 		onContentChange?: (content: string) => void;
 	}>();
 
+	console.log('initialContent', initialContent);
+
 	// Use derived values for reactive state
 	let nodeList = $derived($editorStore.nodeList);
 	let activeNodeId = $derived($editorStore.activeNodeId);
