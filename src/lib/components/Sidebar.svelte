@@ -184,7 +184,7 @@
 				</form>
 			{:else}
 				<a
-					href="/snapgrade/login"
+					href="/login"
 					class="nav-item"
 					class:active={activeItem === 'login'}
 					role="button"
