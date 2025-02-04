@@ -19,19 +19,49 @@
 
 	// Sample text with corrections
 	const sampleText =
-		'Yesterday, we played soccor with my class friend. My team shirt is blue color and other team have red shirt. I am good at kicking ball very far but sometimes ball go to wrong place! Teacher say I must more pratice.
-		My best friend Minho is goalkeeper. He catch many ball and save our team! But one time he fall down and make his pants dirty. Everyone laughed but teacher helped him stand up. Minho cryed a little bit but after game we shared my choco pie and he feel better.
-		I want to be like Son Heung-min when I grown up. He play soccer in Enland and speak English very good. My father say if I study English hard maybe I can go other country and play soccer too! But England weather is very rain so maybe I should go other place.
-		Last week our team won game and get gold medal! I was so exiting that I runned to my mom and showed her. She maked my favorite food for dinner - bulgogi! Next week we will play with class 3-B. They are little scary because they have tall students but I will do my most best!';
+		'Me and my friend go to school in Busan.  We learn many thing, like English and math.  Sometimes, English is very difficult, but I try my bestest.  After school, we play soccer and eat kimchi with my family.';
 
+	let message = $state('');
+	let response = $state('');
 
+	async function handleSubmit() {
+		try {
+			const res = await fetch('api/documents', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ message })
+			});
 
-
+			const data = await res.json();
+			response = JSON.stringify(data, null, 2);
+		} catch (error) {
+			console.error('Error:', error);
+			response = 'Error sending message';
+		}
+	}
 </script>
 
 <div class="app-container">
 	<Sidebar />
+	<!-- Test API Endpoint -->
+	<div class="container">
+		<h1>Test API Endpoint</h1>
 
+		<div class="form">
+			<input type="text" bind:value={message} placeholder="Enter a message" />
+
+			<button onclick={handleSubmit}> Send Message </button>
+		</div>
+
+		{#if response}
+			<div class="response">
+				<h2>Response:</h2>
+				<pre>{response}</pre>
+			</div>
+		{/if}
+	</div>
 	<TextEditor initialContent={response} />
 </div>
 
