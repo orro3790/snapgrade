@@ -1,3 +1,4 @@
+// File: src/routes/login/+page.server.ts
 import { loginSchema, type LoginFormData } from "$lib/schemas/auth";
 import { fail, superValidate } from "sveltekit-superforms/client";
 import type { Actions, PageServerLoad } from "./$types"
@@ -11,8 +12,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "$lib/firebase/client";
 
 export const load: PageServerLoad = async () => {
-    console.log('Loading login page');
     const form = await superValidate(zod(loginSchema));
+
     return { form };
 };
 
@@ -20,8 +21,8 @@ export const actions: Actions = {
   login: async ({ request, cookies }) => {
     console.log('Login action started');
     
-    // Form validation
     const form = await superValidate<LoginFormData>(request, zod(loginSchema));
+    
     console.log('Form validation result:', { 
       valid: form.valid, 
       data: form.data,
@@ -35,20 +36,16 @@ export const actions: Actions = {
 
     try {
       const { email, password } = form.data;
-      console.log('Starting authentication for email:', email);
+      console.log('Attempting login for email:', email);
       
       try {
-        // Firebase Authentication
-        console.log('Attempting Firebase signInWithEmailAndPassword...');
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        console.log('Sign in successful, user ID:', userCredential.user.uid);
+        console.log('Sign in successful, user:', userCredential.user.uid);
         
-        // Get ID Token
-        console.log('Requesting ID token...');
         const idToken = await userCredential.user.getIdToken();
-        console.log('ID token received, length:', idToken.length);
+        console.log('Got ID token');
         
-        // Fetch Firestore Data
+        // Get user data from Firestore
         console.log('Fetching user data from Firestore...');
         const [userDoc, settingsDoc] = await Promise.all([
           adminDb.collection('users').doc(userCredential.user.uid).get(),
@@ -56,12 +53,10 @@ export const actions: Actions = {
         ]);
         console.log('Firestore docs fetched:', {
           userExists: userDoc.exists,
-          settingsExists: settingsDoc.exists,
-          userId: userCredential.user.uid
+          settingsExists: settingsDoc.exists
         });
 
         if (!userDoc.exists) {
-          console.log('User document not found in Firestore');
           return fail(400, {
             form,
             error: 'User data not found'
@@ -69,47 +64,32 @@ export const actions: Actions = {
         }
 
         const userData = userDoc.data() as User;
-        console.log('User data retrieved:', { 
-          userId: userData.id,
-      
-        });
 
-        // Handle Settings
+        // Create default settings if they don't exist
         let settingsData: Settings;
         if (!settingsDoc.exists) {
-          console.log('Creating default settings for user');
           settingsData = {
             theme: 'dark',
             userId: userCredential.user.uid
           };
           
-          console.log('Saving default settings to Firestore...');
+          // Create the settings document
           await adminDb.collection('settings')
             .doc(userCredential.user.uid)
             .set(settingsData);
-          console.log('Default settings saved');
+          
         } else {
-          console.log('Existing settings found');
           settingsData = settingsDoc.data() as Settings;
         }
 
-        // Set Custom Claims
-        console.log('Setting custom user claims...');
         await adminAuth.setCustomUserClaims(userCredential.user.uid, {
           accountStatus: userData.metadata.accountStatus,
         });
-        console.log('Custom claims set successfully');
 
-        // Session Management
-        console.log('Creating session cookie...');
+        // Create session cookie from the ID token
         const sessionCookie = await createSessionCookie(idToken);
-        console.log('Session cookie created successfully');
-
-        console.log('Setting session cookie...');
         setSessionCookie(cookies, sessionCookie);
-        console.log('Session cookie set successfully');
 
-        console.log('Login process completed successfully');
         return {
           form,
           success: true,
@@ -122,31 +102,28 @@ export const actions: Actions = {
           console.error('Firebase Auth Error:', {
             code: (authError as FirebaseError).code,
             message: authError.message,
-            stack: authError.stack,
             fullError: authError
           });
         }
         throw authError;
       }
 
+
     } catch (error: unknown) {
       const firebaseError = error as FirebaseError;
       console.error('Login error details:', {
         code: firebaseError.code,
         message: firebaseError.message,
-        stack: firebaseError.stack,
         fullError: firebaseError
       });
 
       if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/wrong-password') {
-        console.log('Invalid credentials provided');
         return fail(400, {
           form,
           error: 'Invalid email or password'
         });
       }
 
-      console.log('Unhandled error during login');
       return fail(500, {
         form,
         error: 'Login failed. Please try again.'
