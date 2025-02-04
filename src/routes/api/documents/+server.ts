@@ -54,7 +54,7 @@ export const POST: RequestHandler = async (event) => {
         
         // Store in Firestore
         const docRef = await adminDb
-            .collection('Documents')
+            .collection('documents')
             .add(docWithMetadata);
         
         // Validate response format

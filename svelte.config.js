@@ -6,8 +6,7 @@ const config = {
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
-			fallback: 'index.html',
-			strict: false
+			fallback: null
 		}),
 		paths: {
 			base: '/snapgrade' // necessary for deploying to github pages,
