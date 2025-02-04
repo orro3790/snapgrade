@@ -2,6 +2,7 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY } from '$env/static/private';
 
 function initializeAdminApp(): App {
     // Check for existing apps first
@@ -10,9 +11,9 @@ function initializeAdminApp(): App {
     }
 
     // Validate environment variables
-    const projectId = import.meta.env.VITE_FIREBASE_ADMIN_PROJECT_ID;
-    const clientEmail = import.meta.env.VITE_FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = import.meta.env.VITE_FIREBASE_ADMIN_PRIVATE_KEY;
+    const projectId = FIREBASE_ADMIN_PROJECT_ID;
+    const clientEmail = FIREBASE_ADMIN_CLIENT_EMAIL;
+    const privateKey = FIREBASE_ADMIN_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
         throw new Error('Missing Firebase Admin SDK environment variables');
