@@ -20,48 +20,11 @@
 	// Sample text with corrections
 	const sampleText =
 		'Me and my friend go to school in Busan.  We learn many thing, like English and math.  Sometimes, English is very difficult, but I try my bestest.  After school, we play soccer and eat kimchi with my family.';
-
-	let message = $state('');
-	let response = $state('');
-
-	async function handleSubmit() {
-		try {
-			const res = await fetch('api/documents', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ message })
-			});
-
-			const data = await res.json();
-			response = JSON.stringify(data, null, 2);
-		} catch (error) {
-			console.error('Error:', error);
-			response = 'Error sending message';
-		}
-	}
 </script>
 
 <div class="app-container">
 	<Sidebar />
-	<!-- Test API Endpoint -->
-	<div class="container">
-		<h1>Test API Endpoint</h1>
 
-		<div class="form">
-			<input type="text" bind:value={message} placeholder="Enter a message" />
-
-			<button onclick={handleSubmit}> Send Message </button>
-		</div>
-
-		{#if response}
-			<div class="response">
-				<h2>Response:</h2>
-				<pre>{response}</pre>
-			</div>
-		{/if}
-	</div>
 	<TextEditor initialContent={response} />
 </div>
 
