@@ -16,9 +16,9 @@ export const classSchema = z.object({
   description: z.string().optional(),
   students: z.array(z.string()),
   photoUrl: z.string().optional(),
+  id: z.string(),
   status: z.enum(['active', 'archived']).default('active'),
   metadata: z.object({
-    id: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),

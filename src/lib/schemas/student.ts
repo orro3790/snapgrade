@@ -17,8 +17,8 @@ export const studentSchema = z.object({
   notes: z.array(z.string()),
   photoUrl: z.string().optional(),
   status: z.enum(['active', 'archived']).default('active'),
+  id: z.string(),
   metadata: z.object({
-    id: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),

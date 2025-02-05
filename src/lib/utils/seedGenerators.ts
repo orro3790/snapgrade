@@ -24,55 +24,90 @@ const generateRandomDocumentBody = () => {
 
 
 export const generateRandomUser = (partialData: Partial<User> = {}): User => {
+    // Build metadata with required accountStatus
+    const metadata = {
+        accountStatus: ['ACTIVE', 'INACTIVE', 'SUSPENDED'][Math.floor(Math.random() * 3)] as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
+    };
+
+    // Add optional metadata fields only if they should exist
+    if (Math.random() > 0.5) {
+        Object.assign(metadata, { telegramId: generateRandomString() });
+    }
+    if (Math.random() > 0.5) {
+        Object.assign(metadata, { telegramLinkCode: generateRandomString(6) });
+    }
+    if (Math.random() > 0.5) {
+        Object.assign(metadata, { 
+            telegramLinkExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() 
+        });
+    }
+
     const defaultData: User = {
         name: generateRandomEmail(),
         id: generateRandomString(),
-        metadata: {
-            accountStatus: ['ACTIVE', 'INACTIVE', 'SUSPENDED'][Math.floor(Math.random() * 3)] as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
-            telegramId: Math.random() > 0.5 ? generateRandomString() : undefined,
-            telegramLinkCode: Math.random() > 0.5 ? generateRandomString(6) : undefined,
-            telegramLinkExpiry: Math.random() > 0.5 ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : undefined
-        },
-        photoUrl: Math.random() > 0.5 ? `https://example.com/photos/${generateRandomString()}.jpg` : undefined
+        classes: [],
+        metadata,
+        ...(Math.random() > 0.5 && { photoUrl: `https://example.com/photos/${generateRandomString()}.jpg` })
     };
 
-    return {
+    // Merge with partial data
+    const merged = {
         ...defaultData,
         ...partialData,
         metadata: {
             ...defaultData.metadata,
-            ...partialData.metadata
+            ...(partialData.metadata || {})
         }
     };
+
+    // Filter out undefined values
+    const filtered = Object.entries(merged).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+            acc[key] = value;
+        }
+        return acc;
+    }, {} as Record<string, unknown>);
+
+    return filtered as User;
 };
 
 export const generateRandomDocument = (partialData: Partial<Document> = {}): Document => {
     const defaultData: Document = {
-        studentName: generateRandomEmail(),
+        studentId: generateRandomString(),
+        studentName: 'Colby Franey',
         className: `Class ${Math.floor(Math.random() * 100)}`,
         documentName: `Assignment ${Math.floor(Math.random() * 1000)}`,
         documentBody: generateRandomDocumentBody(),
-        userId: generateRandomString(),
+        id: generateRandomString(),
         status: ['staged', 'editing', 'completed'][Math.floor(Math.random() * 3)] as 'staged' | 'editing' | 'completed',
         sourceType: ['telegram', 'manual'][Math.floor(Math.random() * 2)] as 'telegram' | 'manual',
-
+        userId: generateRandomString(),
         createdAt: faker.date.past(),
         updatedAt: faker.date.recent(),
-        sourceMetadata: Math.random() > 0.5 ? {
-            telegramMessageId: generateRandomString(),
-            telegramChatId: generateRandomString(),
-            telegramFileId: generateRandomString()
-        } : undefined
+        ...(Math.random() > 0.5 && {
+            sourceMetadata: {
+                telegramMessageId: generateRandomString(),
+                telegramChatId: generateRandomString(),
+                telegramFileId: generateRandomString()
+            }
+        })
     };
 
-    return {
+    // Start with default data
+    const merged = {
         ...defaultData,
-        ...partialData,
-        sourceMetadata: partialData.sourceMetadata === undefined ? defaultData.sourceMetadata : {
-            ...defaultData.sourceMetadata,
-            ...partialData.sourceMetadata
-        }
+        ...partialData
     };
+
+    // Handle sourceMetadata separately to avoid undefined
+    if (partialData.sourceMetadata || defaultData.sourceMetadata) {
+        merged.sourceMetadata = {
+            ...(defaultData.sourceMetadata || {}),
+            ...(partialData.sourceMetadata || {})
+        };
+    }
+
+    return merged;
 };
 
 /**
@@ -121,16 +156,16 @@ export const generateRandomClass = (overrides: Partial<Class> = {}): Class => {
         students: Array.from({ length: faker.number.int({ min: 2, max: 6 }) }, 
             () => faker.string.uuid()),
         status: faker.helpers.arrayElement(['active', 'archived']),
+        id: faker.string.uuid(),
         metadata: {
-            id: faker.string.uuid(),
             createdAt: faker.date.past(),
-            updatedAt: faker.date.recent(),
+            updatedAt: faker.date.recent()
         },
-        photoUrl: faker.image.url()
+        ...(Math.random() > 0.5 && { photoUrl: faker.image.url() })
     };
 
     // Deep merge the default data with any overrides
-    return {
+    const merged = {
         ...defaultClass,
         ...overrides,
         metadata: {
@@ -138,6 +173,16 @@ export const generateRandomClass = (overrides: Partial<Class> = {}): Class => {
             ...overrides.metadata
         }
     };
+
+    // Filter out undefined values
+    const filtered = Object.entries(merged).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+            acc[key] = value;
+        }
+        return acc;
+    }, {} as Record<string, unknown>);
+
+    return filtered as Class;
 };
 
 /**
@@ -151,16 +196,17 @@ export const generateRandomStudent = (overrides: Partial<Student> = {}): Student
         notes: Array.from({ length: faker.number.int({ min: 0, max: 5 }) }, 
             () => faker.string.uuid()),
         status: faker.helpers.arrayElement(['active', 'archived']),
+        id: faker.string.uuid(),
         metadata: {
-            id: faker.string.uuid(),
             createdAt: faker.date.past(),
             updatedAt: faker.date.recent(),
         },
-        photoUrl: faker.image.avatar()
+        ...(Math.random() > 0.5 && { photoUrl: faker.image.avatar() })
+
     };
 
     // Deep merge the default data with any overrides
-    return {
+    const merged = {
         ...defaultStudent,
         ...overrides,
         metadata: {
@@ -168,16 +214,29 @@ export const generateRandomStudent = (overrides: Partial<Student> = {}): Student
             ...overrides.metadata
         }
     };
+
+    // Filter out undefined values
+    const filtered = Object.entries(merged).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+            acc[key] = value;
+        }
+        return acc;
+    }, {} as Record<string, unknown>);
+
+    return filtered as Student;
 };
 
 /**
- * Generates a class with its associated students, ensuring proper relationships
- * @returns Object containing both the class and its students
+ * Generates a class with its associated teacher and students, ensuring proper relationships
+ * @param classOverrides - Optional overrides for class data
+ * @param studentCount - Number of students to generate (default: random between 5-10)
+ * @returns Object containing the class, teacher, and students with established relationships
  */
 export const generateRelatedClassAndStudents = (
     classOverrides: Partial<Class> = {},
-    studentCount: number = faker.number.int({ min: 5, max: 10 })
-): { class: Class; students: Student[] } => {
+    studentCount: number = faker.number.int({ min: 5, max: 10 }),
+    userId?: string
+): { class: Class; students: Student[]; teacher?: User } => {
     // First generate students without classId
     const students: Student[] = Array.from({ length: studentCount }, () =>
         generateRandomStudent({ 
@@ -189,30 +248,42 @@ export const generateRelatedClassAndStudents = (
     // Generate class with student IDs
     const classData = generateRandomClass({
         ...classOverrides,
-        students: students.map(student => student.metadata.id),
+        students: students.map(student => student.id),
         status: 'active' // Default to active for new classes
+    });
+
+    // Generate teacher only if userId is not provided
+    const teacher = userId ? undefined : generateRandomUser({
+        id: userId,
+        classes: [classData.id],
+        metadata: {
+            accountStatus: 'ACTIVE' // Teachers should be active by default
+        }
     });
 
     // Update students with the correct classId
     const studentsWithClass = students.map(student => ({
         ...student,
-        classId: classData.metadata.id
+        classId: classData.id
     }));
 
     return {
         class: classData,
-        students: studentsWithClass
+        students: studentsWithClass,
+        teacher
     };
 };
 
 /**
- * Generates multiple classes with their associated students
- * @returns Array of class and student pairs
+ * Generates multiple classes with their associated teachers and students
+ * @param count - Number of class sets to generate (default: 5)
+ * @returns Array of class, teacher, and student sets
  */
 export const generateMultipleClassesWithStudents = (
-    count: number = 5
-): Array<{ class: Class; students: Student[] }> => {
+    count: number = 5,
+    userId?: string
+): Array<{ class: Class; students: Student[]; teacher?: User }> => {
     return Array.from({ length: count }, () => 
-        generateRelatedClassAndStudents()
+        generateRelatedClassAndStudents({}, undefined, userId)
     );
 };

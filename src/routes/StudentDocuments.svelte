@@ -21,8 +21,8 @@
 
 		const documentsQuery = query(
 			collection(db, 'documents'),
-			where('studentId', '==', selectedStudent.metadata.id),
-			where('status', '==', 'active')
+			where('studentId', '==', selectedStudent.id),
+			where('status', '==', 'completed')
 		);
 
 		const unsubscribe = onSnapshot(
@@ -65,12 +65,12 @@
 					<li>
 						<div class="document-item">
 							<div class="document-header">
-								<h3 class="document-title">{document.name}</h3>
+								<h3 class="document-title">{document.documentName}</h3>
 								<span class="document-date">
-									{new Date(document.metadata.createdAt).toLocaleDateString()}
+									{new Date(document.createdAt).toLocaleDateString()}
 								</span>
 							</div>
-							<p class="document-preview">{document.content.slice(0, 150)}...</p>
+							<p class="document-preview">{document.documentBody.slice(0, 150)}...</p>
 						</div>
 					</li>
 				{/each}

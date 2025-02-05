@@ -16,8 +16,8 @@ export const noteSchema = z.object({
   body: z.string().optional(),
   studentId: z.string(),
   classId: z.string(),
+  id: z.string(),
   metadata: z.object({
-    id: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),

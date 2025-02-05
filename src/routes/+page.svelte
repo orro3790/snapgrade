@@ -41,7 +41,9 @@
 		/>
 	{/if}
 
-	<TextEditor initialContent={sampleText} />
+	<div class="center-container">
+		<TextEditor initialContent={sampleText} />
+	</div>
 </div>
 
 <style>
@@ -65,5 +67,6 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
+		padding-top: 3rem;
 	}
 </style>

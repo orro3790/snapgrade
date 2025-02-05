@@ -58,7 +58,7 @@ export const actions = {
 				return fail(response.status, { form });
 			}
 
-			form.message = form.data.metadata?.id ? 'Class updated successfully' : 'Class created successfully';
+			form.message = form.data?.id ? 'Class updated successfully' : 'Class created successfully';
 			return { form };
 		} catch (error) {
 			console.error('Class management error:', error);
@@ -102,7 +102,7 @@ export const actions = {
 				return fail(response.status, { form });
 			}
 
-			form.message = form.data.metadata?.id
+			form.message = form.data?.id
 				? 'Student updated successfully'
 				: 'Student created successfully';
 			return { form };

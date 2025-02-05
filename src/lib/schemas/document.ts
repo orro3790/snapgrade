@@ -15,14 +15,15 @@ import { z } from 'zod';
  * @property {string} updatedAt - ISO datetime string of last update
  */
 export const documentSchema = z.object({
-  studentName: z.string().optional(),
+  studentId: z.string(),
+  studentName: z.string(),
   className: z.string().optional(),
   documentName: z.string(),
   documentBody: z.string(),
   userId: z.string(),
   status: z.enum(['staged', 'editing', 'completed']),
   sourceType: z.enum(['telegram', 'manual']),
-  id: z.string().optional(),
+  id: z.string(),
   createdAt: z.date().optional(),
 
   updatedAt: z.date().optional(),
@@ -57,7 +58,8 @@ export type DocumentResponse = z.infer<typeof documentResponseSchema>;
 export type DocumentError = z.infer<typeof documentErrorSchema>;
 
 export const createDocumentSchema = z.object({
-  studentName: z.string().optional(),
+  studentId: z.string(),
+  studentName: z.string(),
   className: z.string().optional(),
   documentName: z.string().min(1, "Document title is required"),
   documentBody: z.string().min(1, "Document content is required")

@@ -30,8 +30,8 @@
 
 		const classesQuery = query(
 			collection(db, 'classes'),
-			where('teacherId', '==', uid),
-			where('status', '==', 'active')
+			where('id', 'in', user.classes || [])
+			// where('status', '==', 'active')
 		);
 
 		const unsubscribeSnapshot = onSnapshot(
