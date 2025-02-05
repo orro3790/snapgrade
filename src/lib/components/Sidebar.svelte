@@ -30,9 +30,6 @@
 	// Get user from store
 	let user = $derived($userStore);
 	let isLoggingOut = $state(false);
-	$effect(() => {
-		console.log(user);
-	});
 
 	// Define base nav items
 	const baseNavItems: NavItem[] = [
@@ -43,7 +40,7 @@
 	// Define authenticated nav items
 	const authenticatedNavItems: NavItem[] = [
 		{ id: 'files', label: 'File Manager', Icon: Files },
-		{ id: 'direct-upload', label: 'Upload', Icon: Upload },
+		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload },
 		{ id: 'analytics', label: 'Analytics', Icon: Analytics },
 		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager },
 		{ id: 'settings', label: 'Setting', Icon: Settings }
@@ -63,6 +60,8 @@
 		activeItem = itemId;
 		if (itemId === 'how-to-use') {
 			modalStore.open('keyboard');
+		} else if (itemId === 'direct-upload') {
+			modalStore.open('upload');
 		}
 	}
 

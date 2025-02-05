@@ -15,8 +15,8 @@ import { z } from 'zod';
  * @property {string} updatedAt - ISO datetime string of last update
  */
 export const documentSchema = z.object({
-  studentName: z.string().email(),
-  className: z.string(),
+  studentName: z.string().optional(),
+  className: z.string().optional(),
   documentName: z.string(),
   documentBody: z.string(),
   userId: z.string(),
@@ -24,12 +24,12 @@ export const documentSchema = z.object({
   sourceType: z.enum(['telegram', 'manual']),
   id: z.string().optional(),
   createdAt: z.string().datetime().optional(),
+
   updatedAt: z.string().datetime().optional(),
   sourceMetadata: z.object({
     telegramMessageId: z.string().optional(),
     telegramChatId: z.string().optional(),
     telegramFileId: z.string().optional(),
-    processingStatus: z.enum(['pending', 'processing', 'completed', 'failed']).optional()
   }).optional()
 });
 
@@ -55,3 +55,12 @@ export const documentErrorSchema = z.object({
 export type Document = z.infer<typeof documentSchema>;
 export type DocumentResponse = z.infer<typeof documentResponseSchema>;
 export type DocumentError = z.infer<typeof documentErrorSchema>;
+
+export const createDocumentSchema = z.object({
+  studentName: z.string().optional(),
+  className: z.string().optional(),
+  documentName: z.string().min(1, "Document title is required"),
+  documentBody: z.string().min(1, "Document content is required")
+});
+
+export type CreateDocument = z.infer<typeof createDocumentSchema>;

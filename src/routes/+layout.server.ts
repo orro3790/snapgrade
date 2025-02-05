@@ -1,9 +1,9 @@
-// // src/routes/+layout.server.ts
-// import type { LayoutServerLoad } from './$types';
+// src/routes/+layout.server.ts
+import type { LayoutServerLoad } from './$types';
 
-// export const load: LayoutServerLoad = async ({ locals }) => {
-//     return {
-//         user: locals.user || null,
-//         settings: locals.settings || null
-//     };
-// };
+export const load: LayoutServerLoad = async ({ locals }) => {
+    return {
+        user: locals.user || null,
+        settings: locals.settings || null
+    };
+};

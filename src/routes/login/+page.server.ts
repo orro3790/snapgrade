@@ -3,7 +3,7 @@ import { loginSchema, type LoginFormData } from "$lib/schemas/auth";
 import { fail, superValidate } from "sveltekit-superforms/client";
 import type { Actions, PageServerLoad } from "./$types"
 import { zod } from "sveltekit-superforms/adapters";
-import { adminAuth, adminDb } from "$lib/firebase/admin";
+import { adminDb } from "$lib/firebase/admin";
 import type { User } from "$lib/schemas/user";
 import type { Settings } from "$lib/schemas/settings";
 import { createSessionCookie, setSessionCookie } from "$lib/server/auth";
@@ -63,7 +63,8 @@ export const actions: Actions = {
           });
         }
 
-        const userData = userDoc.data() as User;
+        // Verify user exists (type check only)
+        userDoc.data() as User;
 
         // Create default settings if they don't exist
         let settingsData: Settings;
@@ -82,19 +83,13 @@ export const actions: Actions = {
           settingsData = settingsDoc.data() as Settings;
         }
 
-        await adminAuth.setCustomUserClaims(userCredential.user.uid, {
-          accountStatus: userData.metadata.accountStatus,
-        });
-
         // Create session cookie from the ID token
         const sessionCookie = await createSessionCookie(idToken);
         setSessionCookie(cookies, sessionCookie);
 
         return {
           form,
-          success: true,
-          user: userData,
-          settings: settingsData
+          success: true
         };
 
       } catch (authError: unknown) {

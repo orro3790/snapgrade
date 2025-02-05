@@ -1,6 +1,5 @@
 // File: src/hooks.server.ts
 import { adminAuth, adminDb } from "$lib/firebase/admin";
-import type { RequestHandler } from "./routes/api/documents/$types";
 
 
 // Define all routes that require authentication and their specific requirements These routes will redirect to login if no session exists
@@ -51,11 +50,6 @@ export const handle = async ({ event, resolve }) => {
       if (userDoc.exists && settingsDoc.exists) {
         const userData = userDoc.data();
         const settingsData = settingsDoc.data();
-
-        console.log('Session restored - Updated locals:', { 
-          userData, 
-          settingsData 
-        });
 
         // Store both user and settings in locals
         event.locals.user = userData;

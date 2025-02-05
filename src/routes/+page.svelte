@@ -1,9 +1,11 @@
+<!-- file: src/routes/+page.svelte -->
 <script lang="ts">
 	import TextEditor from '$lib/components/TextEditor.svelte';
 	import { userStore } from '$lib/stores/userStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
-	import type { PageData } from './$types';
+	import { modalStore } from '$lib/stores/modalStore';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import UploadDocument from './UploadDocument.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 	// Initialize state and stores
@@ -25,6 +27,10 @@
 <div class="app-container">
 	<Sidebar />
 
+	{#if $modalStore === 'upload'}
+		<UploadDocument data={data.form} />
+	{/if}
+
 	<TextEditor initialContent={sampleText} />
 </div>
 
@@ -43,41 +49,11 @@
 	}
 
 	/* API TEST CONTAINER STYLES*/
-	.container {
-		max-width: 600px;
-		margin: 2rem auto;
-		padding: 1rem;
-	}
-
-	.form {
+	.center-container {
 		display: flex;
-		gap: 1rem;
-		margin: 1rem 0;
-	}
-
-	input {
-		flex: 1;
-		padding: 0.5rem;
-	}
-
-	button {
-		padding: 0.5rem 1rem;
-		background: #4caf50;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-	}
-
-	.response {
-		margin-top: 2rem;
-		padding: 1rem;
-		background: #f5f5f5;
-		border-radius: 4px;
-	}
-
-	pre {
-		white-space: pre-wrap;
-		word-wrap: break-word;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
 	}
 </style>

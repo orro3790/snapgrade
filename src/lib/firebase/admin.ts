@@ -2,13 +2,7 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-
-// Get environment variables with fallbacks for type safety
-const {
-    FIREBASE_ADMIN_PROJECT_ID = '',
-    FIREBASE_ADMIN_CLIENT_EMAIL = '',
-    FIREBASE_ADMIN_PRIVATE_KEY = ''
-} = process.env;
+import { FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY } from '$env/static/private';
 
 function initializeAdminApp(): App {
     // Check for existing apps first

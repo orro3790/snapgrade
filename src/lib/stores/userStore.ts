@@ -4,3 +4,6 @@ import type { User } from '$lib/schemas/user';
 
 
 export const userStore = writable<User | null>(null);
+
+
+

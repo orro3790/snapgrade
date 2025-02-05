@@ -19,7 +19,6 @@
 		dataType: 'json',
 
 		async onSubmit() {
-			console.log('onSubmit');
 			isSubmitting = true;
 			isLoading = true;
 		},

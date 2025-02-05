@@ -1,32 +1,48 @@
 import { documentSchema, documentResponseSchema  } from '$lib/schemas/document';
 import { adminAuth, adminDb } from '$lib/firebase/admin';
-import type { RequestHandler } from './$types';
+import type { RequestHandler } from '../$types';
 import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import { FirebaseError } from 'firebase/app';
 
+// Create a new document
 export const POST: RequestHandler = async (event) => {
     const { request } = event;
     try {
-        // Get bearer token from Authorization header
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
+        // Get session cookie
+        const sessionCookie = event.cookies.get('session');
+        if (!sessionCookie) {
             return json(
                 { 
                     status: 'error' as const, 
-                    message: 'Missing or invalid authorization header',
-                    code: 'auth/invalid-header'
+                    message: 'No session cookie found',
+                    code: 'auth/no-session'
                 },
                 { status: 401 }
             );
         }
 
-        // Extract and verify the token
-        const token = authHeader.split('Bearer ')[1];
-        const decodedToken = await adminAuth.verifyIdToken(token);
+        // Verify the session cookie
+        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
         
-        // Verify account status
-        if (decodedToken.customClaims?.accountStatus !== 'ACTIVE') {
+        // Fetch current user status from Firestore
+        const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+        
+        if (!userDoc.exists) {
+            return json(
+                { 
+                    status: 'error' as const, 
+                    message: 'User not found',
+                    code: 'auth/user-not-found'
+                },
+                { status: 404 }
+            );
+        }
+
+        const userData = userDoc.data();
+
+        console.log(userData);
+        if (userData?.metadata.accountStatus !== 'active') {
             return json(
                 { 
                     status: 'error' as const, 

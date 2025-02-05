@@ -104,3 +104,6 @@ p {
     font-family: var(--brand);
 }
 
+textarea {
+  resize: none;
+}

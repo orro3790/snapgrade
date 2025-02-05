@@ -59,8 +59,7 @@ export const generateRandomDocument = (partialData: Partial<Document> = {}): Doc
         sourceMetadata: Math.random() > 0.5 ? {
             telegramMessageId: generateRandomString(),
             telegramChatId: generateRandomString(),
-            telegramFileId: generateRandomString(),
-            processingStatus: ['pending', 'processing', 'completed', 'failed'][Math.floor(Math.random() * 4)] as 'pending' | 'processing' | 'completed' | 'failed'
+            telegramFileId: generateRandomString()
         } : undefined
     };
 
