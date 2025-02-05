@@ -23,9 +23,9 @@ export const documentSchema = z.object({
   status: z.enum(['staged', 'editing', 'completed']),
   sourceType: z.enum(['telegram', 'manual']),
   id: z.string().optional(),
-  createdAt: z.string().datetime().optional(),
+  createdAt: z.date().optional(),
 
-  updatedAt: z.string().datetime().optional(),
+  updatedAt: z.date().optional(),
   sourceMetadata: z.object({
     telegramMessageId: z.string().optional(),
     telegramChatId: z.string().optional(),
@@ -38,8 +38,8 @@ export const documentSchema = z.object({
  */
 export const documentResponseSchema = documentSchema.extend({
   id: z.string(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime()
+  createdAt: z.date(),
+  updatedAt: z.date()
 });
 
 /**

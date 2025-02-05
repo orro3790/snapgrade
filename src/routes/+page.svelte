@@ -6,6 +6,7 @@
 	import { modalStore } from '$lib/stores/modalStore';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import UploadDocument from './UploadDocument.svelte';
+	import ClassManager from './ClassManager.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 	// Initialize state and stores
@@ -28,7 +29,14 @@
 	<Sidebar />
 
 	{#if $modalStore === 'upload'}
-		<UploadDocument data={data.form} />
+		<UploadDocument data={data.documentForm} />
+	{:else if $modalStore === 'classManager'}
+		<ClassManager
+			data={{
+				classForm: data.classForm,
+				studentForm: data.studentForm
+			}}
+		/>
 	{/if}
 
 	<TextEditor initialContent={sampleText} />

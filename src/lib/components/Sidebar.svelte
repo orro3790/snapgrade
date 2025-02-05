@@ -62,6 +62,8 @@
 			modalStore.open('keyboard');
 		} else if (itemId === 'direct-upload') {
 			modalStore.open('upload');
+		} else if (itemId === 'class-manager') {
+			modalStore.open('classManager');
 		}
 	}
 
