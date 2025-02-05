@@ -10,6 +10,8 @@
 		data: {
 			classForm: SuperValidated<any>;
 			studentForm: SuperValidated<any>;
+			user: App.Locals['user'];
+			uid: App.Locals['uid'];
 		};
 	}>();
 	import ClassList from './ClassList.svelte';
@@ -89,7 +91,12 @@
 
 	<div class="modal-content">
 		<!-- Column 1: Class List -->
-		<ClassList onClassSelect={handleClassSelect} onAddClass={handleAddClass} />
+		<ClassList
+			onClassSelect={handleClassSelect}
+			onAddClass={handleAddClass}
+			user={data.user}
+			uid={data.uid}
+		/>
 
 		<!-- Column 2: Class Form or Details -->
 		{#if isEditingClass}

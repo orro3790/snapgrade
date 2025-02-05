@@ -51,9 +51,10 @@ export const handle = async ({ event, resolve }) => {
         const userData = userDoc.data();
         const settingsData = settingsDoc.data();
 
-        // Store both user and settings in locals
+        // Store user data, settings, and auth uid in locals
         event.locals.user = userData;
         event.locals.settings = settingsData;
+        event.locals.uid = decodedToken.uid;
 
         // Status checks after we have full user data
         if (accountStatus === 'suspended' || accountStatus === 'inactive') {

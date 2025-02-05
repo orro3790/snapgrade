@@ -7,10 +7,12 @@ declare global {
 		interface Locals {
 			user?: ( User ) 
 			settings?: ( Settings )
+			uid?: string
 		}
 		interface PageData {
 			user?: Locals['user'];
 			settings?: Locals['settings'];
+			uid?: Locals['uid'];
 		}
 	}
 }

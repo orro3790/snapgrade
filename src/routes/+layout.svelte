@@ -4,6 +4,16 @@
 	import { modalStore } from '$lib/stores/modalStore';
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import type { LayoutData } from './$types';
+
+	let { data } = $props<{ data: LayoutData }>();
+
+	// Pass user data and uid to all child routes
+	$effect(() => {
+		if (data.user && data.uid) {
+			console.log('User authenticated:', { user: data.user, uid: data.uid });
+		}
+	});
 
 	function handleModalClose() {
 		modalStore.close();
@@ -15,7 +25,7 @@
 
 <div class="flex min-h-screen">
 	<main class="flex-1">
-		<slot />
+		<slot {data} />
 	</main>
 </div>
 

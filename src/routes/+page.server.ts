@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		user: locals.user || null,
 		settings: locals.settings || null,
+		uid: locals.uid || null,
 		classForm,
 		studentForm,
 		documentForm

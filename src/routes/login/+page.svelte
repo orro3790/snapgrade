@@ -1,3 +1,4 @@
+<!-- file: src/routes/login/+page.svelte -->
 <script lang="ts">
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { LoginFormData } from '$lib/schemas/auth';

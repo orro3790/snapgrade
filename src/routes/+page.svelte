@@ -34,7 +34,9 @@
 		<ClassManager
 			data={{
 				classForm: data.classForm,
-				studentForm: data.studentForm
+				studentForm: data.studentForm,
+				user: data.user,
+				uid: data.uid
 			}}
 		/>
 	{/if}

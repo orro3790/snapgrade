@@ -1,14 +1,16 @@
 <!-- File: src/routes/ClassList.svelte -->
 <script lang="ts">
 	import { db } from '$lib/firebase/client';
-	import { collection, query, where, onSnapshot, type QuerySnapshot } from 'firebase/firestore';
+	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Class } from '$lib/schemas/class';
 	import Pencil from '$lib/icons/Pencil.svelte';
 
 	// Props
-	let { onClassSelect, onAddClass } = $props<{
+	let { onClassSelect, onAddClass, user, uid } = $props<{
 		onClassSelect: (classData: Class) => void;
 		onAddClass: () => void;
+		user: App.Locals['user'];
+		uid: App.Locals['uid'];
 	}>();
 
 	// State
@@ -17,23 +19,38 @@
 	let error = $state<string | null>(null);
 	let selectedClassId = $state<string | null>(null);
 
-	// Subscribe to classes collection
+	// Subscribe to classes collection using uid from server
 	$effect(() => {
-		const classesQuery = query(collection(db, 'classes'), where('status', '==', 'active'));
-		const unsubscribe = onSnapshot(
+		if (!uid) {
+			error = 'Please sign in to view your classes';
+			isLoading = false;
+			classes = [];
+			return;
+		}
+
+		const classesQuery = query(
+			collection(db, 'classes'),
+			where('teacherId', '==', uid),
+			where('status', '==', 'active')
+		);
+
+		const unsubscribeSnapshot = onSnapshot(
 			classesQuery,
-			(snapshot: QuerySnapshot) => {
-				classes = snapshot.docs.map((doc) => doc.data() as Class);
+			(snapshot) => {
+				classes = snapshot.docs.map((doc) => ({
+					...doc.data(),
+					metadata: { id: doc.id }
+				})) as Class[];
 				isLoading = false;
 			},
 			(err) => {
-				console.error('Error fetching classes:', err);
+				console.error('Firestore error:', err);
 				error = 'Failed to load classes';
 				isLoading = false;
 			}
 		);
 
-		return unsubscribe;
+		return () => unsubscribeSnapshot();
 	});
 
 	function handleClassClick(classData: Class) {
