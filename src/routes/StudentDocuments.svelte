@@ -4,6 +4,8 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Student } from '$lib/schemas/student';
 	import type { Document } from '$lib/schemas/document';
+	import { editorStore } from '$lib/stores/editorStore';
+	import { modalStore } from '$lib/stores/modalStore';
 
 	// Props
 	let { selectedStudent } = $props<{
@@ -14,6 +16,7 @@
 	let documents = $state<Document[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
+	let documentToLoad = $state('');
 
 	// Subscribe to documents collection
 	$effect(() => {
@@ -40,6 +43,19 @@
 
 		return unsubscribe;
 	});
+
+	function handleDocumentClick(documentBody: string) {
+		const currentContent = editorStore.getContent();
+
+		if (!currentContent.trim()) {
+			// If editor is empty, load directly
+			editorStore.parseContent(documentBody);
+		} else {
+			// If editor has content, show confirmation modal
+			documentToLoad = documentBody;
+			modalStore.open('documentLoad');
+		}
+	}
 </script>
 
 <div class="documents-container" role="region" aria-label="Student documents">
@@ -63,14 +79,23 @@
 			<ul class="document-list">
 				{#each documents as document}
 					<li>
-						<div class="document-item">
+						<div
+							class="document-item"
+							onclick={() => handleDocumentClick(document.documentBody)}
+							onkeydown={(e) => e.key === 'Enter' && handleDocumentClick(document.documentBody)}
+							role="button"
+							tabindex="0"
+						>
 							<div class="document-header">
 								<h3 class="document-title">{document.documentName}</h3>
 								<span class="document-date">
-									{new Date(document.createdAt).toLocaleDateString()}
+									<!-- Convert from Firestore Timestamp to Date -->
+									{new Date(document.createdAt.seconds * 1000).toLocaleDateString()}
 								</span>
 							</div>
-							<p class="document-preview">{document.documentBody.slice(0, 150)}...</p>
+							<p class="document-preview">
+								{document.documentBody.slice(0, 150)}...
+							</p>
 						</div>
 					</li>
 				{/each}
@@ -164,6 +189,7 @@
 		font-size: 0.875rem;
 		color: var(--text-muted);
 		line-height: 1.5;
+		cursor: pointer;
 	}
 
 	.loading,

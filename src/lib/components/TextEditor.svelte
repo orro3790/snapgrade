@@ -3,7 +3,6 @@
 	import { editorStore } from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
-
 	import StatsDisplay from './StatsDisplay.svelte';
 
 	// Props and state
@@ -13,8 +12,8 @@
 	}>();
 
 	// Use derived values for reactive state
-	let nodeList = $derived($editorStore.nodeList);
-	let activeNodeId = $derived($editorStore.activeNodeId);
+	let paragraphs = $derived($editorStore.paragraphs);
+	let activeCorrection = $derived($editorStore.activeCorrection);
 	let editorContent = $derived(editorStore.getContent());
 
 	// Initialize content
@@ -24,7 +23,7 @@
 		}
 	});
 
-	// Notify parent of changes (upon text loading), this allows parent to prevent back navigation on unsaved changes
+	// Notify parent of changes
 	$effect(() => {
 		if (editorContent !== initialContent) {
 			onContentChange(editorContent);
@@ -59,13 +58,13 @@
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">
 			<div class="a4-content">
-				<div class="line-row">
-					{#if nodeList.length > 0}
-						{#each nodeList[0].nodes as node (node.id)}
-							<TextNode {node} isActive={node.id === activeNodeId} />
+				{#each paragraphs as paragraph (paragraph.id)}
+					<div class="paragraph-row">
+						{#each paragraph.corrections as node (node.id)}
+							<TextNode {node} isActive={node.id === activeCorrection} />
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>
@@ -87,12 +86,13 @@
 		align-items: flex-start;
 	}
 
-	.line-row {
+	.paragraph-row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		align-items: end;
 		min-height: 2rem; /* Ensures consistent height for empty rows */
+		margin-bottom: 1rem; /* Space between paragraphs */
 	}
 
 	/* Preview section */
@@ -103,7 +103,7 @@
 		padding: 20mm; /* A4 margins */
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 		border-radius: 0.5rem;
-		margin: 0 auto;
+		margin: 2rem auto;
 	}
 
 	.a4-content {
@@ -159,9 +159,10 @@
 			color: black;
 		}
 
-		.line-row {
+		.paragraph-row {
 			display: flex;
 			gap: 0;
+			margin-bottom: 1em;
 		}
 
 		@page {

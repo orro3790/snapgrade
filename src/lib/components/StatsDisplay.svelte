@@ -1,9 +1,15 @@
 <script lang="ts">
-	import { statsStore, hoveredNodeType, type NodeType } from '$lib/stores/statsStore';
+	import { statsStore, hoveredNodeType } from '$lib/stores/statsStore';
+	import type { NodeType } from '$lib/stores/statsStore';
 
 	let stats = $derived($statsStore);
 
-	function handleInteraction(type: NodeType | null) {
+	// Only show groups that have at least one item with a count > 0
+	let visibleGroups = $derived(
+		stats.groups.filter((group) => group.items.some((item) => item.count > 0))
+	);
+
+	function handleInteraction(type: NodeType) {
 		hoveredNodeType.set(type);
 	}
 
@@ -16,49 +22,32 @@
 </script>
 
 <div class="stats-container print-hide" role="complementary" aria-label="Document statistics">
-	<div class="stat">
-		<span class="label">Total:</span>
+	<div class="stat total">
+		<span class="label">Total Corrections:</span>
 		<span class="value">{stats.total}</span>
 	</div>
 
-	<div
-		class="stat"
-		role="button"
-		tabindex="0"
-		aria-label="Show correction annotations"
-		onmouseenter={() => handleInteraction('correction')}
-		onmouseleave={() => handleInteraction(null)}
-		onkeydown={(e) => handleKeydown(e, 'correction')}
-	>
-		<span class="label">Corrections:</span>
-		<span class="value">{stats.corrections}</span>
-	</div>
-
-	<div
-		class="stat"
-		role="button"
-		tabindex="0"
-		aria-label="Show deletion annotations"
-		onmouseenter={() => handleInteraction('deletion')}
-		onmouseleave={() => handleInteraction(null)}
-		onkeydown={(e) => handleKeydown(e, 'deletion')}
-	>
-		<span class="label">Deletions:</span>
-		<span class="value">{stats.deletions}</span>
-	</div>
-
-	<div
-		class="stat"
-		role="button"
-		tabindex="0"
-		aria-label="Show addition annotations"
-		onmouseenter={() => handleInteraction('addition')}
-		onmouseleave={() => handleInteraction(null)}
-		onkeydown={(e) => handleKeydown(e, 'addition')}
-	>
-		<span class="label">Additions:</span>
-		<span class="value">{stats.additions}</span>
-	</div>
+	{#each visibleGroups as group}
+		<div class="group">
+			<h3 class="group-title">{group.title}</h3>
+			{#each group.items as item}
+				{#if item.count > 0}
+					<div
+						class="stat"
+						role="button"
+						tabindex="0"
+						aria-label="Show {item.label.toLowerCase()} annotations"
+						onmouseenter={() => handleInteraction(item.type)}
+						onmouseleave={() => handleInteraction(null)}
+						onkeydown={(e) => handleKeydown(e, item.type)}
+					>
+						<span class="label">{item.label}:</span>
+						<span class="value">{item.count}</span>
+					</div>
+				{/if}
+			{/each}
+		</div>
+	{/each}
 </div>
 
 <style>
@@ -67,14 +56,27 @@
 		top: 1rem;
 		right: 1rem;
 		background-color: var(--background-secondary);
-		padding: 0.75rem;
+		padding: 1rem;
 		border-radius: 0.5rem;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		font-size: 0.875rem;
 		z-index: 100;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+		max-height: calc(100vh - 2rem);
+		overflow-y: auto;
+	}
+
+	.group {
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--border);
+	}
+
+	.group-title {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		margin: 0 0 0.5rem;
+		font-weight: 600;
 	}
 
 	.stat {
@@ -88,8 +90,14 @@
 		transition: all 0.2s ease;
 	}
 
-	.stat:hover {
+	.stat:hover:not(.total) {
 		background-color: var(--interactive-hover);
+	}
+
+	.total {
+		font-weight: 500;
+		cursor: default;
+		margin-bottom: 0.5rem;
 	}
 
 	.label {
@@ -101,18 +109,8 @@
 		color: var(--text-normal);
 	}
 
-	/* Skip hover effects for total count */
-	.stat:first-child {
-		cursor: default;
-	}
-
-	.stat:first-child:hover {
-		background-color: transparent;
-	}
-
-	/* Add print styles */
-	:global(.print-hide) {
-		@media print {
+	@media print {
+		.print-hide {
 			display: none !important;
 		}
 	}

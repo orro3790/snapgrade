@@ -117,6 +117,12 @@ leap/
   - Tab index
   - ARIA attributes
 
+### 5.4 Date Handling
+
+- Use `z.date()` for date fields
+- Firestore automatically stores dates as Timestamps, so they need conversion on client side
+  - Example document field {...createdAt: {nanoseconds: 285000000, seconds: 1738769371}}
+
 ## 6. Documentation
 
 - Maintain clear README with setup instructions

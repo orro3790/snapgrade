@@ -1,5 +1,6 @@
 <!-- file: src/routes/+page.svelte -->
 <script lang="ts">
+	import type { PageData } from './$types';
 	import TextEditor from '$lib/components/TextEditor.svelte';
 	import { userStore } from '$lib/stores/userStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
@@ -20,9 +21,18 @@
 		settingsStore.set(settings);
 	});
 
-	// Sample text with corrections
-	const sampleText =
-		'Me and my friend go to school in Busan.  We learn many thing, like English and math.  Sometimes, English is very difficult, but I try my bestest.  After school, we play soccer and eat kimchi with my family.';
+	// Sample text with all correction types and footnotes
+	const sampleText = `Let's start with basic corrections. Here's a -misspeled- word and an [important] addition. The word "writting" !writing! needs correction. [fn: Basic correction examples showing deletion, addition, and correction.]
+
+	Grammar check time: "cats" #pl# chases the mouse, "runned" #vt# to school yesterday, "they runs" #sv# fast, and we need "a" #art# umbrella. [fn: Various grammar corrections demonstrating plural, verb tense, subject-verb agreement, and article usage.]
+
+	Let's fix formatting: "monday" #cap# is a day, "too    many    spaces" #sp# between words, and "no punctuation" #punc# needs fixing [fn: Formatting corrections for capitalization, spacing, and punctuation.]
+
+	#para# This begins a new paragraph. These two sentences #merge# should be combined into one.
+
+	Academic improvements: This "quote" #ref# needs citation. That's a "poor" #wc# word choice. This is "very very" #red# redundant. This point needs "emphasis" #emp#. [fn: Various academic writing improvements including citations, word choice, redundancy, and emphasis.]
+
+	Let's end with some normal text to see how it flows.`;
 </script>
 
 <div class="app-container">

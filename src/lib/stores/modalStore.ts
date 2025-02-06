@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-type ModalType = 'login' | 'keyboard' | 'upload' | 'classManager' | null;
+type ModalType = 'login' | 'keyboard' | 'upload' | 'classManager' | 'documentLoad' | null;
 
 function createModalStore() {
     const { subscribe, set } = writable<ModalType>(null);

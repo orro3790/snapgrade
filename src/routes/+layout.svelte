@@ -5,8 +5,10 @@
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
+	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
 
 	let { data } = $props<{ data: LayoutData }>();
+	let documentToLoad = $state('');
 
 	// Pass user data and uid to all child routes
 	$effect(() => {
@@ -36,6 +38,14 @@
 		></button>
 		<div class="modal-content">
 			<KeyboardControls />
+		</div>
+	</div>
+{:else if $modalStore === 'documentLoad'}
+	<div class="modal-overlay" role="dialog" aria-modal="true">
+		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
+		></button>
+		<div class="modal-content">
+			<DocumentLoadModal documentBody={documentToLoad} />
 		</div>
 	</div>
 {/if}
