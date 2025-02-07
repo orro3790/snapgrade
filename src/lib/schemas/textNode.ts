@@ -5,7 +5,16 @@ export const nodeTypeEnum = z.enum([
     'correction',
     'addition',
     'deletion',
-    'empty'
+    'empty',
+    'spacer'
+]);
+
+export const spacerSubtypeEnum = z.enum([
+    'newline',
+    'tab',
+    'doubletab',
+    'list',
+    'nestedlist'
 ]);
 
 export const nodeMetadataSchema = z.object({
@@ -30,6 +39,9 @@ export const nodeSchema = z.object({
     text: z.string(),
     type: nodeTypeEnum,
     correctionData: correctionDataSchema.optional(),
+    spacerData: z.object({
+        subtype: spacerSubtypeEnum
+    }).optional(),
     metadata: nodeMetadataSchema,
     hasNextCorrection: z.boolean().optional(),
     mispunctuation: z.boolean().optional()
@@ -37,5 +49,6 @@ export const nodeSchema = z.object({
 
 export type Node = z.infer<typeof nodeSchema>;
 export type NodeType = z.infer<typeof nodeTypeEnum>;
+export type SpacerSubtype = z.infer<typeof spacerSubtypeEnum>;
 export type NodeMetadata = z.infer<typeof nodeMetadataSchema>;
 export type CorrectionData = z.infer<typeof correctionDataSchema>;

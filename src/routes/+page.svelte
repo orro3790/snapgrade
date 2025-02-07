@@ -22,15 +22,18 @@
 	});
 
 	// Sample text demonstrating all correction types and syntax features
-	const sampleText = `Last week, I visited my friend's house to work on our essay #punc# The writing process was challenging #frag#.
-
->The first paragraph needed major revisions. We found several errors in it #punc# For example, me and him !we! were #sv# using wrong pronouns #pron:we#. We also writed !wrote! about are !our! research findings.
-
->The second paragraph had issues with word choice and articles #punc# We studied -lots of- [many] different source #pl:sources#. A !The! most important finding was about climate change. in !In! particular, we learned about it's !its! effects on weather patterns.
-
-[¶]
-
-The conclusion needed work too. we !We! didnt !didn't! properly cite are !our! sources. However !,! the data support !supports# our hypothesis about rising temperatures #punc# -In conclusion- [Finally], we decided to focus in !on# the environmental impact.`;
+	const sampleText = {
+		studentId: 'test123',
+		studentName: 'Test Student',
+		className: 'English 101',
+		documentName: 'Test Document',
+		documentBody:
+			'[{"i":"1","t":"normal","x":"Hello"},{"i":"2","t":"spacer","s":"tab"},{"i":"3","t":"normal","x":"world"},{"i":"4","t":"spacer","s":"newline"},{"i":"5","t":"normal","x":"This"},{"i":"6","t":"spacer","s":"tab"},{"i":"7","t":"correction","x":"iz","c":{"o":"iz","f":"is","p":"form.agree"}},{"i":"8","t":"spacer","s":"tab"},{"i":"9","t":"normal","x":"a"},{"i":"10","t":"spacer","s":"tab"},{"i":"11","t":"normal","x":"test"}]',
+		userId: 'user123',
+		status: 'editing',
+		sourceType: 'manual',
+		id: 'test-doc-1'
+	};
 </script>
 
 <div class="app-container">
@@ -50,7 +53,7 @@ The conclusion needed work too. we !We! didnt !didn't! properly cite are !our! s
 	{/if}
 
 	<div class="center-container">
-		<TextEditor initialContent={sampleText} />
+		<TextEditor initialContent="is this prop needed still?" />
 	</div>
 </div>
 

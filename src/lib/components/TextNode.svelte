@@ -115,6 +115,7 @@
 	onkeydown={handleKeydown}
 	role="button"
 	tabindex="0"
+	data-subtype={node.type === 'spacer' ? node.spacerData?.subtype : undefined}
 >
 	{#if node.type === 'correction' && node.correctionData}
 		<div class="correction-wrapper">
@@ -125,6 +126,8 @@
 		<div class="text-content deleted">{node.text}</div>
 	{:else if node.type === 'empty'}
 		<div class="text-content">+</div>
+	{:else if node.type === 'spacer'}
+		<div class="spacer-content"></div>
 	{:else}
 		<div class="text-content">{node.text}</div>
 	{/if}
@@ -135,6 +138,42 @@
 {/if}
 
 <style>
+	/* Spacer node styles */
+	.text-node[data-subtype='tab'] {
+		width: 2vw;
+		min-width: 2vw;
+		border: none;
+	}
+
+	.text-node[data-subtype='doubletab'] {
+		width: 4vw;
+		min-width: 4vw;
+		border: none;
+	}
+
+	.text-node[data-subtype='newline'] {
+		width: 100%;
+		height: 1em;
+		border: none;
+	}
+
+	.text-node[data-subtype='list'] {
+		width: 3vw;
+		min-width: 3vw;
+		border: none;
+	}
+
+	.text-node[data-subtype='nestedlist'] {
+		width: 5vw;
+		min-width: 5vw;
+		border: none;
+	}
+
+	.spacer-content {
+		width: 100%;
+		height: 100%;
+	}
+
 	/* Base text node styling - applies to all node types */
 	.text-node {
 		/* Use flexbox for better content alignment */

@@ -109,9 +109,8 @@
 				onAddStudent={handleAddStudent}
 			/>
 		{/if}
-
 		<!-- Column 3: Student Form or Documents -->
-		{#if isAddingStudent}
+		{#if isAddingStudent && selectedClass}
 			<StudentForm
 				data={data.studentForm}
 				{selectedClass}

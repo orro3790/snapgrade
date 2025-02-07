@@ -22,8 +22,8 @@ function groupNodesByParagraph(nodes: Node[]) {
     nodes.forEach((node, index) => {
         currentParagraph.push(node);
         
-        // Create new paragraph on newline or end of nodes
-        if (node.text === '\n' || index === nodes.length - 1) {
+        // Create new paragraph on newline spacer or end of nodes
+        if ((node.type === 'spacer' && node.spacerData?.subtype === 'newline') || index === nodes.length - 1) {
             if (currentParagraph.length > 0) {
                 paragraphs.push({
                     id: crypto.randomUUID(),
@@ -37,30 +37,101 @@ function groupNodesByParagraph(nodes: Node[]) {
     return paragraphs;
 }
 
+import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
+
 // Parse text content into nodes
 function parseContent(content: string) {
     const newNodes: Node[] = [];
     const words = content.split(/(\s+)/); // Split on whitespace but keep separators
+    let position = 0;
     
-    words.forEach((word, index) => {
-        if (word) {
+    words.forEach((word) => {
+        if (!word) return; // Skip empty strings
+        
+        if (/^\s+$/.test(word)) {
+            // Handle whitespace
+            if (word.includes('\n')) {
+                newNodes.push({
+                    id: crypto.randomUUID(),
+                    text: '',
+                    type: 'spacer',
+                    spacerData: { subtype: 'newline' },
+                    metadata: {
+                        position: position++,
+                        lineNumber: 1,
+                        isPunctuation: false,
+                        isWhitespace: true,
+                        startIndex: 0,
+                        endIndex: 0
+                    }
+                });
+            } else if (word.length > 1) {
+                newNodes.push({
+                    id: crypto.randomUUID(),
+                    text: '',
+                    type: 'spacer',
+                    spacerData: { subtype: 'doubletab' },
+                    metadata: {
+                        position: position++,
+                        lineNumber: 1,
+                        isPunctuation: false,
+                        isWhitespace: true,
+                        startIndex: 0,
+                        endIndex: 0
+                    }
+                });
+            } else {
+                newNodes.push({
+                    id: crypto.randomUUID(),
+                    text: '',
+                    type: 'spacer',
+                    spacerData: { subtype: 'tab' },
+                    metadata: {
+                        position: position++,
+                        lineNumber: 1,
+                        isPunctuation: false,
+                        isWhitespace: true,
+                        startIndex: 0,
+                        endIndex: 0
+                    }
+                });
+            }
+        } else {
+            // Handle normal text
             newNodes.push({
                 id: crypto.randomUUID(),
                 text: word,
                 type: 'normal',
                 metadata: {
-                    position: index,
-                    lineNumber: 1, // Will be updated in future
+                    position: position++,
+                    lineNumber: 1,
                     isPunctuation: /^[.,!?;:]$/.test(word),
-                    isWhitespace: /^\s+$/.test(word),
-                    startIndex: 0, // Will be calculated in future
-                    endIndex: 0 // Will be calculated in future
+                    isWhitespace: false,
+                    startIndex: 0,
+                    endIndex: 0
                 }
             });
         }
     });
     
     setNodes(newNodes);
+    updateUndoStack(() => []);
+    updateRedoStack(() => []);
+}
+
+// Get serialized content for storage
+function getSerializedContent(): string {
+    let nodes: Node[] = [];
+    nodesSubscribe(($nodes) => {
+        nodes = $nodes;
+    })();
+    return serializeNodes(nodes);
+}
+
+// Load serialized content
+function loadSerializedContent(serialized: string) {
+    const nodes = deserializeNodes(serialized);
+    setNodes(nodes);
     updateUndoStack(() => []);
     updateRedoStack(() => []);
 }
@@ -207,7 +278,9 @@ export const editorStore = {
     setActiveNode: (nodeId: string | null) => setActiveNode(nodeId),
     undo,
     redo,
-    getContent
+    getContent,
+    getSerializedContent,
+    loadSerializedContent
 };
 
 // Export active node as a separate store for easier access
