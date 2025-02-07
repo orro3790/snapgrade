@@ -1,16 +1,53 @@
+<!-- StatsDisplay.svelte -->
 <script lang="ts">
-	import { statsStore, hoveredNodeType } from '$lib/stores/statsStore';
-	import type { NodeType } from '$lib/stores/statsStore';
+	import { statsStore, hoveredNodeTypeStore } from '$lib/stores/statsStore';
+	import type { NodeType } from '$lib/schemas/textNode';
 
-	let stats = $derived($statsStore);
+	interface StatGroup {
+		title: string;
+		items: {
+			type: NodeType;
+			label: string;
+			count: number;
+		}[];
+	}
+
+	// Subscribe to store
+	let totalCorrections = $derived($statsStore.totalCorrections);
+	let patternFrequency = $derived($statsStore.patternFrequency);
+	let mostCommonErrors = $derived($statsStore.mostCommonErrors);
+
+	// Group stats for display
+	let groups = $derived<StatGroup[]>([
+		{
+			title: 'Corrections by Type',
+			items: [
+				{
+					type: 'correction',
+					label: 'Corrections',
+					count: Array.from(patternFrequency.values()).reduce((a, b) => a + b, 0)
+				},
+				{
+					type: 'deletion',
+					label: 'Deletions',
+					count: totalCorrections
+				},
+				{
+					type: 'addition',
+					label: 'Additions',
+					count: totalCorrections
+				}
+			]
+		}
+	]);
 
 	// Only show groups that have at least one item with a count > 0
 	let visibleGroups = $derived(
-		stats.groups.filter((group) => group.items.some((item) => item.count > 0))
+		groups.filter((group) => group.items.some((item) => item.count > 0))
 	);
 
-	function handleInteraction(type: NodeType) {
-		hoveredNodeType.set(type);
+	function handleInteraction(type: NodeType | null) {
+		hoveredNodeTypeStore.set(type);
 	}
 
 	function handleKeydown(event: KeyboardEvent, type: NodeType) {
@@ -24,7 +61,7 @@
 <div class="stats-container print-hide" role="complementary" aria-label="Document statistics">
 	<div class="stat total">
 		<span class="label">Total Corrections:</span>
-		<span class="value">{stats.total}</span>
+		<span class="value">{totalCorrections}</span>
 	</div>
 
 	{#each visibleGroups as group}
@@ -48,6 +85,18 @@
 			{/each}
 		</div>
 	{/each}
+
+	{#if mostCommonErrors.length > 0}
+		<div class="group">
+			<h3 class="group-title">Most Common Patterns</h3>
+			{#each mostCommonErrors as pattern}
+				<div class="stat">
+					<span class="label">{pattern}:</span>
+					<span class="value">{patternFrequency.get(pattern) || 0}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -68,7 +117,7 @@
 	.group {
 		margin-top: 0.75rem;
 		padding-top: 0.75rem;
-		border-top: 1px solid var(--border);
+		border-top: 1px solid var(--background-modifier-border);
 	}
 
 	.group-title {

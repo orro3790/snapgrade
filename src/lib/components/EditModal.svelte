@@ -1,21 +1,15 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
+	import type { Node } from '$lib/schemas/textNode';
 
 	const { node, onClose } = $props<{
-		node: {
-			id: string;
-			text: string;
-			type: 'normal' | 'deletion' | 'addition' | 'correction' | 'empty';
-			correctionText?: string;
-			hasNextCorrection?: boolean;
-			isWhitespace?: boolean;
-		};
+		node: Node;
 		onClose: () => void;
 	}>();
 
 	let editableText = $state(node.text);
-	let inputRef = $state<HTMLInputElement>();
+	let inputRef = $state<HTMLTextAreaElement>();
 	let isProcessingEdit = $state(false);
 
 	$effect(() => {
@@ -26,53 +20,77 @@
 	});
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === 'Escape') {
+		if (event.key === 'Escape') {
 			event.preventDefault();
-			finishEditing();
+			onClose();
+		} else if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			handleSave();
 		}
 	}
 
-	function finishEditing() {
+	function handleDelete() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
 
-		const trimmedText = editableText.trim();
-
 		try {
-			if (node.type === 'empty') {
-				if (trimmedText) {
-					editorStore.updateNode(node.id, trimmedText, undefined, 'addition');
-				} else {
-					editorStore.removeNode(node.id);
-				}
-				return;
-			}
-
-			if (!trimmedText || trimmedText === node.text) {
-				if (!trimmedText) {
-					editorStore.updateNode(node.id, node.text, undefined, 'normal');
-				}
-				return;
-			}
-
-			if (trimmedText.startsWith('`')) {
-				editorStore.updateNode(node.id, node.text, undefined, 'deletion');
-			} else if (trimmedText.startsWith('@')) {
-				const newText = trimmedText.slice(1);
-				if (newText) {
-					editorStore.updateNode(node.id, node.text);
-					editorStore.insertNodeAfter(node.id, newText);
-				}
-			} else if (trimmedText.startsWith('!')) {
-				const plainText = trimmedText.slice(1);
-				if (plainText !== node.text) {
-					editorStore.updateNode(node.id, plainText);
-				}
-			} else {
-				editorStore.updateNode(node.id, node.text, trimmedText, 'correction');
-			}
+			editorStore.updateNode(node.id, node.text, undefined, 'deletion');
 		} finally {
 			isProcessingEdit = false;
+			onClose();
+		}
+	}
+
+	function handleAddAfter() {
+		if (isProcessingEdit || !editableText.trim()) return;
+		isProcessingEdit = true;
+
+		try {
+			editorStore.insertNodeAfter(node.id, editableText.trim(), 'addition');
+		} finally {
+			isProcessingEdit = false;
+			onClose();
+		}
+	}
+
+	function handleCorrect() {
+		if (isProcessingEdit || !editableText.trim() || editableText.trim() === node.text) return;
+		isProcessingEdit = true;
+
+		try {
+			editorStore.updateNode(
+				node.id,
+				node.text,
+				{
+					originalText: node.text,
+					correctedText: editableText.trim(),
+					pattern: '' // Will be set via pattern selector
+				},
+				'correction'
+			);
+		} finally {
+			isProcessingEdit = false;
+			onClose();
+		}
+	}
+
+	function handleSave() {
+		if (isProcessingEdit) return;
+
+		const trimmedText = editableText.trim();
+
+		if (!trimmedText || trimmedText === node.text) {
+			onClose();
+			return;
+		}
+
+		handleCorrect();
+	}
+
+	// Handle click outside to close
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (!target.closest('.modal-content')) {
 			onClose();
 		}
 	}
@@ -80,21 +98,48 @@
 
 <div
 	class="modal-overlay"
+	onclick={handleClickOutside}
 	role="dialog"
 	aria-modal="true"
-	aria-label="Edit text modal"
-	tabindex="-1"
+	aria-labelledby="modal-title"
 >
 	<div class="modal-content" role="document">
-		<input
-			bind:this={inputRef}
-			bind:value={editableText}
-			class="edit-input"
-			onkeydown={handleKeyDown}
-			onblur={finishEditing}
-			aria-label="Edit text"
-			type="text"
-		/>
+		<h2 id="modal-title" class="sr-only">Edit Text</h2>
+		<div class="input-wrapper">
+			<textarea
+				bind:this={inputRef}
+				bind:value={editableText}
+				onkeydown={handleKeyDown}
+				aria-label="Edit text"
+				placeholder="Type to edit..."
+				rows="3"
+			></textarea>
+		</div>
+		<div class="actions-grid">
+			<button onclick={handleDelete} type="button" class="action delete" title="Delete text">
+				Delete
+			</button>
+			<button
+				onclick={handleAddAfter}
+				type="button"
+				class="action add"
+				title="Add after current text"
+			>
+				Add After
+			</button>
+			<button
+				onclick={handleCorrect}
+				type="button"
+				class="action correct"
+				title="Mark as correction"
+			>
+				Correct
+			</button>
+		</div>
+		<div class="modal-footer">
+			<button onclick={onClose} type="button" class="secondary"> Cancel </button>
+			<button onclick={handleSave} type="button" class="primary"> Save </button>
+		</div>
 	</div>
 </div>
 
@@ -103,38 +148,143 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		right: 0;
-		bottom: 0;
-		background-color: rgba(0, 0, 0, 0.5);
+		width: 100%;
+		height: 100%;
+		background: var(--background-modifier-cover);
 		display: flex;
-		align-items: center;
 		justify-content: center;
+		align-items: center;
 		z-index: 1000;
 	}
 
 	.modal-content {
-		background-color: var(--background-secondary);
-		padding: 1rem;
+		background: var(--background-primary);
+		padding: 1.5rem;
 		border-radius: 0.5rem;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		min-width: 300px;
+		min-width: 400px;
+		box-shadow: 0 2px 10px var(--background-modifier-box-shadow);
 	}
 
-	.edit-input {
+	.input-wrapper {
+		margin-bottom: 1rem;
+	}
+
+	textarea {
 		width: 100%;
-		font-size: 1rem;
-		padding: 0.5rem;
-		border: 2px solid var(--interactive-normal);
-		transition: border-color 0.2s ease;
-		border-radius: 0.25rem;
-		background-color: var(--background-secondary-alt);
+		min-height: 80px;
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
+		background: var(--background-modifier-form-field);
 		color: var(--text-normal);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: 0.25rem;
+		font-family: var(--brand);
+		line-height: 1.5;
+		resize: vertical;
 	}
 
-	.edit-input:focus {
+	textarea:focus {
 		outline: none;
 		border-color: var(--interactive-accent);
 		box-shadow: 0 0 0 2px var(--interactive-accent-hover);
-		transition: border-color 0.2s ease;
+	}
+
+	.actions-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.action {
+		padding: 0.5rem;
+		border: none;
+		border-radius: 0.25rem;
+		font-family: var(--brand);
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		color: var(--text-on-accent);
+	}
+
+	.action:hover {
+		transform: translateY(-1px);
+	}
+
+	.action.delete {
+		background: var(--text-error);
+	}
+
+	.action.delete:hover {
+		background: var(--text-error-hover);
+	}
+
+	.action.add {
+		background: var(--background-modifier-success);
+	}
+
+	.action.add:hover {
+		background: var(--interactive-success);
+	}
+
+	.action.correct {
+		background: var(--interactive-accent);
+	}
+
+	.action.correct:hover {
+		background: var(--interactive-accent-hover);
+	}
+
+	.modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		margin-top: 1rem;
+		border-top: 1px solid var(--background-modifier-border);
+		padding-top: 1rem;
+	}
+
+	button {
+		padding: 0.5rem 1rem;
+		border-radius: 0.25rem;
+		font-family: var(--brand);
+		font-size: 0.875rem;
+		border: none;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	button.secondary {
+		background: var(--interactive-normal);
+		color: var(--text-normal);
+	}
+
+	button.primary {
+		background: var(--interactive-accent);
+		color: var(--text-on-accent);
+	}
+
+	button:hover {
+		transform: translateY(-1px);
+	}
+
+	button.secondary:hover {
+		background: var(--interactive-hover);
+	}
+
+	button.primary:hover {
+		background: var(--interactive-accent-hover);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

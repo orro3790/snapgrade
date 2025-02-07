@@ -1,6 +1,6 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore, activeCorrection, paragraphs } from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
 	import StatsDisplay from './StatsDisplay.svelte';
@@ -11,9 +11,9 @@
 		onContentChange?: (content: string) => void;
 	}>();
 
-	// Use derived values for reactive state
-	let paragraphs = $derived($editorStore.paragraphs);
-	let activeCorrection = $derived($editorStore.activeCorrection);
+	// Subscribe to stores
+	let paragraphsList = $derived($paragraphs);
+	let activeNodeId = $derived($activeCorrection);
 	let editorContent = $derived(editorStore.getContent());
 
 	// Initialize content
@@ -58,10 +58,10 @@
 		<!-- Preview/Print content -->
 		<div class="preview-container" role="complementary" aria-label="Preview">
 			<div class="a4-content">
-				{#each paragraphs as paragraph (paragraph.id)}
+				{#each paragraphsList as paragraph (paragraph.id)}
 					<div class="paragraph-row">
 						{#each paragraph.corrections as node (node.id)}
-							<TextNode {node} isActive={node.id === activeCorrection} />
+							<TextNode {node} isActive={node.id === activeNodeId} />
 						{/each}
 					</div>
 				{/each}

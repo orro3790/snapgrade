@@ -1,121 +1,76 @@
-// stores/statsStore.ts
-import { derived, writable } from 'svelte/store';
-import { editorStore } from './editorStore';
-import type { CorrectionType, CorrectionTag } from './editorStore';
+// src/lib/stores/statsStore.ts
+import { writable } from 'svelte/store';
+import type { Node, NodeType } from '$lib/schemas/textNode';
 
-// Define the types we'll track
-export type NodeType = CorrectionType | CorrectionTag | null;
+// Create the hoveredNodeType store
+const hoveredNodeTypeBase = writable<NodeType | null>(null);
 
-interface StatItem {
-  count: number;
-  label: string;
-  type: NodeType;
-}
+// Export with the same name as original for compatibility
+export const hoveredNodeTypeStore = {
+    subscribe: hoveredNodeTypeBase.subscribe
+};
 
-interface StatGroup {
-  title: string;
-  items: StatItem[];
-}
-
-interface Stats {
-  total: number;
-  groups: StatGroup[];
-}
-
-// Store for tracking hovered node type
-export const hoveredNodeType = writable<NodeType>(null);
-
-// Helper to create a stat item with initial count of 0
-const createStatItem = (type: NodeType, label: string): StatItem => ({
-  count: 0,
-  label,
-  type
+// Initialize stats with default values
+const statsBase = writable({
+    totalCorrections: 0,
+    patternFrequency: new Map<string, number>(),
+    mostCommonErrors: [] as string[]
 });
 
-// Define our stat groups structure
-const createInitialStatGroups = (): StatGroup[] => [
-  {
-    title: 'Basic',
-    items: [
-      createStatItem('correction', 'Corrections'),
-      createStatItem('deletion', 'Deletions'),
-      createStatItem('addition', 'Additions')
-    ]
-  },
-  {
-    title: 'Grammar',
-    items: [
-      createStatItem('plural', 'Plural'),
-      createStatItem('verb-tense', 'Verb Tense'),
-      createStatItem('subject-verb', 'Subject-Verb'),
-      createStatItem('article', 'Article')
-    ]
-  },
-  {
-    title: 'Formatting',
-    items: [
-      createStatItem('capital', 'Capitalization'),
-      createStatItem('spacing', 'Spacing'),
-      createStatItem('punctuation', 'Punctuation')
-    ]
-  },
-  {
-    title: 'Organization',
-    items: [
-      createStatItem('paragraph', 'Paragraph'),
-      createStatItem('merge', 'Merge'),
-      createStatItem('reference', 'Reference')
-    ]
-  },
-  {
-    title: 'Additional',
-    items: [
-      createStatItem('wordchoice', 'Word Choice'),
-      createStatItem('redundant', 'Redundant')
-    ]
-  }
-];
+// Update statistics based on corrections
+export function updateStats(nodes: Node[]) {
+    statsBase.update(stats => {
+        const patterns = new Map<string, number>();
+        let corrections = 0;
 
-// Create a derived store that updates whenever editorStore changes
-export const statsStore = derived(editorStore, ($editorStore) => {
-  const groups = createInitialStatGroups();
-  let total = 0;
+        nodes.forEach(node => {
+            if (node.type === 'correction' && node.correctionData?.pattern) {
+                corrections++;
+                const pattern = node.correctionData.pattern;
+                patterns.set(pattern, (patterns.get(pattern) || 0) + 1);
+            }
+        });
 
-  // Early return if no paragraphs
-  if (!$editorStore?.paragraphs?.length) {
-    return { total: 0, groups };
-  }
-
-  // Count corrections
-  $editorStore.paragraphs.forEach(paragraph => {
-    if (!paragraph?.corrections?.length) return;
-
-    paragraph.corrections.forEach(node => {
-      if (!node?.type || node.type === 'normal' || node.type === 'empty') return;
-
-      // First try to find by tag
-      if (node.tag) {
-        for (const group of groups) {
-          const item = group.items.find(item => item.type === node.tag);
-          if (item) {
-            item.count++;
-            total++;
-            break;
-          }
-        }
-      } else {
-        // If no tag, find by core type
-        for (const group of groups) {
-          const item = group.items.find(item => item.type === node.type);
-          if (item) {
-            item.count++;
-            total++;
-            break;
-          }
-        }
-      }
+        return {
+            totalCorrections: corrections,
+            patternFrequency: patterns,
+            mostCommonErrors: Array.from(patterns.entries())
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5)
+                .map(([pattern]) => pattern)
+        };
     });
-  });
+}
 
-  return { total, groups };
-});
+// Track pattern usage
+export function trackPatternUsage(pattern: string) {
+    statsBase.update(stats => {
+        const newPatternFrequency = new Map(stats.patternFrequency);
+        newPatternFrequency.set(
+            pattern,
+            (newPatternFrequency.get(pattern) || 0) + 1
+        );
+
+        const newMostCommonErrors = Array.from(newPatternFrequency.entries())
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5)
+            .map(([pattern]) => pattern);
+
+        return {
+            ...stats,
+            patternFrequency: newPatternFrequency,
+            mostCommonErrors: newMostCommonErrors
+        };
+    });
+}
+
+// Export the stats store with the same interface
+export const statsStore = {
+    subscribe: statsBase.subscribe
+};
+
+// Export functions in the same structure
+export const statsActions = {
+    updateStats,
+    trackPatternUsage
+};

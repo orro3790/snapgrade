@@ -1,66 +1,40 @@
 <!-- TextNode.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
-	import { hoveredNodeType } from '$lib/stores/statsStore';
+	import { hoveredNodeTypeStore } from '$lib/stores/statsStore';
+	import type { Node } from '$lib/schemas/textNode';
 	import EditModal from './EditModal.svelte';
-	import type { CorrectionType, CorrectionTag } from '$lib/stores/editorStore';
 
 	const { node, isActive = false } = $props<{
-		node: {
-			id: string;
-			text: string;
-			type: CorrectionType;
-			tag?: CorrectionTag;
-			correctionText?: string;
-			hasNextCorrection?: boolean;
-			isPunctuation?: boolean;
-			mispunctuation?: boolean;
-			grammarNote?: string;
-			formatType?: string;
-			suggestionType?: string;
-			footnotes?: string[];
-		};
+		node: Node;
 		isActive?: boolean;
 	}>();
-
-	// Helper function to get correction text for grammar types
-	function getGrammarText(tag: CorrectionTag): string {
-		switch (tag) {
-			case 'plural':
-				return 'pl.';
-			case 'verb-tense':
-				return 'v. tense';
-			case 'subject-verb':
-				return 'S.V.A';
-			default:
-				return '';
-		}
-	}
-
-	// Helper function to get spacing correction text
-	function getSpacingText(text: string): string {
-		return text.includes('  ') ? '><' : '<>';
-	}
 
 	let isEditing = $state(false);
 	let isSaved = $state(false);
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
+		// Check specifically for right click (button === 2) with ctrl key
 		if (event.ctrlKey && event.button === 2) {
+			// Remove the node and ensure proper cleanup
 			editorStore.removeNode(node.id);
+			// Force a re-render of the parent component
 			return false;
 		}
 	}
 
 	function handleClick(event: MouseEvent) {
+		// Guard clause for non-left clicks
 		if (event.button !== 0) return;
 
+		// Handle Ctrl + Left Click: Insert empty node
 		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
 			return;
 		}
 
+		// Handle Alt + Left Click: Toggle deletion state
 		if (event.altKey) {
 			if (node.type === 'empty') return;
 
@@ -72,11 +46,13 @@
 			return;
 		}
 
+		// Handle normal clicks on deletion nodes: Restore to normal
 		if (node.type === 'deletion') {
 			editorStore.updateNode(node.id, node.text, undefined, 'normal');
 			return;
 		}
 
+		// Handle active node clicks: Enable editing
 		editorStore.setActiveNode(node.id);
 		if (isActive) {
 			isEditing = true;
@@ -123,11 +99,9 @@
 			isActive ? 'active' : '',
 			node.hasNextCorrection ? 'has-next-correction' : '',
 			isEditing ? 'highlighted' : '',
-			node.isPunctuation ? 'punctuation' : '',
+			node.metadata.isPunctuation ? 'punctuation' : '',
 			isSaved ? 'saved-flash' : '',
-			$hoveredNodeType === node.type || $hoveredNodeType === node.tag
-				? `highlight-${node.type}`
-				: ''
+			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : ''
 		]
 			.filter(Boolean)
 			.join(' ')
@@ -142,49 +116,11 @@
 	role="button"
 	tabindex="0"
 >
-	{#if node.type === 'correction' || (node.type === 'correction' && node.tag === 'article')}
+	{#if node.type === 'correction' && node.correctionData}
 		<div class="correction-wrapper">
-			<div class="correction-text">{node.correctionText}</div>
+			<div class="correction-text">{node.correctionData.correctedText}</div>
 			<div class="text-content">{node.text}</div>
 		</div>
-	{:else if node.type === 'correction' && (node.tag === 'plural' || node.tag === 'verb-tense' || node.tag === 'subject-verb')}
-		<div class="grammar-correction">
-			<div class="grammar-text">{getGrammarText(node.tag)}</div>
-			<div class="text-content">{node.text}</div>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'capital'}
-		<div class="text-content">
-			<span class="capital-first-letter">{node.text.charAt(0)}</span>
-			<span>{node.text.slice(1)}</span>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'spacing'}
-		<div class="spacing">
-			<div class="spacing-text">{getSpacingText(node.text)}</div>
-			<div class="text-content">{node.text}</div>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'punctuation'}
-		<div class="correction-wrapper">
-			<div class="correction-text">{node.correctionText}</div>
-			<div class="text-content">{node.text}</div>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'paragraph'}
-		<div class="correction-wrapper">
-			<div class="correction-text">¶</div>
-			<div class="text-content">{node.text}</div>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'merge'}
-		<div class="merge-marker">
-			<span class="merge-text">↑ Merge</span>
-		</div>
-	{:else if node.type === 'correction' && node.tag === 'reference'}
-		<div class="reference-correction">
-			<div class="reference-text">[citation needed]</div>
-			<div class="text-content">{node.text}</div>
-		</div>
-	{:else if node.type === 'addition' && node.tag === 'wordchoice'}
-		<div class="text-content wordchoice">{node.text}</div>
-	{:else if node.type === 'deletion' && node.tag === 'redundant'}
-		<div class="text-content redundant">{node.text}</div>
 	{:else if node.type === 'deletion'}
 		<div class="text-content deleted">{node.text}</div>
 	{:else if node.type === 'empty'}
@@ -199,82 +135,28 @@
 {/if}
 
 <style>
-	/* Grammar correction styles */
-	.grammar-correction {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5em;
-	}
-	.grammar-text {
-		color: var(--text-accent);
-		font-size: 0.8em;
-		font-weight: bold;
-		white-space: nowrap;
-		min-width: max-content;
-	}
-
-	/* Formatting correction styles */
-	.capital-first-letter {
-		text-decoration: underline;
-		text-decoration-style: solid;
-		text-decoration-thickness: 3px;
-		text-decoration-color: var(--text-error);
-	}
-	.spacing {
-		position: relative;
-	}
-	.spacing-text {
-		position: absolute;
-		top: -1em;
-		font-size: 0.8em;
-		color: var(--text-accent);
-	}
-
-	/* Organization styles */
-	.merge-marker {
-		display: flex;
-		justify-content: center;
-		color: var(--text-accent);
-		margin: 0.5em 0;
-	}
-	.merge-text {
-		font-size: 0.8em;
-	}
-
-	/* Reference styles */
-	.reference-correction {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5em;
-	}
-	.reference-text {
-		color: var(--text-muted);
-		font-size: 0.8em;
-		font-style: italic;
-	}
-
-	/* Additional type styles */
-	.wordchoice {
-		border-bottom: 2px dotted var(--text-warning);
-	}
-	.redundant {
-		text-decoration: line-through;
-		text-decoration-color: var(--text-error);
-	}
-
-	/* Base text node styling */
+	/* Base text node styling - applies to all node types */
 	.text-node {
+		/* Use flexbox for better content alignment */
 		display: flex;
 		position: relative;
 		cursor: pointer;
+
+		/* Consistent padding for all nodes */
 		padding: 0 0.25em 0 0.25em;
 		border-radius: 0.2em;
+
+		/* Smooth transitions for hover/active states */
 		transition: all 0.2s ease;
+
+		/* Default border style */
 		border: 2px dotted var(--interactive-normal);
+
+		/* Establish minimum dimensions */
 		min-width: 1em;
 	}
 
-	/* Special node types get solid borders */
+	/* Special node types (deletion, addition) get solid borders */
 	.text-node.deletion,
 	.text-node.addition {
 		border: 2px solid var(--background-secondary);
@@ -285,32 +167,34 @@
 		border-bottom: 2px dotted var(--text-error-hover);
 	}
 
-	/* Punctuation nodes */
+	/* Punctuation nodes get special treatment */
 	.punctuation {
 		min-width: 1.5em;
 		border: none;
 		border-radius: 0;
+
+		/* Center punctuation marks */
 		display: flex;
 		justify-content: center;
 	}
 
-	/* Hover state */
+	/* Hover state for all nodes */
 	.text-node:hover {
 		background-color: var(--interactive-hover);
 	}
 
-	/* Active state */
+	/* Active (selected) node state */
 	.text-node.active {
 		background-color: var(--interactive-active);
 	}
 
-	/* Editing state */
+	/* Currently editing node state */
 	.text-node.highlighted {
 		border: 2px dotted var(--interactive-highlight);
-		z-index: 1;
+		z-index: 1; /* Ensure highlighted node appears above others */
 	}
 
-	/* Save animation */
+	/* Animation for save confirmation */
 	.saved-flash {
 		animation: saveFlash 0.3s ease-out;
 	}
@@ -324,7 +208,7 @@
 		}
 	}
 
-	/* Correction node styling */
+	/* Correction node specific styling */
 	.correction-wrapper {
 		display: flex;
 		flex-direction: column;
@@ -340,19 +224,22 @@
 		min-width: max-content;
 	}
 
-	/* Base text content */
+	/* Base text content styling */
 	.text-content {
 		display: flex;
 		align-items: end;
 	}
 
-	/* Highlight states */
-	.text-node[class*='highlight-'] {
+	/* Highlight states for different node types */
+	.text-node.highlight-correction,
+	.text-node.highlight-deletion,
+	.text-node.highlight-addition,
+	.text-node.highlight-normal {
 		border: 2px solid var(--text-accent);
 		transition: border-color 0.2s ease;
 	}
 
-	/* Deleted text */
+	/* Deleted text styling */
 	.deleted {
 		color: var(--text-error);
 		opacity: 0.75;
@@ -360,6 +247,7 @@
 		min-width: min-content;
 	}
 
+	/* Strikethrough line for deleted text */
 	.deleted::before {
 		content: '';
 		position: absolute;
@@ -372,12 +260,18 @@
 		transform-origin: center;
 	}
 
+	/* Special case for punctuation deletion */
 	.punctuation .deleted::before {
 		width: 1.75em;
 		left: 0%;
 	}
 
-	/* Empty node */
+	/* Added text styling */
+	.addition {
+		color: var(--background-modifier-success);
+	}
+
+	/* Empty node styling */
 	.empty {
 		width: 2em;
 		border: 2px dotted var(--interactive-success);
@@ -387,7 +281,7 @@
 		color: var(--interactive-success);
 	}
 
-	/* Print styles */
+	/* Print-specific styles */
 	@media print {
 		* {
 			color: #000000 !important;

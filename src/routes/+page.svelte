@@ -21,18 +21,16 @@
 		settingsStore.set(settings);
 	});
 
-	// Sample text with all correction types and footnotes
-	const sampleText = `Let's start with basic corrections. Here's a -misspeled- word and an [important] addition. The word "writting" !writing! needs correction. [fn: Basic correction examples showing deletion, addition, and correction.]
+	// Sample text demonstrating all correction types and syntax features
+	const sampleText = `Last week, I visited my friend's house to work on our essay #punc# The writing process was challenging #frag#.
 
-	Grammar check time: "cats" #pl# chases the mouse, "runned" #vt# to school yesterday, "they runs" #sv# fast, and we need "a" #art# umbrella. [fn: Various grammar corrections demonstrating plural, verb tense, subject-verb agreement, and article usage.]
+>The first paragraph needed major revisions. We found several errors in it #punc# For example, me and him !we! were #sv# using wrong pronouns #pron:we#. We also writed !wrote! about are !our! research findings.
 
-	Let's fix formatting: "monday" #cap# is a day, "too    many    spaces" #sp# between words, and "no punctuation" #punc# needs fixing [fn: Formatting corrections for capitalization, spacing, and punctuation.]
+>The second paragraph had issues with word choice and articles #punc# We studied -lots of- [many] different source #pl:sources#. A !The! most important finding was about climate change. in !In! particular, we learned about it's !its! effects on weather patterns.
 
-	#para# This begins a new paragraph. These two sentences #merge# should be combined into one.
+[¶]
 
-	Academic improvements: This "quote" #ref# needs citation. That's a "poor" #wc# word choice. This is "very very" #red# redundant. This point needs "emphasis" #emp#. [fn: Various academic writing improvements including citations, word choice, redundancy, and emphasis.]
-
-	Let's end with some normal text to see how it flows.`;
+The conclusion needed work too. we !We! didnt !didn't! properly cite are !our! sources. However !,! the data support !supports# our hypothesis about rising temperatures #punc# -In conclusion- [Finally], we decided to focus in !on# the environmental impact.`;
 </script>
 
 <div class="app-container">
@@ -77,6 +75,6 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
-		padding-top: 3rem;
+		padding-top: 0.1rem;
 	}
 </style>
