@@ -46,6 +46,15 @@ Modal component for:
 - Correction explanations
 - Quick corrections
 
+#### StagingArea.svelte
+
+Component for reviewing and correcting OCR output from LLMWHisperer:
+
+- Displays raw text with basic formatting.
+- Allows manual correction of OCR errors.
+- Provides UI for identifying title, subtitle, and headings.
+- Prepares the document for LLM correction (if used) or direct import.
+
 ## Schema Definitions
 
 ### Document Schema (Existing)
@@ -112,8 +121,7 @@ export const nodeSchema = z.object({
 	type: nodeTypeEnum,
 	correctionData: correctionDataSchema.optional(),
 	metadata: nodeMetadataSchema,
-	hasNextCorrection: z.boolean().optional(),
-	mispunctuation: z.boolean().optional()
+	hasNextCorrection: z.boolean().optional()
 });
 
 type Node = z.infer<typeof nodeSchema>;
@@ -364,6 +372,29 @@ Category: `cond`
 
 ## Store Architecture
 
+## Staging Area
+
+The application incorporates a "staging area" or "loading bay" to handle the initial import and processing of documents, particularly those originating from external sources like Telegram and LLMWHisperer (for OCR of handwritten essays).
+
+**Workflow:**
+
+1.  **Document Arrival:** When a document is received (e.g., via Telegram), it is not immediately loaded into the main text editor. Instead, it is placed in the staging area with a status of `'staged'`.
+2.  **User Notification:** The teacher receives a notification in the UI indicating that a new document is available for review.
+3.  **Review and Correction:** The teacher opens the staged document in a dedicated `StagingArea.svelte` component. This component:
+    - Displays the raw text extracted by LLMWHisperer (with basic formatting to preserve the original layout).
+    - Provides a text editing area where the teacher can manually correct any errors made during the OCR process.
+    - **Provides _assisted_ structure identification:**
+      - Uses heuristics (whitespace, capitalization, keywords) to _suggest_ potential titles, headings, and list items (e.g., by highlighting them).
+      - Offers UI elements (buttons, dropdowns, drag-and-drop) for the user to _confirm or modify_ the suggestions.
+4.  **Title/Heading/List Item Extraction:** The `StagingArea` component is responsible for extracting the title, subtitle, headings and list items based on the teacher's input (confirming or modifying the suggestions). This ensures accuracy.
+5.  **Preparation for LLM:** Once the teacher is satisfied with the corrected text and has identified the structural elements, the `StagingArea` component prepares the document for the next stage:
+    - The `documentBody` is extracted (the main text content without the title/headings).
+    - Paragraph separators (`<<<>>>`) are inserted into the `documentBody` to maintain paragraph structure.
+6.  **LLM Correction (Optional):** The `documentBody` (with paragraph separators) and instructions are sent to an LLM (Language Model) for grammatical correction. The instructions specify the expected output format: a JSON array representing the corrected text, with each element corresponding to a word or punctuation mark.
+7.  **Processing LLM Output:** The JSON array returned by the LLM is parsed and validated.
+8.  **TextNode Conversion:** The parsed and validated JSON data is converted into the application's internal `TextNode` structure.
+9.  **Document Finalization:** A new document is created in the database with a status of `'editing'`, populated with the extracted title, subtitle, headings, and the corrected `TextNode` array. The document is now ready for further refinement and annotation within the main text editor.
+
 ## Text Processing
 
 ### Serialization and Deserialization Implementation
@@ -390,37 +421,37 @@ The text editor supports several ways to manipulate nodes:
 
 #### Mouse Controls
 
-1. **Basic Selection**
+1.  **Basic Selection**
 
-   - Single Click: start editing a node
+    - Single Click: start editing a node
 
-2. **Correction Actions**
-   - Ctrl + Left Click: Insert empty node after selection
-   - Alt + Left Click: Toggle deletion state
-   - Ctrl + Right Click: Remove node
-3. **Correction Flow**
-   When editing a node:
-   - Type new text and press Enter or click outside the modal to create correction
+2.  **Correction Actions**
+    - Ctrl + Left Click: Insert empty node after selection
+    - Alt + Left Click: Toggle deletion state
+    - Ctrl + Right Click: Remove node
+3.  **Correction Flow**
+    When editing a node:
+    - Type new text and press Enter or click outside the modal to create correction
 
 #### Keyboard Navigation
 
-1. **Movement**
+1.  **Movement**
 
-   - Tab: Move to next node
-   - Shift + Tab: Move to previous node
-   - Arrow keys: Navigate between nodes
+    - Tab: Move to next node
+    - Shift + Tab: Move to previous node
+    - Arrow keys: Navigate between nodes
 
-2. **Editing**
+2.  **Editing**
 
-   - Enter: Start editing selected node
-   - Escape: Cancel editing
-   - Ctrl + Z: Undo last change
-   - Ctrl + Y: Redo last undone change
+    - Enter: Start editing selected node
+    - Escape: Cancel editing
+    - Ctrl + Z: Undo last change
+    - Ctrl + Y: Redo last undone change
 
-3. **Special Functions**
-   - Ctrl + S: Save document
-   - Ctrl + P: Print view
-   - Alt + H: Toggle help overlay
+3.  **Special Functions**
+    - Ctrl + S: Save document
+    - Ctrl + P: Print view
+    - Alt + H: Toggle help overlay
 
 #### Adding Whitespace
 
@@ -430,129 +461,150 @@ Since the editor is node-based and designed for correcting existing text, users 
 - **Tabs:** Users can insert a "tab" spacer node by using a designated hotkey (e.g., the Tab key itself, but _not_ while editing a text node) or by clicking a UI button specifically for adding tabs.
 - **Newlines:** Users can insert a "newline" spacer node by using a designated hotkey (e.g., Ctrl+Enter, or a dedicated "new line" button) or by clicking a UI button specifically for adding newlines.
 
+### Staging and Review Workflow (New)
+
+1.  **Document Import:** Documents received from external sources (Telegram/LLMWHisperer) are initially placed in a "staging area" with a status of `'staged'`.
+2.  **User Review:** The teacher reviews the document in the `StagingArea.svelte` component, correcting any OCR errors and identifying the title, subtitle, and headings.
+3.  **Document Preparation:** The `StagingArea` component extracts the `documentBody` and prepares it for LLM correction (optional) or direct import.
+4.  **Document Finalization:** Once the review is complete, the document is moved to the `'editing'` state, and the `TextNode` array is created.
+
 ### Correction Workflow
 
-1. **Pattern Selection**
-   After creating a correction:
+1.  **Pattern Selection**
+    After creating a correction:
 
-   - Pattern selector opens automatically
-   - Navigate categories with arrow keys
-   - Quick search with keyboard
-   - Recent patterns shown first
-   - Custom patterns can be created
+    - Pattern selector opens automatically
+    - Navigate categories with arrow keys
+    - Quick search with keyboard
+    - Recent patterns shown first
+    - Custom patterns can be created
 
-2. **Adding Explanations**
-   Teachers can:
-   - Add custom explanations
-   - Select from pattern examples
-   - Use AI-suggested explanations
-   - Save explanations as templates
-   - Allow students to scan QR code on printed rubric to access interactive feedback UI
-   - Each correction node contains explanation that displays in tooltip or header
-   - List menu of explanations on left of content, hover over to see explanation, snaps view on node
-   - Explanations persist with nodes and sync to database
-   - Mobile-friendly feedback view optimized for QR code access
+2.  **Adding Explanations**
+    Teachers can:
+    - Add custom explanations
+    - Select from pattern examples
+    - Use AI-suggested explanations
+    - Save explanations as templates
+    - Allow students to scan QR code on printed rubric to access interactive feedback UI
+    - Each correction node contains explanation that displays in tooltip or header
+    - List menu of explanations on left of content, hover over to see explanation, snaps view on node
+    - Explanations persist with nodes and sync to database
+    - Mobile-friendly feedback view optimized for QR code access
 
 ### Document Management
 
-1. **Auto-saving**
+1.  **Auto-saving**
 
-   ```typescript
-   // Example auto-save implementation
-   function setupAutoSave(interval: number = 30000) {
-   	let saveTimeout: number;
+    ```typescript
+    // Example auto-save implementation
+    function setupAutoSave(interval: number = 30000) {
+    	let saveTimeout: number;
 
-   	return function triggerAutoSave() {
-   		clearTimeout(saveTimeout);
-   		saveTimeout = setTimeout(async () => {
-   			const content = editorStore.getContent();
-   			if (content !== editorStore.lastSavedContent) {
-   				try {
-   					await saveDocument({
-   						...currentDocument,
-   						documentBody: content,
-   						updatedAt: new Date()
-   					});
-   					editorStore.update((state) => ({
-   						...state,
-   						lastSavedContent: content
-   					}));
-   				} catch (error) {
-   					console.error('Auto-save failed:', error);
-   				}
-   			}
-   		}, interval);
-   	};
-   }
-   ```
+    	return function triggerAutoSave() {
+    		clearTimeout(saveTimeout);
+    		saveTimeout = setTimeout(async () => {
+    			const content = editorStore.getContent();
+    			if (content !== editorStore.lastSavedContent) {
+    				try {
+    					await saveDocument({
+    						...currentDocument,
+    						documentBody: content,
+    						updatedAt: new Date()
+    					});
+    					editorStore.update((state) => ({
+    						...state,
+    						lastSavedContent: content
+    					}));
+    				} catch (error) {
+    					console.error('Auto-save failed:', error);
+    				}
+    			}
+    		}, interval);
+    	};
+    }
+    ```
 
-2. **Version History**
+2.  **Version History**
 
-   - All changes tracked in undo/redo stack
-   - Document versions saved periodically
-   - Restoration points available
-   - Change summary for each version
+    - All changes tracked in undo/redo stack
+    - Document versions saved periodically
+    - Restoration points available
+    - Change summary for each version
 
-3. **Export Options**
-   - Clean print version
-   - Annotated version with corrections
-   - Statistical summary
-   - Progress report
+3.  **Export Options**
+    - Clean print version
+    - Annotated version with corrections
+    - Statistical summary
+    - Progress report
 
 ## Implementation Priorities
 
-### Phase 1: Core Editor
+### Phase 1: Core Editor (Complete)
 
-1. Basic node management
+1.  Basic node management
 
-   - Text parsing and tokenization
-   - Node creation and editing
-   - Basic correction types
+    - Text parsing and tokenization
+    - Node creation and editing
+    - Basic correction types
 
-2. Essential UI
-   - TextEditor component
-   - TextNode component
-   - Basic keyboard controls
-   - Simple pattern selection
+2.  Essential UI
+    - TextEditor component
+    - TextNode component
+    - Basic keyboard controls
+    - Simple pattern selection
 
-### Phase 2: Enhanced Features
+### Phase 2: Staging Area and Integration
 
-1. Advanced corrections
+1.  **Staging Area Implementation:**
+    - Create `StagingArea.svelte` component.
+    - Implement UI for reviewing and correcting OCR output.
+    - Establish API endpoint to receive documents.
+    - Implement title/subtitle/heading identification.
+    - Implement document finalization and transition to `'editing'` state.
+2.  **Telegram/LLMWHisperer Integration:**
+    - Establish API endpoint to receive documents.
+    - Implement document creation in `'staged'` status.
+3.  **Seed Script Updates**:
+    - Update the seed script to reflect schema changes (title, subtitle, headings).
 
-   - Pattern system
-   - Explanation templates
-   - Multi-node operations
+### Phase 3: Enhanced Features (Previously Phase 2)
 
-2. User experience
-   - Keyboard shortcuts
-   - Context menus
-   - Visual feedback
-   - Help system
+1.  Advanced corrections
 
-### Phase 3: Integration
+    - Pattern system
+    - Explanation templates
+    - Multi-node operations
 
-1. Document management
+2.  User experience
+    - Keyboard shortcuts
+    - Context menus
+    - Visual feedback
+    - Help system
 
-   - Auto-save
-   - Version control
-   - Export options
+### Phase 4: Integration (Previously Phase 3)
 
-2. Analytics
-   - Error patterns
-   - Progress tracking
-   - Usage statistics
+1.  Document management
 
-### Phase 4: Optimization
+    - Auto-save
+    - Version control
+    - Export options
 
-1. Performance
+2.  Analytics
+    - Error patterns
+    - Progress tracking
+    - Usage statistics
 
-   - Large document handling
-   - Lazy loading
-   - Batch operations
+### Phase 5: Optimization (Previously Phase 4)
 
-2. Advanced features
-   - AI integration
-   - Template system
+1.  Performance
+
+    - Large document handling
+    - Lazy loading
+    - Batch operations
+
+2.  Advanced features
+    - AI integration
+    - Template system
 
 ## Testing Architecture
 
@@ -560,50 +612,51 @@ Since the editor is node-based and designed for correcting existing text, users 
 
 The project uses a comprehensive testing setup with the following tools:
 
-1. **Vitest**
+1.  **Vitest**
 
-   - Main testing framework
-   - Compatible with Vite and SvelteKit
-   - Provides fast, parallel test execution
-   - Supports TypeScript out of the box
+    - Main testing framework
+    - Compatible with Vite and SvelteKit
+    - Provides fast, parallel test execution
+    - Supports TypeScript out of the box
 
-2. **@testing-library/svelte**
+2.  **@testing-library/svelte**
 
-   - Testing utility for Svelte components
-   - Enables component rendering in tests
-   - Provides DOM querying and interaction methods
-   - Encourages testing from a user's perspective
-   - Example usage:
+    - Testing utility for Svelte components
+    - Enables component rendering in tests
+    - Provides DOM querying and interaction methods
+    - Encourages testing from a user's perspective
+    - Example usage:
 
-     ```typescript
-     import { render, fireEvent } from '@testing-library/svelte';
-     import TextNode from '$lib/components/TextNode.svelte';
+      ```typescript
+      import { render, fireEvent } from '@testing-library/svelte';
+      import TextNode from '$lib/components/TextNode.svelte';
 
-     test('node enters edit mode on click', async () => {
-     	const { getByText } = render(TextNode, { props: { text: 'Hello' } });
-     	const node = getByText('Hello');
-     	await fireEvent.click(node);
-     	// Assert edit mode is active
-     });
-     ```
+      test('node enters edit mode on click', async () => {
+      	const { getByText } = render(TextNode, { props: { text: 'Hello' } });
+      	const node = getByText('Hello');
+      	await fireEvent.click(node);
+      	// Assert edit mode is active
+      });
+      ```
 
-3. **@testing-library/jest-dom**
+3.  **@testing-library/jest-dom**
 
-   - Extends assertion capabilities
-   - Provides DOM-specific matchers
-   - Makes tests more readable and maintainable
-   - Example matchers:
-     ```typescript
-     expect(element).toBeInTheDocument();
-     expect(element).toHaveClass('active');
-     expect(element).toBeVisible();
-     ```
+    - Extends assertion capabilities
+    - Provides DOM-specific matchers
+    - Makes tests more readable and maintainable
+    - Example matchers:
 
-4. **jsdom**
-   - Provides DOM environment for Node.js
-   - Enables DOM manipulation in tests
-   - Essential for component testing
-   - Automatically configured with Vitest
+      ```typescript
+      expect(element).toBeInTheDocument();
+      expect(element).toHaveClass('active');
+      expect(element).toBeVisible();
+      ```
+
+4.  **jsdom**
+    - Provides DOM environment for Node.js
+    - Enables DOM manipulation in tests
+    - Essential for component testing
+    - Automatically configured with Vitest
 
 ### Test Organization
 
@@ -621,63 +674,59 @@ src/
 
 ### Testing Patterns
 
-1. **Store Testing**
+1.  **Store Testing**
 
-   - Test store subscriptions
-   - Verify state updates
-   - Test derived stores
-   - Example: editorStore tests for undo/redo
+    - Test store subscriptions
+    - Verify state updates
+    - Test derived stores
+    - Example: editorStore tests for undo/redo
 
-2. **Component Testing**
+2.  **Component Testing**
 
-   - Render testing
-   - Event handling
-   - Props validation
-   - Slot content
-   - Example: TextNode.svelte tests
+    - Render testing
+    - Event handling
+    - Props validation
+    - Slot content
+    - Example: TextNode.svelte tests
 
-3. **Utility Testing**
+3.  **Utility Testing**
 
-   - Input validation
-   - Edge cases
-   - Error handling
-   - Example: nodeSerializer tests
+    - Input validation
+    - Edge cases
+    - Error handling
+    - Example: nodeSerializer tests
 
-4. **Integration Testing**
-   - Component interactions
-   - Store integrations
-   - User workflows
-   - Example: TextEditor with nodes
+4.  **Integration Testing**
+    - Component interactions
+    - Store integrations
+    - User workflows
+    - Example: TextEditor with nodes
 
 ## Future Considerations
 
-1. **AI Enhancement**
+1.  **AI Enhancement**
 
-   - Pattern suggestion
-   - Automatic error detection
-   - Explanation generation
-   - Learning from correctionsz
+    - Pattern suggestion
+    - Automatic error detection
+    - Explanation generation
+    - Learning from correctionsz
 
-2. **Collaboration**
+2.  **Collaboration**
 
-   - Multiple teacher access
-   - Comment system
-   - Review workflow
-   - Change tracking
+    - Multiple teacher access
+    - Comment system
+    - Review workflow
+    - Change tracking
 
-3. **Analytics**
+3.  **Analytics**
 
-   - Student progress tracking
-   - Pattern effectiveness
-   - Learning analytics
-   - Report generation
+    - Student progress tracking
+    - Pattern effectiveness
+    - Learning analytics
+    - Report generation
 
-4. **Integration**
-   - LMS integration
-   - API access
-   - Export formats
-   - Mobile support
-
-```
-
-```
+4.  **Integration**
+    - LMS integration
+    - API access
+    - Export formats
+    - Mobile support

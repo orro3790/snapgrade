@@ -4,6 +4,7 @@
 	import { userStore } from '$lib/stores/userStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
+	import { invalidateAll } from '$app/navigation';
 
 	// Import icons
 	import Home from '$lib/icons//Home.svelte';
@@ -74,36 +75,34 @@
 		}
 	}
 
-	function handleLogin(event: MouseEvent | KeyboardEvent) {
-		event.preventDefault();
-		modalStore.open('login');
-	}
-
-	const enhanceLogout: SubmitFunction = () => {
+	async function handleLogout() {
 		isLoggingOut = true;
-		return async ({ result }) => {
-			if (result.type === 'success') {
-				// Clear all stores
-				userStore.set(null);
-				settingsStore.set(null);
+		const response = await fetch('/api/auth/logout', {
+			method: 'POST'
+		});
 
-				// Reset active item to home
-				activeItem = 'home';
+		if (response.ok) {
+			// Clear all stores
+			userStore.set(null);
+			settingsStore.set(null);
+			invalidateAll();
 
-				// Show success toast
-				toastStore.show({
-					message: 'Successfully logged out',
-					type: 'success'
-				});
-			} else {
-				toastStore.show({
-					message: 'Logout failed. Please try again.',
-					type: 'error'
-				});
-			}
-			isLoggingOut = false;
-		};
-	};
+			// Reset active item to home
+			activeItem = 'home';
+
+			// Show success toast
+			toastStore.show({
+				message: 'Successfully logged out',
+				type: 'success'
+			});
+		} else {
+			toastStore.show({
+				message: 'Logout failed. Please try again.',
+				type: 'error'
+			});
+		}
+		isLoggingOut = false;
+	}
 </script>
 
 <nav class="sidebar" class:expanded={isExpanded} aria-label="Main navigation">
@@ -161,28 +160,27 @@
 
 			<!-- Login/Logout Button -->
 			{#if user}
-				<form action="?/logout" method="POST" use:enhance={enhanceLogout}>
-					<button
-						type="submit"
-						class="nav-item"
-						class:active={activeItem === 'logout'}
-						aria-label="Logout"
-					>
-						<span class="icon">
-							{#if isLoggingOut}
-								<div class="spinner"></div>
-							{:else}
-								<Logout
-									size={24}
-									stroke={activeItem === 'logout' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-								/>
-							{/if}
-						</span>
-						{#if isExpanded}
-							<span class="label">Logout</span>
+				<button
+					type="button"
+					class="nav-item"
+					class:active={activeItem === 'logout'}
+					aria-label="Logout"
+					onclick={handleLogout}
+				>
+					<span class="icon">
+						{#if isLoggingOut}
+							<div class="spinner"></div>
+						{:else}
+							<Logout
+								size={24}
+								stroke={activeItem === 'logout' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+							/>
 						{/if}
-					</button>
-				</form>
+					</span>
+					{#if isExpanded}
+						<span class="label">Logout</span>
+					{/if}
+				</button>
 			{:else}
 				<a
 					href="/login"
