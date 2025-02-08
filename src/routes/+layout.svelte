@@ -5,9 +5,17 @@
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
 	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
 
-	let { data } = $props<{ data: LayoutData }>();
+	let {
+		data,
+		children
+	}: {
+		data: LayoutData;
+		children: Snippet;
+	} = $props();
+
 	let documentToLoad = $state('');
 
 	// Pass user data and uid to all child routes
@@ -27,7 +35,7 @@
 
 <div class="flex min-h-screen">
 	<main class="flex-1">
-		<slot {data} />
+		{@render children()}
 	</main>
 </div>
 

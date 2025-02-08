@@ -86,9 +86,26 @@
     --modal-close-button-color: var(--text-muted);
     --modal-close-button-hover-color: var(--text-normal);
     --modal-close-button-hover-bg: var(--background-modifier-hover);
+
+    /* Typography Scale */
+    --font-size-sm: 0.875rem;      /* 14px - Small text, labels */
+    --font-size-base: 1rem;        /* 16px - Body text */
+    --font-size-lg: 1.25rem;       /* 20px - Subheadings */
+    --font-size-xl: 1.5rem;        /* 24px - Headers (matching ClassManager) */
+
+    /* Font Weights */
+    --font-weight-normal: 400;     /* Regular text */
+    --font-weight-semibold: 600;   /* Headers (matching ClassManager) */
+    --font-weight-bold: 700;       /* Extra emphasis when needed */
+
+    /* Line Heights */
+    --line-height-none: 1;         /* Used in buttons, close icons */
+    --line-height-normal: 1.5;     /* Default for body text */
+
+    /* Letter Spacing */
+    --letter-spacing-normal: 0em;  /* Default */
+    --letter-spacing-wide: 0.025em; /* For emphasis */
 }
-
-
 
 /* Basic global styles using these variables */
 body {
