@@ -1,4 +1,3 @@
-// src/lib/stores/editorStore.ts
 import { writable, derived } from 'svelte/store';
 import { type Node, type NodeType, type CorrectionData } from '$lib/schemas/textNode';
 
@@ -9,12 +8,19 @@ const { subscribe: undoStackSubscribe, update: updateUndoStack } = writable<Node
 const { subscribe: redoStackSubscribe, update: updateRedoStack } = writable<Node[][]>([]);
 
 // Derived state for paragraphs
+/**
+ * A derived store that groups nodes into paragraphs based on newline spacer nodes.
+ */
 export const paragraphs = derived(
     { subscribe: nodesSubscribe },
     ($nodes) => groupNodesByParagraph($nodes)
 );
 
-// Helper function to group nodes into paragraphs
+/**
+ * Groups an array of nodes into paragraphs.  Paragraphs are delimited by 'newline' spacer nodes.
+ * @param {Node[]} nodes - The array of nodes to group.
+ * @returns {{ id: string; corrections: Node[] }[]} An array of paragraph objects, where each object contains a unique ID and an array of nodes belonging to that paragraph.
+ */
 function groupNodesByParagraph(nodes: Node[]) {
     const paragraphs: { id: string; corrections: Node[] }[] = [];
     let currentParagraph: Node[] = [];
@@ -63,86 +69,40 @@ function groupNodesByParagraph(nodes: Node[]) {
     return paragraphs;
 }
 
-// Parse text content into nodes
+/**
+ * Parses the input text content and creates an array of nodes.
+ * @param {string} content - The input text content.
+ */
 function parseContent(content: string) {
     const newNodes: Node[] = [];
     let position = 0;
 
-    // Split content into tokens, preserving whitespace and punctuation
-    const tokens = content.split(/(\s+|[.,!?;:])/).filter(Boolean);
+    // Split content into words and punctuation, ignoring whitespace
+    const tokens = content
+        .split(/([.,!?;:]|\s+)/)  // Split by punctuation or whitespace sequences
+        .map(token => token.trim()) // Trim any whitespace
+        .filter(token => {
+            // Keep only non-empty tokens that aren't pure whitespace
+            return token && !/^\s+$/.test(token);
+        });
 
     tokens.forEach(token => {
-        if (/^\s+$/.test(token)) {
-            // Handle whitespace
-            if (token.includes('\n')) {
-                // Handle multiple newlines
-                for (let i = 0; i < token.length; i++) {
-                    if (token[i] === '\n') {
-                        newNodes.push({
-                            id: crypto.randomUUID(),
-                            text: '',
-                            type: 'spacer',
-                            spacerData: { subtype: 'newline' },
-                            metadata: {
-                                position: position++,
-                                lineNumber: 1,
-                                isPunctuation: false,
-                                isWhitespace: true,
-                                startIndex: 0,
-                                endIndex: 0
-                            }
-                        });
-                    }
-                }
-            } else if (token.length > 1) {
-                newNodes.push({
-                    id: crypto.randomUUID(),
-                    text: '',
-                    type: 'spacer',
-                    spacerData: { subtype: 'doubletab' },
-                    metadata: {
-                        position: position++,
-                        lineNumber: 1,
-                        isPunctuation: false,
-                        isWhitespace: true,
-                        startIndex: 0,
-                        endIndex: 0
-                    }
-                });
-            } else {
-                newNodes.push({
-                    id: crypto.randomUUID(),
-                    text: '',
-                    type: 'spacer',
-                    spacerData: { subtype: 'tab' },
-                    metadata: {
-                        position: position++,
-                        lineNumber: 1,
-                        isPunctuation: false,
-                        isWhitespace: true,
-                        startIndex: 0,
-                        endIndex: 0
-                    }
-                });
+        // Handle text or punctuation
+        const isPunctuation = /^[.,!?;:]$/.test(token);
+        console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`);
+        newNodes.push({
+            id: crypto.randomUUID(),
+            text: token,
+            type: 'normal',
+            metadata: {
+                position: position++,
+                lineNumber: 1,
+                isPunctuation,
+                isWhitespace: false,
+                startIndex: 0,
+                endIndex: 0
             }
-        } else {
-            // Handle text or punctuation
-            const isPunctuation = /^[.,!?;:]$/.test(token);
-            console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`); // Add logging
-            newNodes.push({
-                id: crypto.randomUUID(),
-                text: token,
-                type: 'normal',
-                metadata: {
-                    position: position++,
-                    lineNumber: 1,
-                    isPunctuation,
-                    isWhitespace: false,
-                    startIndex: 0,
-                    endIndex: 0
-                }
-            });
-        }
+        });
     });
 
     setNodes(newNodes);
@@ -150,7 +110,10 @@ function parseContent(content: string) {
     updateRedoStack(() => []);
 }
 
-// Get serialized content for storage
+/**
+ * Serializes the current nodes array into a JSON string for storage.
+ * @returns {string} The serialized JSON string.
+ */
 function getSerializedContent(): string {
     let nodes: Node[] = [];
     nodesSubscribe(($nodes) => {
@@ -159,7 +122,10 @@ function getSerializedContent(): string {
     return serializeNodes(nodes);
 }
 
-// Load serialized content
+/**
+ * Loads and deserializes nodes from a JSON string.
+ * @param {string} serialized - The serialized JSON string.
+ */
 function loadSerializedContent(serialized: string) {
     const nodes = deserializeNodes(serialized);
     setNodes(nodes);
@@ -169,23 +135,31 @@ function loadSerializedContent(serialized: string) {
 
 import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 
-// Node manipulation functions
-function updateNode(nodeId: string, text: string, correctionData?: CorrectionData, type: NodeType = 'normal') {
+/**
+ * Updates the properties of an existing node.
+ * @param {string} nodeId - The ID of the node to update.
+ * @param {string} text - The new text content of the node.
+ * @param {CorrectionData} [correctionData] - Optional correction data.
+ * @param {{ subtype: 'newline' | 'tab' }} [spacerData] - Optional spacer data (for spacer nodes).
+ * @param {NodeType} [type='normal'] - The node type. Defaults to 'normal'.
+ */
+function updateNode(nodeId: string, text: string, correctionData?: CorrectionData, spacerData?: { subtype: 'newline' | 'tab' }, type: NodeType = 'normal') {
     updateNodes($nodes => {
         const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
         if (nodeIndex === -1) return $nodes;
-        
+
         // Save current state for undo
         updateUndoStack($undoStack => [...$undoStack, [...$nodes]]);
         updateRedoStack(() => []);
-        
+
         const updatedNode = {
             ...$nodes[nodeIndex],
             text,
             type,
-            ...(correctionData && { correctionData })
+            ...(correctionData && { correctionData }),
+            ...(spacerData && { spacerData })
         };
-        
+
         return [
             ...$nodes.slice(0, nodeIndex),
             updatedNode,
@@ -194,6 +168,12 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
     });
 }
 
+/**
+ * Inserts a new node after the specified node.
+ * @param {string} nodeId - The ID of the node after which to insert the new node.
+ * @param {string} text - The text content of the new node.
+ * @param {NodeType} [type='normal'] - The type of the new node. Defaults to 'normal'.
+ */
 function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal') {
     updateNodes($nodes => {
         const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
@@ -225,6 +205,10 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
     });
 }
 
+/**
+ * Removes a node from the editor.
+ * @param {string} nodeId - The ID of the node to remove.
+ */
 function removeNode(nodeId: string) {
     updateNodes($nodes => {
         const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
@@ -241,7 +225,9 @@ function removeNode(nodeId: string) {
     });
 }
 
-// Undo/Redo functionality
+/**
+ * Undoes the last action.
+ */
 function undo() {
     let canUndo = false;
     undoStackSubscribe(($undoStack) => {
@@ -264,6 +250,9 @@ function undo() {
     });
 }
 
+/**
+ * Redoes the last undone action.
+ */
 function redo() {
     let canRedo = false;
     redoStackSubscribe(($redoStack) => {
@@ -286,7 +275,10 @@ function redo() {
     });
 }
 
-// Content getter for parent component updates
+/**
+ * Gets the current text content of the editor by joining the text of all nodes.
+ * @returns {string} The current text content.
+ */
 function getContent(): string {
     let content = '';
     nodesSubscribe(($nodes) => {
@@ -295,27 +287,95 @@ function getContent(): string {
     return content;
 }
 
-// Export store interface
+/**
+ * The main editor store object, containing functions and stores for managing the editor state.
+ */
 export const editorStore = {
+    /**
+     * Subscribe to changes in the nodes array.
+     */
     subscribe: nodesSubscribe,
+    /**
+     * Store for managing the active node.
+     */
     activeNode: {
+        /**
+         * Subscribe to changes in the active node ID.
+         */
         subscribe: activeNodeSubscribe,
+        /**
+         * Sets the active node ID.
+         * @param {string | null} nodeId - The ID of the node to set as active, or null to clear the active node.
+         */
         set: setActiveNode
     },
+    /**
+     * A derived store that groups nodes into paragraphs.
+     */
     paragraphs,
+    /**
+     * Parses the input text content and creates nodes.
+     * @param {string} content - The input text content.
+     */
     parseContent,
+    /**
+     * Updates the properties of an existing node.
+     * @param {string} nodeId - The ID of the node to update.
+     * @param {string} text - The new text content.
+     * @param {CorrectionData} [correctionData] - Optional correction data.
+     * @param {object} [spacerData] - Optional spacerData (subtype).
+     * @param {NodeType} [type='normal'] - The node type.
+     */
     updateNode,
+    /**
+     * Inserts a new node after the specified node.
+     * @param {string} nodeId - The ID of the node after which to insert.
+     * @param {string} text - The text content of the new node.
+     * @param {NodeType} [type='normal'] - The type of the new node.
+     */
     insertNodeAfter,
+    /**
+     * Removes a node from the editor.
+     * @param {string} nodeId - The ID of the node to remove.
+     */
     removeNode,
+     /**
+     * Sets the active node ID.
+     * @param {string | null} nodeId The ID of the node to set as active, or null to clear the active node.
+     */
     setActiveNode: (nodeId: string | null) => setActiveNode(nodeId),
+    /**
+     * Undoes the last action.
+     */
     undo,
+    /**
+     * Redoes the last undone action.
+     */
     redo,
+    /**
+     * Gets the current text content of the editor.
+     * @returns {string} The current text content.
+     */
     getContent,
+    /**
+     * Serializes the current nodes array into a JSON string.
+     * @returns {string} The serialized JSON string.
+     */
     getSerializedContent,
+    /**
+     * Loads and deserializes nodes from a JSON string.
+     * @param {string} serialized - The serialized JSON string.
+     */
     loadSerializedContent
 };
 
+/**
+ * A separate store for easier access to the active correction.
+ */
 // Export active node as a separate store for easier access
 export const activeCorrection = {
+    /**
+     * Subscribe to changes in the active node ID.
+     */
     subscribe: activeNodeSubscribe
 };

@@ -1,6 +1,6 @@
 # START HERE
 
-This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
+This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and project-documentation.md @/documentation/project-documentation.md and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
 
 ### 1.0 YOUR PERSONALITY AND BEHAVIOR
 
@@ -14,13 +14,13 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ### 1.1 PROJECT OVERVIEW
 
-- We are building a lightweight, simple text-editor that allows users to add corrections to their essays. The editor will be used by a teacher to correct their students' essays. The corrections will be displayed in a printable format. There are three types of corrections: deletions, additions, and corrections. Text can be inputed manually by the teacher, or received automatically from an API endpoint.
+- We are building a lightweight, simple text-editor that allows users to add corrections to their essays. The editor will be used by a teacher to correct their students' essays. The corrections will be displayed in a printable format. Text can be inputed manually by the teacher, or received automatically from an API endpoint. Each word is tokenized and displayed as a TextNode.svelte component. Before storing in the database, the tokens are serialized and stored as a compressed JSON array. When documents are loaded back into the editor, the tokens are deserialized into the TextNode.svelte components.
 
 ## 2. TECH STACK
 
 ### 2.1 FRAMEWORK
 
-- Sveltekit, Svelte 5 (with Runes syntax)
+- Sveltekit, Svelte 5 (with Runes syntax).
 
 ### 2.2 LANGUAGE
 
@@ -29,6 +29,7 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 ### 2.3 Forms and Validation
 
 - Superforms with Zod for validation
+- All types inferred from Zod schemas
 
 ### 2.4 Backend Services
 
@@ -86,7 +87,7 @@ leap/
 │   ├── lib/
 │   │   ├── components/      # Reusable Svelte components
 │   │   ├── icons/           # Tabler.io SVG components
-│   │   ├── schemas/         # Zod validation schemas
+│   │   ├── schemas/         # Zod validation schemas and types
 │   │   ├── firebase/        # Firebase services
 │   │   └── utils/           # Shared utility functions
 │   ├── routes/
@@ -113,7 +114,6 @@ leap/
 ### 5.3 HTML Elements
 
 - **Div Requirements**:
-
   - ARIA role
   - Tab index
   - ARIA attributes
@@ -130,6 +130,7 @@ leap/
 - Document API interactions and data flows
 - Keep manifest.json well-documented
 - Don't include comments unless it's for complex logic
+- Always supply JSDOC comments for all functions
 
 ## 7. Git Usage
 

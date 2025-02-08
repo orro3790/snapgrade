@@ -145,12 +145,6 @@
 		border: none;
 	}
 
-	.text-node[data-subtype='doubletab'] {
-		width: 4vw;
-		min-width: 4vw;
-		border: none;
-	}
-
 	.text-node[data-subtype='newline'] {
 		width: 100%;
 		height: 1em;

@@ -120,6 +120,8 @@ type Node = z.infer<typeof nodeSchema>;
 type NodeType = z.infer<typeof nodeTypeEnum>;
 ```
 
+Note: The `isWhitespace` property within `metadata` will be `true` only for nodes of type `spacer`. For `normal` nodes, it will always be `false`, as whitespace is not included in the text content of regular nodes.
+
 #### Example Node
 
 ```typescript
@@ -368,6 +370,18 @@ Category: `cond`
 
 - Source: `src/lib/utils/nodeSerializer.ts`
 
+#### Whitespace Handling
+
+The text editor handles whitespace in a specific way, optimized for its node-based structure and correction-focused workflow:
+
+- **Parsing:** During the initial text parsing (in `editorStore.ts`, `parseContent` function), whitespace characters (spaces, tabs, newlines) are _ignored_. The input text is split into tokens based on words and punctuation only. Whitespace is _not_ used to create nodes automatically.
+- **Spacer Nodes:** Tabs and newlines are represented by explicit "spacer" nodes. These nodes are _not_ created during the initial parsing of the input text. Instead, they are created _explicitly_ by user actions:
+  - Users can insert a "tab" spacer node using a designated hotkey (e.g., the Tab key) or a UI button.
+  - Users can insert a "newline" spacer node using a designated hotkey (e.g., Ctrl+Enter, or a dedicated "new line" button) or a UI button.
+- **Indentation:** Users can achieve indentation by adding multiple "tab" spacer nodes. There is no concept of "double tabs" or other special whitespace combinations.
+
+This approach simplifies the parsing logic and gives users precise control over spacing within the document.
+
 ## User Interaction Flow
 
 ### Node Manipulation
@@ -407,6 +421,14 @@ The text editor supports several ways to manipulate nodes:
    - Ctrl + S: Save document
    - Ctrl + P: Print view
    - Alt + H: Toggle help overlay
+
+#### Adding Whitespace
+
+Since the editor is node-based and designed for correcting existing text, users do _not_ type spaces, tabs, and newlines directly into a continuous text flow. Instead:
+
+- **Spaces:** Regular spaces between words are automatically handled when parsing text into nodes. Users do not need to add spaces manually.
+- **Tabs:** Users can insert a "tab" spacer node by using a designated hotkey (e.g., the Tab key itself, but _not_ while editing a text node) or by clicking a UI button specifically for adding tabs.
+- **Newlines:** Users can insert a "newline" spacer node by using a designated hotkey (e.g., Ctrl+Enter, or a dedicated "new line" button) or by clicking a UI button specifically for adding newlines.
 
 ### Correction Workflow
 

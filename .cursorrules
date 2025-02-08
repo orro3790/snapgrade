@@ -130,6 +130,7 @@ leap/
 - Document API interactions and data flows
 - Keep manifest.json well-documented
 - Don't include comments unless it's for complex logic
+- Always supply JSDOC comments for all functions
 
 ## 7. Git Usage
 

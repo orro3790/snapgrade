@@ -112,8 +112,7 @@ export const nodeSchema = z.object({
 	type: nodeTypeEnum,
 	correctionData: correctionDataSchema.optional(),
 	metadata: nodeMetadataSchema,
-	hasNextCorrection: z.boolean().optional(),
-	mispunctuation: z.boolean().optional()
+	hasNextCorrection: z.boolean().optional()
 });
 
 type Node = z.infer<typeof nodeSchema>;

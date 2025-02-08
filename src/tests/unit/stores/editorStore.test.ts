@@ -13,44 +13,43 @@ describe('editorStore', () => {
         /**
          * Tests basic text parsing functionality
          * Verifies that text is correctly split into nodes with proper types
-         * and metadata
+         * and metadata, ignoring whitespace
          */
-        it('parses simple text into nodes', () => {
+        it('parses simple text into nodes, ignoring whitespace', () => {
             editorStore.parseContent('Hello world');
             const nodes = get({ subscribe: editorStore.subscribe });
             
-            expect(nodes).toHaveLength(3); // "Hello", space, "world"
+            expect(nodes).toHaveLength(2); // Just "Hello" and "world"
             expect(nodes[0].text).toBe('Hello');
-            expect(nodes[1].type).toBe('spacer');
-            expect(nodes[2].text).toBe('world');
+            expect(nodes[1].text).toBe('world');
         });
 
         /**
-         * Tests handling of multiple consecutive spaces
-         * Verifies that multiple spaces are converted to appropriate
-         * spacer nodes with correct subtypes
+         * Tests that whitespace is properly ignored during parsing
+         * Verifies that multiple spaces and other whitespace characters
+         * are not converted into nodes
          */
-        it('handles multiple spaces correctly', () => {
-            editorStore.parseContent('Hello  world');
+        it('ignores all whitespace during parsing', () => {
+            editorStore.parseContent('Hello  \t  world');
             const nodes = get({ subscribe: editorStore.subscribe });
             
-            expect(nodes).toHaveLength(3);
-            expect(nodes[1].type).toBe('spacer');
-            expect(nodes[1].spacerData?.subtype).toBe('doubletab');
+            expect(nodes).toHaveLength(2); // Just text nodes
+            expect(nodes[0].text).toBe('Hello');
+            expect(nodes[1].text).toBe('world');
         });
 
         /**
-         * Tests newline handling
-         * Verifies that newline characters are properly converted to
-         * spacer nodes with 'newline' subtype
+         * Tests that newlines are ignored during parsing
+         * Verifies that newline characters are not automatically
+         * converted to spacer nodes
          */
-        it('handles newlines correctly', () => {
+        it('ignores newlines during parsing', () => {
             editorStore.parseContent('Hello\nworld');
             const nodes = get({ subscribe: editorStore.subscribe });
             
-            expect(nodes).toHaveLength(3);
-            expect(nodes[1].type).toBe('spacer');
-            expect(nodes[1].spacerData?.subtype).toBe('newline');
+            expect(nodes).toHaveLength(2); // Just text nodes
+            expect(nodes[0].text).toBe('Hello');
+            expect(nodes[1].text).toBe('world');
         });
 
         /**
@@ -65,8 +64,9 @@ describe('editorStore', () => {
 
             console.log("Nodes:", nodes);
 
-            expect(nodes[1].metadata['isPunctuation']).toBe(true);
-            expect(nodes[4].metadata['isPunctuation']).toBe(true);
+            expect(nodes).toHaveLength(4); // "Hello", ",", "world", "!"
+            expect(nodes[1].metadata['isPunctuation']).toBe(true); // comma
+            expect(nodes[3].metadata['isPunctuation']).toBe(true); // exclamation mark
         });
     });
 
@@ -81,7 +81,7 @@ describe('editorStore', () => {
             const nodes = get({ subscribe: editorStore.subscribe });
             const nodeId = nodes[0].id;
             
-            editorStore.updateNode(nodeId, 'Hi', undefined, 'normal');
+            editorStore.updateNode(nodeId, 'Hi', undefined, { subtype: 'newline' }, 'normal');
             const updatedNodes = get({ subscribe: editorStore.subscribe });
             
             expect(updatedNodes[0].text).toBe('Hi');
@@ -119,9 +119,8 @@ describe('editorStore', () => {
             editorStore.removeNode(nodeId);
             const updatedNodes = get({ subscribe: editorStore.subscribe });
             
-            expect(updatedNodes).toHaveLength(2); // space and "world" remain
-            expect(updatedNodes[0].type).toBe('spacer');
-            expect(updatedNodes[1].text).toBe('world');
+            expect(updatedNodes).toHaveLength(1); // Just "world" remains
+            expect(updatedNodes[0].text).toBe('world');
         });
     });
 
@@ -185,22 +184,43 @@ describe('editorStore', () => {
          * based on newline spacers
          */
         it('groups nodes into paragraphs correctly', () => {
-            editorStore.parseContent('Hello\nworld\ntest');
-            const paragraphs = get(editorStore.paragraphs);
+            // First create text nodes
+            editorStore.parseContent('Hello world test');
+            const nodes = get({ subscribe: editorStore.subscribe });
             
-            expect(paragraphs).toHaveLength(3);
+            // Then manually insert newline spacers
+            // Insert a newline spacer after "Hello"
+            // Insert a newline spacer after "Hello"
+            editorStore.insertNodeAfter(nodes[0].id, '', 'spacer');
+            const nodesWithNewline = get({ subscribe: editorStore.subscribe });
+            editorStore.updateNode(nodesWithNewline[1].id, '', undefined, { subtype: 'newline' }, 'spacer');
+            
+            const paragraphs = get(editorStore.paragraphs);
+            expect(paragraphs).toHaveLength(2);
             expect(paragraphs[0].corrections[0].text).toBe('Hello');
             expect(paragraphs[1].corrections[0].text).toBe('world');
-            expect(paragraphs[2].corrections[0].text).toBe('test');
+            expect(paragraphs[1].corrections[1].text).toBe('test');
         });
 
         /**
          * Tests that empty paragraphs are handled correctly
          */
         it('handles empty paragraphs', () => {
-            editorStore.parseContent('Hello\n\nworld');
-            const paragraphs = get(editorStore.paragraphs);
+            // Create text nodes first
+            editorStore.parseContent('Hello world');
+            const nodes = get({ subscribe: editorStore.subscribe });
             
+            // Then manually insert two consecutive newline spacers
+            // Insert two consecutive newline spacers
+            // Insert two consecutive newline spacers
+            editorStore.insertNodeAfter(nodes[0].id, '', 'spacer');
+            const nodesWithNewline = get({ subscribe: editorStore.subscribe });
+            editorStore.updateNode(nodesWithNewline[1].id, '', undefined, { subtype: 'newline' }, 'spacer');
+            editorStore.insertNodeAfter(nodesWithNewline[1].id, '', 'spacer');
+            const nodesWithTwoNewlines = get({ subscribe: editorStore.subscribe });
+            editorStore.updateNode(nodesWithTwoNewlines[2].id, '', undefined, { subtype: 'newline' }, 'spacer');
+            
+            const paragraphs = get(editorStore.paragraphs);
             expect(paragraphs).toHaveLength(3);
             expect(paragraphs[1].corrections).toHaveLength(1); // Just the newline spacer
             expect(paragraphs[1].corrections[0].type).toBe('spacer');
@@ -217,10 +237,9 @@ describe('editorStore', () => {
             const serialized = editorStore.getSerializedContent();
             const parsed = JSON.parse(serialized);
             
-            expect(parsed).toHaveLength(3);
+            expect(parsed).toHaveLength(2); // Just text nodes
             expect(parsed[0].x).toBe('Hello');
-            expect(parsed[1].t).toBe('spacer');
-            expect(parsed[2].x).toBe('world');
+            expect(parsed[1].x).toBe('world');
         });
 
         /**
