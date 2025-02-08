@@ -120,6 +120,31 @@ type Node = z.infer<typeof nodeSchema>;
 type NodeType = z.infer<typeof nodeTypeEnum>;
 ```
 
+#### Example Node
+
+```typescript
+const correctionNode = {
+	id: 'node_uuid_here',
+	text: 'misstake', // Original text is preserved in the node
+	type: 'correction', // Indicates this is a correction node
+	correctionData: {
+		originalText: 'misstake',
+		correctedText: 'mistake',
+		pattern: 'form.modify', // Based on your pattern system in documentation
+		explanation: "Common spelling error: 'mistake' has one 's'",
+		teacherNotes: 'Review basic spelling patterns' // Optional
+	},
+	metadata: {
+		position: 42, // Example position in document
+		lineNumber: 3, // Example line number
+		isPunctuation: false,
+		isWhitespace: false,
+		startIndex: 156, // Character index in original text
+		endIndex: 164 // End index in original text
+	}
+};
+```
+
 ### Pattern Schema
 
 ```typescript
@@ -337,377 +362,11 @@ Category: `cond`
 
 ## Store Architecture
 
-```typescript
-// stores/editorStore.ts
-export function createEditorStore() {
-	const { subscribe, update } = writable({
-		nodes: [] as Node[],
-		activeNodeId: null as string | null,
-		undoStack: [] as Node[][],
-		redoStack: [] as Node[][],
-		isSaving: false,
-		lastSavedContent: '',
-		initialState: null as Node[] | null
-	});
-
-	return {
-		subscribe,
-
-		parseContent: (content: string) => {
-			update((state) => {
-				const nodeList = parseTextIntoNodes(content);
-				return {
-					...state,
-					nodes: nodeList,
-					lastSavedContent: content,
-					initialState: state.initialState === null ? nodeList : state.initialState
-				};
-			});
-		},
-
-		updateNode: (nodeId: string, changes: Partial<Node>) => {
-			update((state) => {
-				const newState = saveStateForUndo(state);
-				const nodes = state.nodes.map((node) =>
-					node.id === nodeId ? { ...node, ...changes } : node
-				);
-				return { ...newState, nodes };
-			});
-		},
-
-		insertNode: (position: number, node: Node) => {
-			update((state) => {
-				const newState = saveStateForUndo(state);
-				const nodes = [...state.nodes];
-				nodes.splice(position, 0, node);
-				return { ...newState, nodes };
-			});
-		},
-
-		deleteNode: (nodeId: string) => {
-			update((state) => {
-				const newState = saveStateForUndo(state);
-				return {
-					...newState,
-					nodes: state.nodes.filter((node) => node.id !== nodeId)
-				};
-			});
-		},
-
-		undo: () => {
-			update((state) => {
-				if (state.undoStack.length === 0) return state;
-
-				const newUndoStack = [...state.undoStack];
-				const previousNodes = newUndoStack.pop()!;
-
-				return {
-					...state,
-					nodes: previousNodes,
-					undoStack: newUndoStack,
-					redoStack: [state.nodes, ...state.redoStack]
-				};
-			});
-		},
-
-		redo: () => {
-			update((state) => {
-				if (state.redoStack.length === 0) return state;
-
-				const newRedoStack = [...state.redoStack];
-				const nextNodes = newRedoStack.shift()!;
-
-				return {
-					...state,
-					nodes: nextNodes,
-					undoStack: [...state.undoStack, state.nodes],
-					redoStack: newRedoStack
-				};
-			});
-		}
-	};
-}
-
-// stores/patternStore.ts
-export function createPatternStore() {
-	const { subscribe, update } = writable({
-		patterns: new Map<string, Pattern>(),
-		recentPatterns: [] as string[],
-		categoryFilters: [] as string[],
-		searchQuery: '',
-		activeCategory: null as PatternCategory | null
-	});
-
-	return {
-		subscribe,
-
-		addPattern: (pattern: Pattern) => {
-			update((state) => {
-				const patterns = new Map(state.patterns);
-				patterns.set(pattern.id, pattern);
-				return { ...state, patterns };
-			});
-		},
-
-		filterPatterns: (filters: string[]) => {
-			update((state) => ({
-				...state,
-				categoryFilters: filters
-			}));
-		},
-
-		searchPatterns: (query: string) => {
-			update((state) => ({
-				...state,
-				searchQuery: query
-			}));
-		},
-
-		updateFrequency: (patternId: string) => {
-			update((state) => {
-				const pattern = state.patterns.get(patternId);
-				if (!pattern) return state;
-
-				const patterns = new Map(state.patterns);
-				patterns.set(patternId, {
-					...pattern,
-					frequency: pattern.frequency + 1
-				});
-
-				return { ...state, patterns };
-			});
-		}
-	};
-}
-
-// stores/statsStore.ts
-export function createStatsStore() {
-	const { subscribe, update } = writable({
-		totalCorrections: 0,
-		patternFrequency: new Map<string, number>(),
-		mostCommonErrors: [] as string[],
-		studentProgress: {
-			improvedPatterns: [] as string[],
-			persistentErrors: [] as string[]
-		}
-	});
-
-	return {
-		subscribe,
-
-		updateStats: (nodes: Node[]) => {
-			update((state) => {
-				const patternFrequency = new Map<string, number>();
-				let totalCorrections = 0;
-
-				nodes.forEach((node) => {
-					if (node.type === 'correction' && node.correctionData?.pattern) {
-						totalCorrections++;
-						const pattern = node.correctionData.pattern;
-						patternFrequency.set(pattern, (patternFrequency.get(pattern) || 0) + 1);
-					}
-				});
-
-				const mostCommonErrors = Array.from(patternFrequency.entries())
-					.sort(([, a], [, b]) => b - a)
-					.slice(0, 5)
-					.map(([pattern]) => pattern);
-
-				return {
-					...state,
-					totalCorrections,
-					patternFrequency,
-					mostCommonErrors
-				};
-			});
-		},
-
-		trackPatternUsage: (pattern: string) => {
-			update((state) => {
-				const patternFrequency = new Map(state.patternFrequency);
-				patternFrequency.set(pattern, (patternFrequency.get(pattern) || 0) + 1);
-				return { ...state, patternFrequency };
-			});
-		}
-	};
-}
-```
-
 ## Text Processing
 
-### Parser Implementation
+### Serialization and Deserialization Implementation
 
-```typescript
-// utils/parser.ts
-export function createParser() {
-	// Main parsing function that converts text content into nodes
-	function parseContent(content: string): Node[] {
-		// First validate the content for proper marker structure
-		validateMarkers(content);
-
-		// Initialize state for parsing
-		const nodes: Node[] = [];
-		let currentPosition = 0;
-		let currentLine = 1;
-
-		// Split content into manageable chunks while preserving whitespace
-		const chunks = tokenizeContent(content);
-
-		chunks.forEach((chunk) => {
-			if (isMarker(chunk)) {
-				// Handle special markers (corrections, deletions, etc.)
-				const node = parseMarker(chunk, currentPosition, currentLine);
-				nodes.push(node);
-				currentPosition += chunk.length;
-			} else {
-				// Handle regular text, including punctuation and spacing
-				const textNodes = parseText(chunk, currentPosition, currentLine);
-				nodes.push(...textNodes);
-				currentPosition += chunk.length;
-			}
-
-			// Update line count if needed
-			if (chunk.includes('\n')) {
-				currentLine += chunk.split('\n').length - 1;
-			}
-		});
-
-		return nodes;
-	}
-
-	// Validates proper nesting and closing of correction markers
-	function validateMarkers(text: string): void {
-		const stack: string[] = [];
-		let inMarker = false;
-
-		for (let i = 0; i < text.length; i++) {
-			if (text.slice(i, i + 2) === '{{') {
-				if (inMarker) {
-					throw new Error('Nested markers are not allowed');
-				}
-				inMarker = true;
-				stack.push('{{');
-				i++;
-			} else if (text.slice(i, i + 2) === '}}') {
-				if (!inMarker) {
-					throw new Error('Unexpected closing marker');
-				}
-				inMarker = false;
-				stack.pop();
-				i++;
-			}
-		}
-
-		if (stack.length > 0) {
-			throw new Error('Unclosed markers detected');
-		}
-	}
-
-	// Parses correction markers into structured node data
-	function parseMarker(marker: string, position: number, line: number): Node {
-		// Extract marker content between {{ and }}
-		const content = marker.slice(2, -2);
-		const [type, ...parts] = content.split(':');
-
-		switch (type) {
-			case 'cor':
-				return createCorrectionNode(parts, position, line);
-			case 'del':
-				return createDeletionNode(parts, position, line);
-			case 'add':
-				return createAdditionNode(parts, position, line);
-			default:
-				throw new Error(`Unknown marker type: ${type}`);
-		}
-	}
-
-	// Creates a correction node from marker parts
-	function createCorrectionNode(parts: string[], position: number, line: number): Node {
-		const [pattern, originalText, correctedText] = parts;
-
-		return {
-			id: crypto.randomUUID(),
-			type: 'correction',
-			text: originalText,
-			correctionData: {
-				originalText,
-				correctedText,
-				pattern,
-				explanation: '' // Can be filled in later
-			},
-			metadata: {
-				position,
-				lineNumber: line,
-				isPunctuation: isPunctuationMark(originalText),
-				isWhitespace: false,
-				startIndex: position,
-				endIndex: position + originalText.length
-			}
-		};
-	}
-
-	return {
-		parseContent,
-		validateMarkers,
-		parseMarker
-	};
-}
-
-// utils/tokenizer.ts
-export function createTokenizer() {
-	function tokenizeContent(text: string): string[] {
-		const tokens: string[] = [];
-		let currentToken = '';
-		let inMarker = false;
-
-		for (let i = 0; i < text.length; i++) {
-			if (text.slice(i, i + 2) === '{{') {
-				// If we have accumulated any text, save it
-				if (currentToken) {
-					tokens.push(currentToken);
-					currentToken = '';
-				}
-				inMarker = true;
-				currentToken = '{{';
-				i++;
-			} else if (text.slice(i, i + 2) === '}}') {
-				inMarker = false;
-				currentToken += '}}';
-				tokens.push(currentToken);
-				currentToken = '';
-				i++;
-			} else {
-				// If we're in a marker, accumulate everything
-				// If not, split on whitespace and punctuation
-				if (inMarker) {
-					currentToken += text[i];
-				} else {
-					if (isPunctuationOrWhitespace(text[i])) {
-						if (currentToken) {
-							tokens.push(currentToken);
-							currentToken = '';
-						}
-						tokens.push(text[i]);
-					} else {
-						currentToken += text[i];
-					}
-				}
-			}
-		}
-
-		// Don't forget any remaining token
-		if (currentToken) {
-			tokens.push(currentToken);
-		}
-
-		return tokens;
-	}
-
-	return {
-		tokenizeContent
-	};
-}
-```
+- Source: `src/lib/utils/nodeSerializer.ts`
 
 ## User Interaction Flow
 
@@ -766,6 +425,11 @@ The text editor supports several ways to manipulate nodes:
    - Select from pattern examples
    - Use AI-suggested explanations
    - Save explanations as templates
+   - Allow students to scan QR code on printed rubric to access interactive feedback UI
+   - Each correction node contains explanation that displays in tooltip or header
+   - List menu of explanations on left of content, hover over to see explanation, snaps view on node
+   - Explanations persist with nodes and sync to database
+   - Mobile-friendly feedback view optimized for QR code access
 
 ### Document Management
 
@@ -867,6 +531,101 @@ The text editor supports several ways to manipulate nodes:
 2. Advanced features
    - AI integration
    - Template system
+
+## Testing Architecture
+
+### Testing Stack
+
+The project uses a comprehensive testing setup with the following tools:
+
+1. **Vitest**
+
+   - Main testing framework
+   - Compatible with Vite and SvelteKit
+   - Provides fast, parallel test execution
+   - Supports TypeScript out of the box
+
+2. **@testing-library/svelte**
+
+   - Testing utility for Svelte components
+   - Enables component rendering in tests
+   - Provides DOM querying and interaction methods
+   - Encourages testing from a user's perspective
+   - Example usage:
+
+     ```typescript
+     import { render, fireEvent } from '@testing-library/svelte';
+     import TextNode from '$lib/components/TextNode.svelte';
+
+     test('node enters edit mode on click', async () => {
+     	const { getByText } = render(TextNode, { props: { text: 'Hello' } });
+     	const node = getByText('Hello');
+     	await fireEvent.click(node);
+     	// Assert edit mode is active
+     });
+     ```
+
+3. **@testing-library/jest-dom**
+
+   - Extends assertion capabilities
+   - Provides DOM-specific matchers
+   - Makes tests more readable and maintainable
+   - Example matchers:
+     ```typescript
+     expect(element).toBeInTheDocument();
+     expect(element).toHaveClass('active');
+     expect(element).toBeVisible();
+     ```
+
+4. **jsdom**
+   - Provides DOM environment for Node.js
+   - Enables DOM manipulation in tests
+   - Essential for component testing
+   - Automatically configured with Vitest
+
+### Test Organization
+
+```typescript
+src/
+└── tests/
+    ├── unit/               // Unit tests
+    │   ├── utils/          // Utility function tests
+    │   ├── stores/         // Store tests
+    │   └── components/     // Component tests
+    ├── integration/        // Integration tests
+    ├── fixtures/          // Test data and mocks
+    └── setup.ts           // Global test configuration
+```
+
+### Testing Patterns
+
+1. **Store Testing**
+
+   - Test store subscriptions
+   - Verify state updates
+   - Test derived stores
+   - Example: editorStore tests for undo/redo
+
+2. **Component Testing**
+
+   - Render testing
+   - Event handling
+   - Props validation
+   - Slot content
+   - Example: TextNode.svelte tests
+
+3. **Utility Testing**
+
+   - Input validation
+   - Edge cases
+   - Error handling
+   - Example: nodeSerializer tests
+
+4. **Integration Testing**
+   - Component interactions
+   - Store integrations
+   - User workflows
+   - Example: TextEditor with nodes
 
 ## Future Considerations
 

@@ -1,5 +1,5 @@
 // src/lib/utils/nodeSerializer.ts
-import type { Node, NodeType } from '$lib/schemas/textNode';
+import type { Node, NodeType, CompressedNode } from '$lib/schemas/textNode';
 
 /**
  * Serializes an array of nodes into a compressed JSON string for storage
@@ -36,8 +36,8 @@ export function serializeNodes(nodes: Node[]): string {
  * Deserializes a compressed JSON string back into an array of nodes
  */
 export function deserializeNodes(documentBody: string): Node[] {
-    const compressed = JSON.parse(documentBody);
-    return compressed.map(c => ({
+    const compressed = JSON.parse(documentBody) as CompressedNode[];
+    return compressed.map((c: CompressedNode) => ({
         id: c.i,
         type: c.t as NodeType,
         text: c.x || '',

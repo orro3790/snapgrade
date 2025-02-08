@@ -31,7 +31,8 @@ export const correctionDataSchema = z.object({
     correctedText: z.string(),
     pattern: z.string(),
     explanation: z.string().optional(),
-    teacherNotes: z.string().optional()
+    teacherNotes: z.string().optional(),
+    relatedCorrections: z.array(z.string()).optional()
 });
 
 export const nodeSchema = z.object({
@@ -42,9 +43,7 @@ export const nodeSchema = z.object({
     spacerData: z.object({
         subtype: spacerSubtypeEnum
     }).optional(),
-    metadata: nodeMetadataSchema,
-    hasNextCorrection: z.boolean().optional(),
-    mispunctuation: z.boolean().optional()
+    metadata: nodeMetadataSchema
 });
 
 export type Node = z.infer<typeof nodeSchema>;
@@ -52,3 +51,17 @@ export type NodeType = z.infer<typeof nodeTypeEnum>;
 export type SpacerSubtype = z.infer<typeof spacerSubtypeEnum>;
 export type NodeMetadata = z.infer<typeof nodeMetadataSchema>;
 export type CorrectionData = z.infer<typeof correctionDataSchema>;
+
+// Compressed format for serialization
+export type CompressedNode = {
+    i: string;  // id
+    t: NodeType;  // type
+    x?: string; // text
+    s?: SpacerSubtype; // spacer subtype
+    c?: {       // correction data
+        o: string;  // original text
+        f: string;  // fixed text
+        p: string;  // pattern
+        e?: string; // explanation
+    };
+};

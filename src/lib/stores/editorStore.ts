@@ -18,54 +18,83 @@ export const paragraphs = derived(
 function groupNodesByParagraph(nodes: Node[]) {
     const paragraphs: { id: string; corrections: Node[] }[] = [];
     let currentParagraph: Node[] = [];
-    
-    nodes.forEach((node, index) => {
-        currentParagraph.push(node);
-        
-        // Create new paragraph on newline spacer or end of nodes
-        if ((node.type === 'spacer' && node.spacerData?.subtype === 'newline') || index === nodes.length - 1) {
-            if (currentParagraph.length > 0) {
+
+    console.log("Initial nodes:", nodes);
+
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+
+        if (node.type === 'spacer' && node.spacerData?.subtype === 'newline') {
+            // Add current paragraph (without the newline)
+            paragraphs.push({
+                id: crypto.randomUUID(),
+                corrections: [...currentParagraph]
+            });
+            currentParagraph = [];
+
+            console.log("Paragraph added (newline encountered):", paragraphs);
+
+            // Consume ALL consecutive newlines
+            while (i + 1 < nodes.length &&
+                   nodes[i + 1].type === 'spacer' &&
+                   nodes[i + 1].spacerData?.subtype === 'newline') {
                 paragraphs.push({
                     id: crypto.randomUUID(),
-                    corrections: [...currentParagraph]
+                    corrections: [nodes[i+1]] // Add the newline node to the empty paragraph
                 });
-                currentParagraph = [];
+                console.log("Empty paragraph added:", paragraphs);
+                i++; // Increment i to consume the newline
             }
+        } else {
+            currentParagraph.push(node);
+            console.log("Node added to current paragraph:", currentParagraph);
         }
-    });
-    
+    }
+
+    // Add final paragraph if there are remaining nodes
+    if (currentParagraph.length > 0) {
+        paragraphs.push({
+            id: crypto.randomUUID(),
+            corrections: currentParagraph
+        });
+        console.log("Final paragraph added:", paragraphs);
+    }
+
     return paragraphs;
 }
-
-import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 
 // Parse text content into nodes
 function parseContent(content: string) {
     const newNodes: Node[] = [];
-    const words = content.split(/(\s+)/); // Split on whitespace but keep separators
     let position = 0;
-    
-    words.forEach((word) => {
-        if (!word) return; // Skip empty strings
-        
-        if (/^\s+$/.test(word)) {
+
+    // Split content into tokens, preserving whitespace and punctuation
+    const tokens = content.split(/(\s+|[.,!?;:])/).filter(Boolean);
+
+    tokens.forEach(token => {
+        if (/^\s+$/.test(token)) {
             // Handle whitespace
-            if (word.includes('\n')) {
-                newNodes.push({
-                    id: crypto.randomUUID(),
-                    text: '',
-                    type: 'spacer',
-                    spacerData: { subtype: 'newline' },
-                    metadata: {
-                        position: position++,
-                        lineNumber: 1,
-                        isPunctuation: false,
-                        isWhitespace: true,
-                        startIndex: 0,
-                        endIndex: 0
+            if (token.includes('\n')) {
+                // Handle multiple newlines
+                for (let i = 0; i < token.length; i++) {
+                    if (token[i] === '\n') {
+                        newNodes.push({
+                            id: crypto.randomUUID(),
+                            text: '',
+                            type: 'spacer',
+                            spacerData: { subtype: 'newline' },
+                            metadata: {
+                                position: position++,
+                                lineNumber: 1,
+                                isPunctuation: false,
+                                isWhitespace: true,
+                                startIndex: 0,
+                                endIndex: 0
+                            }
+                        });
                     }
-                });
-            } else if (word.length > 1) {
+                }
+            } else if (token.length > 1) {
                 newNodes.push({
                     id: crypto.randomUUID(),
                     text: '',
@@ -97,15 +126,17 @@ function parseContent(content: string) {
                 });
             }
         } else {
-            // Handle normal text
+            // Handle text or punctuation
+            const isPunctuation = /^[.,!?;:]$/.test(token);
+            console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`); // Add logging
             newNodes.push({
                 id: crypto.randomUUID(),
-                text: word,
+                text: token,
                 type: 'normal',
                 metadata: {
                     position: position++,
                     lineNumber: 1,
-                    isPunctuation: /^[.,!?;:]$/.test(word),
+                    isPunctuation,
                     isWhitespace: false,
                     startIndex: 0,
                     endIndex: 0
@@ -113,7 +144,7 @@ function parseContent(content: string) {
             });
         }
     });
-    
+
     setNodes(newNodes);
     updateUndoStack(() => []);
     updateRedoStack(() => []);
@@ -135,6 +166,8 @@ function loadSerializedContent(serialized: string) {
     updateUndoStack(() => []);
     updateRedoStack(() => []);
 }
+
+import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 
 // Node manipulation functions
 function updateNode(nodeId: string, text: string, correctionData?: CorrectionData, type: NodeType = 'normal') {
@@ -179,8 +212,8 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
                 lineNumber: $nodes[nodeIndex].metadata.lineNumber,
                 isPunctuation: /^[.,!?;:]$/.test(text),
                 isWhitespace: /^\s+$/.test(text),
-                startIndex: 0, // Will be calculated
-                endIndex: 0 // Will be calculated
+                startIndex: 0,
+                endIndex: 0
             }
         };
         
@@ -207,7 +240,6 @@ function removeNode(nodeId: string) {
         ];
     });
 }
-
 
 // Undo/Redo functionality
 function undo() {
