@@ -5,9 +5,10 @@
 	import { userStore } from '$lib/stores/userStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
 	import { modalStore } from '$lib/stores/modalStore';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Sidebar from '../lib/components/Sidebar.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
+	import StagingArea from './StagingArea.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 	// Initialize state and stores
@@ -46,6 +47,14 @@
 			data={{
 				classForm: data.classForm,
 				studentForm: data.studentForm,
+				user: data.user,
+				uid: data.uid
+			}}
+		/>
+	{:else if $modalStore === 'stagingArea'}
+		<StagingArea
+			data={{
+				stageDocumentForm: data.stageDocumentForm,
 				user: data.user,
 				uid: data.uid
 			}}

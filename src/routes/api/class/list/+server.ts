@@ -1,13 +1,14 @@
-import { createStagedDocumentSchema, createDocumentSchema, documentResponseSchema  } from '$lib/schemas/document';
 import { adminAuth, adminDb } from '$lib/firebase/admin';
-import type { RequestHandler } from '../$types';
+import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import { FirebaseError } from 'firebase/app';
 
-// Create a new document
-export const POST: RequestHandler = async (event) => {
-    const { request } = event;
+/**
+ * GET endpoint to fetch a list of active classes
+ * Returns a simplified list containing just id and name for dropdown selection
+ */
+export const GET: RequestHandler = async (event) => {
     try {
         // Get session cookie
         const sessionCookie = event.cookies.get('session');
@@ -40,8 +41,6 @@ export const POST: RequestHandler = async (event) => {
         }
 
         const userData = userDoc.data();
-
-        console.log(userData);
         if (userData?.metadata.accountStatus !== 'active') {
             return json(
                 { 
@@ -53,67 +52,52 @@ export const POST: RequestHandler = async (event) => {
             );
         }
 
-        // Parse and validate request data using appropriate schema
-        const { data } = await request.json();
+        // Fetch active classes from Firestore
+        const classesSnapshot = await adminDb
+            .collection('classes')
+            .where('status', '==', 'active')
+            .get();
 
-        // Determine which schema to use based on 'status'
-        let validatedDoc;
-        if (data.status === 'staged') {
-            validatedDoc = createStagedDocumentSchema.parse({
-                ...data,
-                userId: decodedToken.uid,
-                sourceType: data.sourceType || 'llmwhisperer' // Default to 'llmwhisperer' if not provided
-            });
-        } else {
-            validatedDoc = createDocumentSchema.parse({
-                ...data,
-                userId: decodedToken.uid,
-                sourceType: 'manual' // Web submissions are always manual
-            });
-        }
-
-        // Add metadata
-        const docWithMetadata = {
-            ...validatedDoc,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        // Store in Firestore
-        const docRef = await adminDb
-            .collection('documents')
-            .add(docWithMetadata);
+        // Transform to simplified format for dropdown
+        const classes = classesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            name: doc.data().name
+        }));
 
         // Validate response format
-        const response = documentResponseSchema.parse({
-            ...docWithMetadata,
-            id: docRef.id
-        });
-
+        const responseSchema = z.array(
+            z.object({
+                id: z.string(),
+                name: z.string()
+            })
+        );
+        
+        const validatedClasses = responseSchema.parse(classes);
+        
         return json({
             status: 'success' as const,
-            data: response
+            data: validatedClasses
         });
-
+        
     } catch (error) {
         console.error('Error:', error);
-
-         // Handle validation errors
+        
+        // Handle validation errors
         if (error instanceof z.ZodError) {
-          return json(
-              {
-                  status: 'error' as const,
-                  message: 'Invalid document format',
-                  errors: error.errors
-              },
-              { status: 400 }
-          );
+            return json(
+                { 
+                    status: 'error' as const,
+                    message: 'Invalid response format',
+                    errors: error.errors
+                },
+                { status: 500 }
+            );
         }
-
+        
         // Handle Firebase errors
         if (error instanceof FirebaseError) {
             return json(
-                {
+                { 
                     status: 'error' as const,
                     message: error.message,
                     code: error.code
@@ -121,10 +105,10 @@ export const POST: RequestHandler = async (event) => {
                 { status: error.code.includes('auth') ? 401 : 500 }
             );
         }
-
+        
         // Handle unknown errors
         return json(
-            {
+            { 
                 status: 'error' as const,
                 message: error instanceof Error ? error.message : 'Unknown error',
                 code: 'internal/unknown'

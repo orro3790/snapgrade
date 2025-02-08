@@ -15,6 +15,7 @@
 	import ClassManager from '$lib/icons//ClassManager.svelte';
 	import Settings from '$lib/icons//Settings.svelte';
 	import Menu from '$lib/icons//Menu.svelte';
+	import StagingArea from '$lib/icons/StagingArea.svelte';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Logout from '$lib/icons/Logout.svelte';
@@ -42,6 +43,7 @@
 	const authenticatedNavItems: NavItem[] = [
 		{ id: 'files', label: 'File Manager', Icon: Files },
 		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload },
+		{ id: 'staging-area', label: 'Staging Area', Icon: StagingArea },
 		{ id: 'analytics', label: 'Analytics', Icon: Analytics },
 		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager },
 		{ id: 'settings', label: 'Setting', Icon: Settings }
@@ -65,6 +67,8 @@
 			modalStore.open('upload');
 		} else if (itemId === 'class-manager') {
 			modalStore.open('classManager');
+		} else if (itemId === 'staging-area') {
+			modalStore.open('stagingArea');
 		}
 	}
 
