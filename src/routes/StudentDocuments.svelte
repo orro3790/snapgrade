@@ -180,6 +180,9 @@
 		padding: var(--spacing-4);
 		transition: var(--transition-all);
 		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
 	}
 
 	.document-item:hover {
@@ -197,7 +200,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		margin-bottom: var(--spacing-2);
+		width: 100%;
 	}
 
 	.document-title {
@@ -205,11 +208,16 @@
 		font-size: var(--font-size-base);
 		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 70%;
 	}
 
 	.document-date {
 		font-size: var(--font-size-xs);
 		color: var(--text-muted);
+		flex-shrink: 0;
 	}
 
 	.document-preview {
@@ -217,6 +225,10 @@
 		font-size: var(--font-size-sm);
 		color: var(--text-muted);
 		line-height: var(--line-height-relaxed);
+		white-space: normal;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
 	}
 
 	.loading,

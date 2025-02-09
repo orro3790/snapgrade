@@ -5,6 +5,7 @@
 	import Add from '$lib/icons/Add.svelte';
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
+	import Eraser from '$lib/icons/Eraser.svelte';
 
 	let { node, position, onClose } = $props<{
 		node: Node;
@@ -107,9 +108,24 @@
 		onClose();
 	}
 
+	function handleRemove() {
+		if (isProcessingEdit) return;
+		isProcessingEdit = true;
+		editorStore.removeNode(node.id);
+		onClose();
+	}
+
+	// Modify handleDelete to only handle deletion state
 	function handleDelete() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
+
+		// Don't allow empty nodes to be marked as deletion
+		if (node.type === 'empty') {
+			isProcessingEdit = false; // Reset the flag before returning
+			return;
+		}
+
 		editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
 		onClose();
 	}
@@ -165,7 +181,7 @@
 			aria-multiline="true"
 		></textarea>
 		<div class="actions" role="toolbar" aria-label="Editing actions">
-			<button onclick={handleDelete} type="button" title="Delete text">
+			<button onclick={handleDelete} type="button" title="Mark for deletion">
 				<Slash />
 			</button>
 			<button onclick={handleAddAfter} type="button" title="Add after">
@@ -173,6 +189,9 @@
 			</button>
 			<button onclick={handleSubmit} type="button" title="Correct">
 				<Correction />
+			</button>
+			<button onclick={handleRemove} type="button" title="Remove node">
+				<Eraser />
 			</button>
 		</div>
 	</div>
@@ -227,7 +246,7 @@
 
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(4, 1fr);
 		border-top: 1px solid var(--background-modifier-border);
 	}
 
@@ -255,7 +274,11 @@
 		color: var(--background-modifier-success);
 	}
 
-	button:last-child:hover {
+	button:nth-child(3):hover {
 		color: var(--interactive-accent);
+	}
+
+	button:last-child:hover {
+		color: var(--text-error-hover);
 	}
 </style>

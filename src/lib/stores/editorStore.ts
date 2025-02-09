@@ -151,8 +151,8 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
             // Preserve addition type
             newType = 'addition';
         } else if (oldNode.type === 'empty') {
-            // Always convert empty nodes to addition nodes when updated
-            newType = 'addition';
+            // Empty nodes can only become addition nodes or remain empty
+            newType = type === 'deletion' ? 'empty' : type;
         }
 
         // Only save to undo stack if there's an actual change
