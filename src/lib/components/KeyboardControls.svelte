@@ -139,6 +139,7 @@
 		grid-template-columns: repeat(4, max-content);
 		align-items: center;
 		justify-content: center;
+		gap: var(--spacing-2);
 	}
 
 	.step {

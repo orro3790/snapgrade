@@ -1,20 +1,22 @@
-<!-- src/lib/icons/StagingArea.svelte -->
 <script lang="ts">
-	let { size = 24, stroke = 'currentColor' } = $props<{
-		size?: number;
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'currentColor',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
 		stroke?: string;
+		strokeWidth?: string;
 	}>();
 </script>
 
-<!-- Tabler.io icon: clipboard-text -->
 <svg
-	xmlns="http://www.w3.org/2000/svg"
-	width={size}
-	height={size}
+	class="icon"
+	style="width: {size}; height: {size}"
 	viewBox="0 0 24 24"
 	fill="none"
 	{stroke}
-	stroke-width="2"
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >

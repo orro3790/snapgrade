@@ -69,19 +69,17 @@
 	aria-label="Text editor content"
 	role="textbox"
 >
-	<StatsDisplay />
-	<div class="main-content" class:sidebar-expanded={$sidebarStore.isOpen}>
+	<!-- <StatsDisplay /> -->
+	<div class="main-content" class:sidebar-expanded={$sidebarStore.state === 'expanded'}>
 		<!-- Preview/Print content -->
-		<div class="preview-container" role="complementary" aria-label="Preview">
-			<div class="a4-content">
-				{#each paragraphsList as paragraph (paragraph.id)}
-					<div class="paragraph-row">
-						{#each paragraph.corrections as node (node.id)}
-							<TextNode {node} isActive={node.id === activeNodeId} />
-						{/each}
-					</div>
-				{/each}
-			</div>
+		<div class="a4-content" role="complementary" aria-label="Preview">
+			{#each paragraphsList as paragraph (paragraph.id)}
+				<div class="paragraph-row">
+					{#each paragraph.corrections as node (node.id)}
+						<TextNode {node} isActive={node.id === activeNodeId} />
+					{/each}
+				</div>
+			{/each}
 		</div>
 	</div>
 </div>
@@ -100,6 +98,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: flex-start;
+		background-color: var(--background-secondary);
 	}
 
 	.paragraph-row {
@@ -112,17 +111,14 @@
 	}
 
 	/* Preview section */
-	.preview-container {
-		background-color: var(--background-secondary);
+	.a4-content {
+		background-color: var(--background-primary);
 		width: 210mm; /* A4 width */
 		min-height: 297mm; /* A4 height */
 		padding: 20mm; /* A4 margins */
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 		border-radius: 0.5rem;
 		margin: 2rem auto;
-	}
-
-	.a4-content {
 		color: var(--text-normal);
 		font-size: 12pt;
 		line-height: 1.5;
@@ -162,7 +158,7 @@
 			width: 100% !important;
 		}
 
-		.preview-container {
+		.a4-content {
 			width: 100% !important;
 			min-height: 0;
 			padding: 0 !important;

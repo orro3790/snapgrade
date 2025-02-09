@@ -1,5 +1,13 @@
 <script lang="ts">
-	let { stroke = 'var(--text-accent)', size = '24px' } = $props();
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'currentColor',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
+		stroke?: string;
+		strokeWidth?: string;
+	}>();
 </script>
 
 <div style="width: {size}; aspect-ratio: 1">
@@ -9,10 +17,9 @@
 		viewBox="0 0 24 24"
 		fill="none"
 		{stroke}
-		stroke-width="2"
+		stroke-width={strokeWidth}
 		stroke-linecap="round"
 		stroke-linejoin="round"
-		class="icon icon-tabler icons-tabler-outline icon-tabler-hand-finger"
 		preserveAspectRatio="xMidYMid meet"
 	>
 		<path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -24,13 +31,3 @@
 		/>
 	</svg>
 </div>
-
-<style>
-	div {
-		display: inline-block;
-	}
-
-	svg {
-		display: block;
-	}
-</style>

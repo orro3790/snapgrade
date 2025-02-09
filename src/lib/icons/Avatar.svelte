@@ -1,11 +1,24 @@
 <script lang="ts">
-	const { size = 48, stroke = 'currentColor' } = $props<{
-		size?: number;
+	const {
+		size = 'var(--icon-2xl)',
+		stroke = 'currentColor',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
 		stroke?: string;
+		strokeWidth?: string;
 	}>();
 </script>
 
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg
+	class="icon"
+	style="width: {size}; height: {size}"
+	viewBox="0 0 48 48"
+	fill="none"
+	xmlns="http://www.w3.org/2000/svg"
+	{stroke}
+	stroke-width={strokeWidth}
+>
 	<g clip-path="url(#clip0_26_3)">
 		<mask
 			id="mask0_26_3"
@@ -13,8 +26,8 @@
 			maskUnits="userSpaceOnUse"
 			x="0"
 			y="0"
-			width={size}
-			height={size}
+			width="48"
+			height="48"
 		>
 			<path
 				d="M48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48C37.2548 48 48 37.2548 48 24Z"

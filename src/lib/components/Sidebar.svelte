@@ -15,7 +15,6 @@
 	import StagingArea from '$lib/icons/StagingArea.svelte';
 	import Login from '$lib/icons/Login.svelte';
 	import UserMenu from '$lib/components/UserMenu.svelte';
-	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 
 	// Define the NavItem type
 	type NavItem = {
@@ -94,25 +93,12 @@
 	class:mobile={$sidebarStore.isMobile}
 	aria-label="Main navigation"
 >
-	<!-- Header Section -->
-	<div class="sidebar-header">
-		<button
-			type="button"
-			class="toggle-button"
-			onclick={() => sidebarStore.toggle()}
-			aria-label={$sidebarStore.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
-			aria-expanded={$sidebarStore.state === 'expanded'}
-		>
-			<SidebarToggle size={20} />
-		</button>
-	</div>
-
 	<!-- Navigation Items -->
 	<div class="nav-section">
 		<!-- Base Group -->
 		{#if groupedNavItems.base.length > 0}
 			<div class="nav-group">
-				<div class="nav-group-label">Base</div>
+				<div class="nav-group-label">Snapgrade</div>
 				{#each groupedNavItems.base as { id, label, Icon }}
 					<button
 						type="button"
@@ -123,7 +109,7 @@
 						aria-label={label}
 					>
 						<Icon
-							size={20}
+							size="var(--icon-sm)"
 							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
 						/>
 						{#if $sidebarStore.state === 'expanded'}
@@ -148,8 +134,8 @@
 						aria-label={label}
 					>
 						<Icon
-							size={20}
 							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+							size="var(--icon-sm)"
 						/>
 						{#if $sidebarStore.state === 'expanded'}
 							<span class="nav-label">{label}</span>
@@ -166,7 +152,7 @@
 			<UserMenu />
 		{:else}
 			<a href="/login" class="nav-item" role="button" tabindex="0">
-				<Login size={20} />
+				<Login size="var(--icon-sm)" />
 				{#if $sidebarStore.state === 'expanded'}
 					<span class="nav-label">Login</span>
 				{/if}
@@ -177,86 +163,63 @@
 
 <style>
 	.sidebar {
-		position: fixed;
-		top: 0;
-		left: 0;
+		position: relative;
 		height: 100vh;
-		width: 72px;
-		background: var(--background-secondary-alt);
-		border-right: 1px solid var(--background-modifier-border);
+		width: 72px; /* Keep explicit width for sidebar */
+		min-width: 72px; /* Add back min-width */
+		background: var(--background-primary);
+		border-right: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		flex-direction: column;
-		transition: width 0.2s ease;
-		z-index: 50;
+		transition: width var(--transition-duration-200) var(--transition-timing-ease);
+		z-index: var(--z-drawer);
 	}
 
 	.sidebar.expanded {
-		width: 280px;
-	}
-
-	.sidebar-header {
-		height: 72px;
-		padding: 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: right;
-	}
-
-	.toggle-button {
-		padding: 0.5rem;
-		color: var(--text-muted);
-		background: none;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: background-color 0.2s ease;
-	}
-
-	.toggle-button:hover {
-		background: var(--interactive-hover);
-		color: var(--text-normal);
+		width: 280px; /* Keep explicit width for expanded state */
 	}
 
 	.nav-section {
 		flex: 1;
 		overflow-y: auto;
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--spacing-4);
 	}
 
 	.nav-group {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: var(--spacing-1);
 	}
 
 	.nav-group-label {
-		padding: 0.5rem 0.75rem;
-		font-size: 0.75rem;
-		font-weight: 500;
+		padding: var(--spacing-2) var(--spacing-3);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-muted);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--letter-spacing-wide);
 	}
 
 	.nav-item {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem;
+		justify-content: start;
+		gap: var(--spacing-4);
+		padding: var(--spacing-3);
 		width: 100%;
 		border: none;
-		border-radius: 4px;
+		border-radius: var(--radius-base);
 		background: none;
 		color: var(--text-muted);
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: all var(--transition-duration-150) var(--transition-timing-ease);
 	}
 
 	.nav-item:hover {
-		background: var(--interactive-hover);
+		background: var(--background-modifier-hover);
 		color: var(--text-normal);
 	}
 
@@ -266,15 +229,15 @@
 	}
 
 	.nav-label {
-		font-size: 0.875rem;
-		font-weight: 500;
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.sidebar-footer {
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 	}
 
 	@keyframes spin {
@@ -288,14 +251,14 @@
 		width: 0;
 		transform: translateX(-100%);
 		transition:
-			transform 0.2s ease,
-			width 0s linear 0.2s;
+			transform var(--transition-duration-200) var(--transition-timing-ease),
+			width 0s linear var(--transition-duration-200);
 	}
 
 	.sidebar.mobile.expanded {
-		width: 280px;
+		width: 280px; /* Keep explicit width */
 		transform: translateX(0);
-		transition: transform 0.2s ease;
+		transition: transform var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
 	/* Backdrop for mobile */
@@ -309,8 +272,8 @@
 		background: var(--background-modifier-cover);
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity 0.2s ease;
-		z-index: -1;
+		transition: opacity var(--transition-duration-200) var(--transition-timing-ease);
+		z-index: calc(var(--z-drawer) - 1);
 	}
 
 	.sidebar.mobile.expanded::after {
@@ -335,15 +298,15 @@
 
 	.sidebar:not(.expanded):not(.mobile) .nav-item:hover .nav-label {
 		position: absolute;
-		left: calc(100% + 0.5rem);
+		left: calc(100% + var(--spacing-2));
 		top: 50%;
 		transform: translateY(-50%);
-		background: var(--background-secondary);
-		padding: 0.5rem 0.75rem;
-		border-radius: 4px;
-		box-shadow: 0 2px 4px var(--background-modifier-box-shadow);
+		background: var(--background-primary);
+		padding: var(--spacing-2) var(--spacing-3);
+		border-radius: var(--radius-base);
+		box-shadow: var(--shadow-md);
 		display: block;
 		white-space: nowrap;
-		z-index: 60;
+		z-index: var(--z-popover);
 	}
 </style>

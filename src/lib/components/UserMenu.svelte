@@ -12,6 +12,16 @@
 	let isLoggingOut = $state(false);
 	let user = $derived($userStore);
 
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'currentColor',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
+		stroke?: string;
+		strokeWidth?: string;
+	}>();
+
 	function toggleMenu() {
 		isOpen = !isOpen;
 	}
@@ -73,7 +83,7 @@
 			<img src={user.photoUrl} alt="User avatar" class="avatar" />
 		{:else}
 			<div class="avatar">
-				<Avatar size={36} />
+				<Avatar {size} />
 			</div>
 		{/if}
 
@@ -102,7 +112,7 @@
 					{#if isLoggingOut}
 						<div class="spinner"></div>
 					{:else}
-						<Logout size={20} />
+						<Logout size="var(--icon-sm)" />
 					{/if}
 					<span>Logout</span>
 				</button>

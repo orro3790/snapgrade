@@ -1,5 +1,13 @@
 <script lang="ts">
-	let { size = 20 } = $props<{ size?: number }>();
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'currentColor',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
+		stroke?: string;
+		strokeWidth?: string;
+	}>();
 </script>
 
 <svg
@@ -7,8 +15,8 @@
 	height={size}
 	viewBox="0 0 24 24"
 	fill="none"
-	stroke="currentColor"
-	stroke-width="2"
+	{stroke}
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >

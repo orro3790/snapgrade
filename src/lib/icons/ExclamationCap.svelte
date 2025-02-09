@@ -1,11 +1,19 @@
 <script lang="ts">
-	let { textColor = 'var(--text-normal)', fill = 'var(--text-accent)', size = '64px' } = $props();
+	const {
+		size = 'var(--icon-2xl)',
+		textColor = 'var(--text-normal)',
+		fill = 'var(--interactive-accent)'
+	} = $props<{
+		size?: string;
+		textColor?: string;
+		fill?: string;
+	}>();
 </script>
 
 <div style="width: {size}; aspect-ratio: 1">
 	<svg
-		width="100%"
-		height="100%"
+		class="icon"
+		style="width: {size}; height: {size}"
 		viewBox="0 0 64 64"
 		fill="none"
 		xmlns="http://www.w3.org/2000/svg"
