@@ -53,6 +53,30 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 - **Forbidden**: `<slot>` for parent content
 - **Use Instead**: `{@render ...}` tags
+- **Example Implementation**:
+
+```svelte
+<!-- Card.svelte -->
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	let { content }: { content: Snippet } = $props();
+</script>
+
+<!-- Parent Component -->
+<Card>
+	{#snippet content()}
+		<h2>Title</h2>
+	{/snippet}
+</Card>
+<div>{@render content()}</div>
+```
+
+```svelte
+- For Default Content: Use the `children` snippet
+For Default Content: Use the children snippet
+svelteCopylet { children }: { children: Snippet } = $props();
+{@render children()}
+```
 
 #### 3.2.2 Declaring Props
 

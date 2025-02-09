@@ -2,65 +2,73 @@
 <script lang="ts">
 	import { modalStore } from '$lib/stores/modalStore';
 	import { userStore } from '$lib/stores/userStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
-	import { invalidateAll } from '$app/navigation';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
 
 	// Import icons
-	import Home from '$lib/icons//Home.svelte';
-	import Files from '$lib/icons//Files.svelte';
-	import Upload from '$lib/icons//Upload.svelte';
-	import HowTo from '$lib/icons//HowTo.svelte';
-	import Analytics from '$lib/icons//Analytics.svelte';
-	import ClassManager from '$lib/icons//ClassManager.svelte';
-	import Settings from '$lib/icons//Settings.svelte';
-	import Menu from '$lib/icons//Menu.svelte';
+	import Home from '$lib/icons/Home.svelte';
+	import Files from '$lib/icons/Files.svelte';
+	import Upload from '$lib/icons/Upload.svelte';
+	import HowTo from '$lib/icons/HowTo.svelte';
+	import Analytics from '$lib/icons/Analytics.svelte';
+	import ClassManager from '$lib/icons/ClassManager.svelte';
+	import Settings from '$lib/icons/Settings.svelte';
 	import StagingArea from '$lib/icons/StagingArea.svelte';
-	import { enhance } from '$app/forms';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import Logout from '$lib/icons/Logout.svelte';
 	import Login from '$lib/icons/Login.svelte';
-	import Avatar from '$lib/icons/Avatar.svelte';
+	import UserMenu from '$lib/components/UserMenu.svelte';
+	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 
 	// Define the NavItem type
 	type NavItem = {
 		id: string;
 		label: string;
-		Icon: any; // You might want to define a more specific type for the Icon component
+		Icon: any;
+		group: 'base' | 'authenticated';
 	};
 
 	// Get user from store
 	let user = $derived($userStore);
-	let isLoggingOut = $state(false);
-
-	// Define base nav items
-	const baseNavItems: NavItem[] = [
-		{ id: 'home', label: 'Dashboard', Icon: Home },
-		{ id: 'how-to-use', label: 'How to use', Icon: HowTo }
-	];
-
-	// Define authenticated nav items
-	const authenticatedNavItems: NavItem[] = [
-		{ id: 'files', label: 'File Manager', Icon: Files },
-		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload },
-		{ id: 'staging-area', label: 'Staging Area', Icon: StagingArea },
-		{ id: 'analytics', label: 'Analytics', Icon: Analytics },
-		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager },
-		{ id: 'settings', label: 'Setting', Icon: Settings }
-	];
-
-	// Use $derived for navItems
-	let navItems = $derived(user ? [...baseNavItems, ...authenticatedNavItems] : baseNavItems);
-
-	let isExpanded = $state(false);
 	let activeItem = $state('home');
 
-	function toggleSidebar() {
-		isExpanded = !isExpanded;
-	}
+	// Define all nav items with their groups
+	const navItems: NavItem[] = [
+		{ id: 'home', label: 'Dashboard', Icon: Home, group: 'base' },
+		{ id: 'how-to-use', label: 'How to use', Icon: HowTo, group: 'base' },
+		{ id: 'files', label: 'File Manager', Icon: Files, group: 'authenticated' },
+		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload, group: 'authenticated' },
+		{ id: 'staging-area', label: 'Staging Area', Icon: StagingArea, group: 'authenticated' },
+		{ id: 'analytics', label: 'Analytics', Icon: Analytics, group: 'authenticated' },
+		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager, group: 'authenticated' },
+		{ id: 'settings', label: 'Settings', Icon: Settings, group: 'authenticated' }
+	];
+
+	// Filter nav items based on user authentication
+	let filteredNavItems = $derived(
+		navItems.filter((item) => item.group === 'base' || (user && item.group === 'authenticated'))
+	);
+
+	// Group nav items
+	let groupedNavItems = $derived({
+		base: filteredNavItems.filter((item) => item.group === 'base'),
+		authenticated: filteredNavItems.filter((item) => item.group === 'authenticated')
+	});
+
+	// Effect to check if we're on mobile
+	$effect(() => {
+		const checkMobile = () => {
+			sidebarStore.setMobile(window.innerWidth <= 768);
+		};
+
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+
+		return () => window.removeEventListener('resize', checkMobile);
+	});
 
 	function handleNavClick(itemId: string) {
 		activeItem = itemId;
+		if ($sidebarStore.isMobile) {
+			sidebarStore.toggle();
+		}
 		if (itemId === 'how-to-use') {
 			modalStore.open('keyboard');
 		} else if (itemId === 'direct-upload') {
@@ -78,140 +86,92 @@
 			handleNavClick(itemId);
 		}
 	}
-
-	async function handleLogout() {
-		isLoggingOut = true;
-		const response = await fetch('/api/auth/logout', {
-			method: 'POST'
-		});
-
-		if (response.ok) {
-			// Clear all stores
-			userStore.set(null);
-			settingsStore.set(null);
-			invalidateAll();
-
-			// Reset active item to home
-			activeItem = 'home';
-
-			// Show success toast
-			toastStore.show({
-				message: 'Successfully logged out',
-				type: 'success'
-			});
-		} else {
-			toastStore.show({
-				message: 'Logout failed. Please try again.',
-				type: 'error'
-			});
-		}
-		isLoggingOut = false;
-	}
 </script>
 
-<nav class="sidebar" class:expanded={isExpanded} aria-label="Main navigation">
-	<div class="sidebar-content">
-		<!-- User Profile Section -->
-		<div class="user-section" class:expanded={isExpanded}>
-			{#if user?.photoUrl}
-				<img src={user.photoUrl} class="avatar" alt="User avatar" />
-			{:else}
-				<div class="avatar">
-					<Avatar size={48} />
-				</div>
-			{/if}
-			{#if isExpanded}
-				<div class="user-info">
-					<p class="name">{user?.name ?? 'Guest'}</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Toggle Button -->
+<nav
+	class="sidebar"
+	class:expanded={$sidebarStore.state === 'expanded'}
+	class:mobile={$sidebarStore.isMobile}
+	aria-label="Main navigation"
+>
+	<!-- Header Section -->
+	<div class="sidebar-header">
 		<button
 			type="button"
-			class="menu-toggle"
-			onclick={toggleSidebar}
-			onkeydown={(e) => e.key === 'Enter' && toggleSidebar()}
-			aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
-			aria-expanded={isExpanded}
+			class="toggle-button"
+			onclick={() => sidebarStore.toggle()}
+			aria-label={$sidebarStore.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
+			aria-expanded={$sidebarStore.state === 'expanded'}
 		>
-			<Menu size={24} />
+			<SidebarToggle size={20} />
 		</button>
+	</div>
 
-		<!-- Navigation Items -->
-		<div class="nav-items">
-			{#each navItems as { id, label, Icon }}
-				<button
-					type="button"
-					class="nav-item"
-					class:active={activeItem === id}
-					onclick={() => handleNavClick(id)}
-					onkeydown={(e) => handleKeyNav(e, id)}
-					aria-label={label}
-				>
-					<span class="icon">
+	<!-- Navigation Items -->
+	<div class="nav-section">
+		<!-- Base Group -->
+		{#if groupedNavItems.base.length > 0}
+			<div class="nav-group">
+				<div class="nav-group-label">Base</div>
+				{#each groupedNavItems.base as { id, label, Icon }}
+					<button
+						type="button"
+						class="nav-item"
+						class:active={activeItem === id}
+						onclick={() => handleNavClick(id)}
+						onkeydown={(e) => handleKeyNav(e, id)}
+						aria-label={label}
+					>
 						<Icon
-							size={24}
+							size={20}
 							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
 						/>
-					</span>
-					{#if isExpanded}
-						<span class="label">{label}</span>
-					{/if}
-				</button>
-			{/each}
-
-			<!-- Login/Logout Button -->
-			{#if user}
-				<button
-					type="button"
-					class="nav-item"
-					class:active={activeItem === 'logout'}
-					aria-label="Logout"
-					onclick={handleLogout}
-				>
-					<span class="icon">
-						{#if isLoggingOut}
-							<div class="spinner"></div>
-						{:else}
-							<Logout
-								size={24}
-								stroke={activeItem === 'logout' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-							/>
+						{#if $sidebarStore.state === 'expanded'}
+							<span class="nav-label">{label}</span>
 						{/if}
-					</span>
-					{#if isExpanded}
-						<span class="label">Logout</span>
-					{/if}
-				</button>
-			{:else}
-				<a
-					href="/login"
-					class="nav-item"
-					class:active={activeItem === 'login'}
-					role="button"
-					tabindex="0"
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							window.location.href = '/login';
-						}
-					}}
-					aria-label="Login"
-				>
-					<span class="icon">
-						<Login
-							size={24}
-							stroke={activeItem === 'login' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Authenticated Group -->
+		{#if groupedNavItems.authenticated.length > 0}
+			<div class="nav-group">
+				<div class="nav-group-label">Features</div>
+				{#each groupedNavItems.authenticated as { id, label, Icon }}
+					<button
+						type="button"
+						class="nav-item"
+						class:active={activeItem === id}
+						onclick={() => handleNavClick(id)}
+						onkeydown={(e) => handleKeyNav(e, id)}
+						aria-label={label}
+					>
+						<Icon
+							size={20}
+							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
 						/>
-					</span>
-					{#if isExpanded}
-						<span class="label">Login</span>
-					{/if}
-				</a>
-			{/if}
-		</div>
+						{#if $sidebarStore.state === 'expanded'}
+							<span class="nav-label">{label}</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	<!-- Footer Actions -->
+	<div class="sidebar-footer">
+		{#if user}
+			<UserMenu />
+		{:else}
+			<a href="/login" class="nav-item" role="button" tabindex="0">
+				<Login size={20} />
+				{#if $sidebarStore.state === 'expanded'}
+					<span class="nav-label">Login</span>
+				{/if}
+			</a>
+		{/if}
 	</div>
 </nav>
 
@@ -220,119 +180,92 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		width: var(--sidebar-width, 80px);
 		height: 100vh;
+		width: 72px;
 		background: var(--background-secondary-alt);
-		transition: width 0.3s ease;
+		border-right: 1px solid var(--background-modifier-border);
+		display: flex;
+		flex-direction: column;
+		transition: width 0.2s ease;
 		z-index: 50;
-		overflow: hidden;
 	}
 
 	.sidebar.expanded {
-		--sidebar-width: 280px;
-	}
-
-	.sidebar-content {
-		height: 100%;
 		width: 280px;
-		display: flex;
-		flex-direction: column;
-		padding: 1rem;
-		gap: 2rem;
 	}
 
-	.user-section {
+	.sidebar-header {
+		height: 72px;
+		padding: 1rem;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		background: var(--background-modifier-form-field);
-		border-radius: 8px;
-		transition: all 0.3s ease;
+		justify-content: right;
 	}
 
-	.avatar {
-		width: 48px;
-		height: 48px;
-		border-radius: 50%;
-		object-fit: cover;
-		flex-shrink: 0;
-		border: 1px solid var(--interactive-accent);
-		box-shadow: 0 0 8px var(--interactive-accent);
-		transition: box-shadow 0.2s ease;
-	}
-
-	.user-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.name {
-		color: var(--text-normal);
-		font-size: 0.875rem;
-		font-weight: 500;
-		margin: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.menu-toggle {
+	.toggle-button {
+		padding: 0.5rem;
 		color: var(--text-muted);
 		background: none;
 		border: none;
-		padding: 0.75rem 1rem;
+		border-radius: 4px;
 		cursor: pointer;
-		transition: color 0.2s ease;
-		border-radius: 6px;
+		transition: background-color 0.2s ease;
 	}
 
-	.menu-toggle:hover {
-		color: var(--text-normal);
+	.toggle-button:hover {
 		background: var(--interactive-hover);
+		color: var(--text-normal);
 	}
 
-	.nav-items {
+	.nav-section {
+		flex: 1;
+		overflow-y: auto;
+		padding: 0.5rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		gap: 1rem;
+	}
+
+	.nav-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.nav-group-label {
+		padding: 0.5rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.nav-item {
 		display: flex;
 		align-items: center;
 		gap: 1rem;
+		padding: 0.75rem;
 		width: 100%;
-		padding: 0.75rem 1rem;
 		border: none;
-		border-radius: 6px;
+		border-radius: 4px;
 		background: none;
 		color: var(--text-muted);
 		cursor: pointer;
 		transition: all 0.2s ease;
-		text-align: left;
 	}
 
 	.nav-item:hover {
-		color: var(--text-normal);
 		background: var(--interactive-hover);
+		color: var(--text-normal);
 	}
 
 	.nav-item.active {
-		color: var(--text-on-accent);
 		background: var(--interactive-accent);
+		color: var(--text-on-accent);
 	}
 
-	.icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		flex-shrink: 0;
-	}
-
-	.label {
+	.nav-label {
 		font-size: 0.875rem;
 		font-weight: 500;
 		white-space: nowrap;
@@ -340,31 +273,77 @@
 		text-overflow: ellipsis;
 	}
 
-	.spinner {
-		width: 20px;
-		height: 20px;
-		border: 3px solid var(--text-normal);
-		border-top: 3px solid transparent;
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
+	.sidebar-footer {
+		padding: 0.5rem;
 	}
 
 	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
+		to {
 			transform: rotate(360deg);
 		}
 	}
 
-	@media (max-width: 768px) {
-		.sidebar {
-			--sidebar-width: 0;
-		}
+	/* Mobile styles */
+	.sidebar.mobile {
+		width: 0;
+		transform: translateX(-100%);
+		transition:
+			transform 0.2s ease,
+			width 0s linear 0.2s;
+	}
 
-		.sidebar.expanded {
-			--sidebar-width: 100%;
-		}
+	.sidebar.mobile.expanded {
+		width: 280px;
+		transform: translateX(0);
+		transition: transform 0.2s ease;
+	}
+
+	/* Backdrop for mobile */
+	.sidebar.mobile::after {
+		content: '';
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		background: var(--background-modifier-cover);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.2s ease;
+		z-index: -1;
+	}
+
+	.sidebar.mobile.expanded::after {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	/* Hide group labels when collapsed */
+	.sidebar:not(.expanded) .nav-group-label {
+		display: none;
+	}
+
+	/* Center icons when collapsed */
+	.sidebar:not(.expanded) .nav-item {
+		justify-content: center;
+	}
+
+	/* Add hover effect to show labels */
+	.sidebar:not(.expanded):not(.mobile) .nav-item:hover {
+		position: relative;
+	}
+
+	.sidebar:not(.expanded):not(.mobile) .nav-item:hover .nav-label {
+		position: absolute;
+		left: calc(100% + 0.5rem);
+		top: 50%;
+		transform: translateY(-50%);
+		background: var(--background-secondary);
+		padding: 0.5rem 0.75rem;
+		border-radius: 4px;
+		box-shadow: 0 2px 4px var(--background-modifier-box-shadow);
+		display: block;
+		white-space: nowrap;
+		z-index: 60;
 	}
 </style>

@@ -41,7 +41,6 @@
     --background-modifier-error: #3d0000;
     --background-modifier-error-hover: #470000;
     --background-modifier-cover: rgba(0, 0, 0, 0.8);
-    --background-modifier-hover: rgba(255, 255, 255, 0.05);
 
     /* Text Colors */
     --text-accent: #7f6df2;
@@ -71,41 +70,9 @@
 
     /* Typography */
     --brand: 'Geist';
-
-    /* General Component Styles */
-    --component-padding: 1rem;
-    --component-border-radius: 0.5rem;
-    --component-border: 1px solid var(--background-modifier-border);
-    --component-box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-
-    /* Modal-Specific Styles (can still be used as a base) */
-    --modal-backdrop-bg: rgba(0, 0, 0, 0.5);
-    --modal-bg: var(--background-secondary);
-    --modal-header-bg: var(--background-primary);
-    --modal-title-color: var(--text-normal);
-    --modal-close-button-color: var(--text-muted);
-    --modal-close-button-hover-color: var(--text-normal);
-    --modal-close-button-hover-bg: var(--background-modifier-hover);
-
-    /* Typography Scale */
-    --font-size-sm: 0.875rem;      /* 14px - Small text, labels */
-    --font-size-base: 1rem;        /* 16px - Body text */
-    --font-size-lg: 1.25rem;       /* 20px - Subheadings */
-    --font-size-xl: 1.5rem;        /* 24px - Headers (matching ClassManager) */
-
-    /* Font Weights */
-    --font-weight-normal: 400;     /* Regular text */
-    --font-weight-semibold: 600;   /* Headers (matching ClassManager) */
-    --font-weight-bold: 700;       /* Extra emphasis when needed */
-
-    /* Line Heights */
-    --line-height-none: 1;         /* Used in buttons, close icons */
-    --line-height-normal: 1.5;     /* Default for body text */
-
-    /* Letter Spacing */
-    --letter-spacing-normal: 0em;  /* Default */
-    --letter-spacing-wide: 0.025em; /* For emphasis */
 }
+
+
 
 /* Basic global styles using these variables */
 body {

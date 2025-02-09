@@ -5,10 +5,10 @@
 	import { userStore } from '$lib/stores/userStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
 	import { modalStore } from '$lib/stores/modalStore';
-	import Sidebar from '../lib/components/Sidebar.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
 	import StagingArea from './StagingArea.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 	// Initialize state and stores
@@ -21,25 +21,10 @@
 		userStore.set(user);
 		settingsStore.set(settings);
 	});
-
-	// Sample text demonstrating all correction types and syntax features
-	const sampleText = {
-		studentId: 'test123',
-		studentName: 'Test Student',
-		className: 'English 101',
-		documentName: 'Test Document',
-		documentBody:
-			'[{"i":"1","t":"normal","x":"Hello"},{"i":"2","t":"spacer","s":"tab"},{"i":"3","t":"normal","x":"world"},{"i":"4","t":"spacer","s":"newline"},{"i":"5","t":"normal","x":"This"},{"i":"6","t":"spacer","s":"tab"},{"i":"7","t":"correction","x":"iz","c":{"o":"iz","f":"is","p":"form.agree"}},{"i":"8","t":"spacer","s":"tab"},{"i":"9","t":"normal","x":"a"},{"i":"10","t":"spacer","s":"tab"},{"i":"11","t":"normal","x":"test"}]',
-		userId: 'user123',
-		status: 'editing',
-		sourceType: 'manual',
-		id: 'test-doc-1'
-	};
 </script>
 
 <div class="app-container">
 	<Sidebar />
-
 	{#if $modalStore === 'upload'}
 		<UploadDocument data={data.documentForm} />
 	{:else if $modalStore === 'classManager'}
@@ -61,8 +46,8 @@
 		/>
 	{/if}
 
-	<div class="center-container">
-		<TextEditor initialContent="is this prop needed still?" />
+	<div class="editor-container">
+		<TextEditor initialContent="" />
 	</div>
 </div>
 
@@ -80,8 +65,7 @@
 		overflow-x: hidden;
 	}
 
-	/* API TEST CONTAINER STYLES*/
-	.center-container {
+	.editor-container {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;

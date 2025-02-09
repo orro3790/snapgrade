@@ -1,14 +1,26 @@
 // stores/sidebarStore.ts
 import { writable } from 'svelte/store';
 
-export const sidebarStore = writable({
-  isOpen: true // Start with sidebar open
-});
+type SidebarState = {
+  state: 'expanded' | 'collapsed';
+  isMobile: boolean;
+};
 
-// Helper function to toggle sidebar state
-export function toggleSidebar() {
-  sidebarStore.update(state => ({
-    ...state,
-    isOpen: !state.isOpen
-  }));
+function createSidebarStore() {
+  const { subscribe, set, update } = writable<SidebarState>({
+    state: 'expanded',
+    isMobile: false
+  });
+
+  return {
+    subscribe,
+    toggle: () => update(state => ({
+      ...state,
+      state: state.state === 'expanded' ? 'collapsed' : 'expanded'
+    })),
+    setMobile: (isMobile: boolean) => update(state => ({ ...state, isMobile })),
+    reset: () => set({ state: 'expanded', isMobile: false })
+  };
 }
+
+export const sidebarStore = createSidebarStore();

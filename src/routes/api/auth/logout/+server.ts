@@ -9,7 +9,9 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ cookies }) => {
 	try {
 		// Get the user's session cookie.
-		const sessionCookie = cookies.get('__session');
+		const sessionCookie = cookies.get('session');
+
+		console.log('Session cookie:', sessionCookie);
 
 		// If there's no session cookie, the user is already logged out.
 		if (!sessionCookie) {
@@ -18,6 +20,8 @@ export const POST: RequestHandler = async ({ cookies }) => {
 
 		// Decode the session cookie to get the user's UID.
 		const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
+
+		console.log('Decoded token:', decodedToken);
 
 		// Call the logout function from src/lib/server/auth.ts
 		await logout(cookies, decodedToken.uid);

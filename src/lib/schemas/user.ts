@@ -10,7 +10,8 @@ import { z } from 'zod';
  * @property {string} [photoUrl] - Optional URL to user's profile photo
  */
 export const userSchema = z.object({
-  name: z.string().email(),
+  name: z.string(),
+  email: z.string().email(),
   id: z.string(),
   classes: z.array(z.string()).default([]),
   metadata: z.object({

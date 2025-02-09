@@ -2,11 +2,13 @@
 <script lang="ts">
 	import '../app.css';
 	import { modalStore } from '$lib/stores/modalStore';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 
 	let {
 		data,
@@ -25,6 +27,27 @@
 		}
 	});
 
+	// Handle keyboard shortcuts
+	$effect(() => {
+		const handleKeydown = (e: KeyboardEvent) => {
+			// Toggle sidebar with Cmd/Ctrl + B
+			if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+				e.preventDefault();
+				sidebarStore.toggle();
+			}
+		};
+
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
+
+	// Handle backdrop click on mobile
+	function handleBackdropClick() {
+		if ($sidebarStore.isMobile && $sidebarStore.state === 'expanded') {
+			sidebarStore.toggle();
+		}
+	}
+
 	function handleModalClose() {
 		modalStore.close();
 	}
@@ -34,7 +57,13 @@
 <Toast />
 
 <div class="flex min-h-screen">
-	<main class="flex-1">
+	<Sidebar />
+	<!-- Backdrop for mobile sidebar -->
+	{#if $sidebarStore.isMobile && $sidebarStore.state === 'expanded'}
+		<button type="button" class="backdrop" aria-label="Close sidebar" onclick={handleBackdropClick}
+		></button>
+	{/if}
+	<main class="main-content flex-1">
 		{@render children()}
 	</main>
 </div>
@@ -89,5 +118,29 @@
 		max-height: 90vh;
 		overflow-y: auto;
 		z-index: 1;
+	}
+
+	.backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		background: var(--background-modifier-cover);
+		border: none;
+		z-index: 40;
+	}
+
+	.main-content {
+		margin-left: 72px;
+		transition: margin-left 0.2s ease;
+	}
+
+	:global(.sidebar.expanded ~ .main-content) {
+		margin-left: 280px;
+	}
+
+	:global(.sidebar.mobile ~ .main-content) {
+		margin-left: 0;
 	}
 </style>
