@@ -86,17 +86,24 @@
 		}
 
 		isProcessingEdit = true;
-		editorStore.updateNode(
-			node.id,
-			node.text,
-			{
-				originalText: node.text,
-				correctedText: trimmedValue,
-				pattern: ''
-			},
-			undefined,
-			'correction'
-		);
+
+		// Handle empty nodes differently - convert to addition
+		if (node.type === 'empty') {
+			editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
+		} else {
+			// Handle other nodes as corrections
+			editorStore.updateNode(
+				node.id,
+				node.text,
+				{
+					originalText: node.text,
+					correctedText: trimmedValue,
+					pattern: ''
+				},
+				undefined,
+				'correction'
+			);
+		}
 		onClose();
 	}
 

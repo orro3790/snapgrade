@@ -143,9 +143,20 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
         const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
         if (nodeIndex === -1) return $nodes;
 
-        // Only save to undo stack if there's an actual change
         const oldNode = $nodes[nodeIndex];
-        if (oldNode.text !== text || oldNode.type !== type) {
+        
+        // Determine the new type based on current node type
+        let newType = type;
+        if (oldNode.type === 'addition') {
+            // Preserve addition type
+            newType = 'addition';
+        } else if (oldNode.type === 'empty') {
+            // Always convert empty nodes to addition nodes when updated
+            newType = 'addition';
+        }
+
+        // Only save to undo stack if there's an actual change
+        if (oldNode.text !== text || oldNode.type !== newType) {
             updateUndoStack($undoStack => [...$undoStack, $nodes]);
             updateRedoStack(() => []);
         }
@@ -154,9 +165,37 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
         newNodes[nodeIndex] = {
             ...oldNode,
             text,
-            type,
+            type: newType,
             ...(correctionData && { correctionData }),
             ...(spacerData && { spacerData })
+        };
+
+        return newNodes;
+    });
+}
+
+/**
+ * Toggles the deletion state of a node.
+ * @param {string} nodeId - The ID of the node to toggle.
+ */
+function toggleDeletion(nodeId: string) {
+    updateNodes($nodes => {
+        const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
+        if (nodeIndex === -1) return $nodes;
+
+        const node = $nodes[nodeIndex];
+        
+        // Don't toggle if it's an empty or spacer node
+        if (node.type === 'empty' || node.type === 'spacer') return $nodes;
+
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+
+        const newNodes = [...$nodes];
+        newNodes[nodeIndex] = {
+            ...node,
+            type: node.type === 'deletion' ? 'normal' : 'deletion'
         };
 
         return newNodes;
@@ -360,7 +399,8 @@ export const editorStore = {
      * Loads and deserializes nodes from a JSON string.
      * @param {string} serialized - The serialized JSON string.
      */
-    loadSerializedContent
+    loadSerializedContent,
+    toggleDeletion
 };
 
 /**
