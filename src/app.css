@@ -489,15 +489,52 @@ tr:hover {
   border: 0;
 }
 
-/* Print Styles */
-@media print {
-  body {
-      background-color: white;
-      color: black;
-  }
+	/* A4 content adjustments */
+	@media print {
+    * {
+      color: black !important;
+      border-color: black !important;
+      opacity: 100% !important;
+    }
 
-  a {
-      color: black;
-      text-decoration: underline;
-  }
-}
+		@page {
+			margin: 1cm;
+			size: 21cm 29.7cm;
+		}
+		.a4-content {
+			width: calc(210mm - 2cm) !important;
+			margin: 0 auto !important;
+			padding: 0 !important;
+		}
+
+		/* Hide UI elements when printing */
+		.app-container {
+			background: white !important;
+		}
+
+		.sidebar-editor-wrapper > :not(.content-wrapper),
+		.editor-header {
+			display: none !important;
+		}
+
+		.punctuation {
+			margin-right: var(--spacing-2) !important;
+		}
+
+		.text-node.correction {
+			border-bottom: 2px dotted black !important;
+		}
+
+		.deleted::before {
+			border: 1px solid var(--color-black) !important;
+		}
+
+		.text-node.addition {
+			border: 1px solid black !important;
+			padding: 0 var(--spacing-1);
+		}
+
+		.text-node.punctuation {
+			min-width: 0 !important;
+		}
+	}

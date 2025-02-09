@@ -11,7 +11,7 @@
 	}>();
 
 	let isEditing = $state(false);
-	let isSaved = $state(false);
+	let modalPosition = $state({ x: 0, y: 0 });
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
@@ -55,15 +55,12 @@
 		// Handle active node clicks: Enable editing
 		editorStore.setActiveNode(node.id);
 		if (isActive) {
+			modalPosition = {
+				x: event.clientX,
+				y: event.clientY
+			};
 			isEditing = true;
 		}
-	}
-
-	function showSaveEffect() {
-		isSaved = true;
-		setTimeout(() => {
-			isSaved = false;
-		}, 300);
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -89,7 +86,6 @@
 	function handleEditClose() {
 		isEditing = false;
 		editorStore.setActiveNode(null);
-		showSaveEffect();
 	}
 
 	let classList = $derived(
@@ -100,7 +96,6 @@
 			node.hasNextCorrection ? 'has-next-correction' : '',
 			isEditing ? 'highlighted' : '',
 			node.metadata.isPunctuation ? 'punctuation' : '',
-			isSaved ? 'saved-flash' : '',
 			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : ''
 		]
 			.filter(Boolean)
@@ -134,7 +129,7 @@
 </div>
 
 {#if isEditing}
-	<EditModal {node} onClose={handleEditClose} />
+	<EditModal {node} position={modalPosition} onClose={handleEditClose} />
 {/if}
 
 <style>
@@ -173,27 +168,20 @@
 		display: flex;
 		position: relative;
 		cursor: pointer;
-		padding: 0 var(--spacing-1) 0 var(--spacing-1);
+		margin-right: var(--spacing-1);
 		border-radius: var(--radius-sm);
 		transition: var(--transition-all);
-		border: var(--border-width-medium) dotted var(--interactive-normal);
 		min-width: var(--font-size-base);
 	}
 
-	/* Special node types */
-	.text-node.deletion,
-	.text-node.addition {
-		border: var(--border-width-medium) solid var(--background-primary);
-	}
-
 	.text-node.correction {
-		border: var(--border-width-medium) solid var(--background-primary);
 		border-bottom: var(--border-width-medium) dotted var(--text-error-hover);
+		/* Shift down by border width to maintain alignment */
+		transform: translateY(var(--border-width-medium));
 	}
 
 	/* Punctuation nodes */
 	.punctuation {
-		min-width: var(--font-size-lg);
 		border: none;
 		border-radius: 0;
 		display: flex;
@@ -209,32 +197,11 @@
 		background-color: var(--interactive-active);
 	}
 
-	.text-node.highlighted {
-		border: var(--border-width-medium) dotted var(--interactive-highlight);
-		z-index: var(--z-10);
-	}
-
-	/* Save animation */
-	.saved-flash {
-		animation: saveFlash var(--transition-duration-300) var(--transition-timing-ease-out);
-	}
-
-	@keyframes saveFlash {
-		0% {
-			background-color: var(--interactive-highlight);
-		}
-		100% {
-			background-color: transparent;
-		}
-	}
-
 	/* Correction styling */
 	.correction-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-2);
 		min-width: max-content;
-		justify-content: center;
 	}
 
 	.correction-text {
@@ -242,20 +209,12 @@
 		font-weight: var(--font-weight-bold);
 		white-space: nowrap;
 		min-width: max-content;
+		margin-bottom: -0.5em; /* Pull text closer to base text */
 	}
 
 	.text-content {
 		display: flex;
 		align-items: end;
-	}
-
-	/* Highlight states */
-	.text-node.highlight-correction,
-	.text-node.highlight-deletion,
-	.text-node.highlight-addition,
-	.text-node.highlight-normal {
-		border: var(--border-width-medium) solid var(--text-accent);
-		transition: border-color var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
 	/* Deleted text */
@@ -265,7 +224,6 @@
 		position: relative;
 		min-width: min-content;
 	}
-
 	.deleted::before {
 		content: '';
 		position: absolute;
@@ -273,7 +231,7 @@
 		left: 50%;
 		width: min(100%, 1.75em);
 		height: var(--border-width-thin);
-		background: var(--text-error);
+		border: 1px solid var(--text-error); /* Use border instead of background */
 		transform: translate(-50%, 0) rotate(135deg);
 		transform-origin: center;
 	}
@@ -296,12 +254,5 @@
 		align-items: center;
 		justify-content: center;
 		color: var(--interactive-success);
-	}
-
-	/* Print styles */
-	@media print {
-		* {
-			color: var(--color-black) !important;
-		}
 	}
 </style>

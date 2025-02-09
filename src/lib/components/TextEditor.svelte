@@ -3,7 +3,6 @@
 	import { editorStore, activeCorrection, paragraphs } from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
-	import StatsDisplay from './StatsDisplay.svelte';
 
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
@@ -69,17 +68,18 @@
 	aria-label="Text editor content"
 	role="textbox"
 >
-	<!-- <StatsDisplay /> -->
 	<div class="main-content" class:sidebar-expanded={$sidebarStore.state === 'expanded'}>
-		<!-- Preview/Print content -->
-		<div class="a4-content" role="complementary" aria-label="Preview">
-			{#each paragraphsList as paragraph (paragraph.id)}
-				<div class="paragraph-row">
-					{#each paragraph.corrections as node (node.id)}
-						<TextNode {node} isActive={node.id === activeNodeId} />
-					{/each}
-				</div>
-			{/each}
+		<!-- Wrap the a4-content in a print-only container -->
+		<div class="print-container">
+			<div class="a4-content" role="complementary" aria-label="Preview">
+				{#each paragraphsList as paragraph (paragraph.id)}
+					<div class="paragraph-row">
+						{#each paragraph.corrections as node (node.id)}
+							<TextNode {node} isActive={node.id === activeNodeId} />
+						{/each}
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
 </div>
@@ -104,10 +104,10 @@
 	.paragraph-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-2);
 		align-items: end;
 		min-height: var(--spacing-8); /* Ensures consistent height for empty rows */
 		margin-bottom: var(--spacing-4); /* Space between paragraphs */
+		gap: 0;
 	}
 
 	/* Preview section */

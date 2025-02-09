@@ -6,30 +6,98 @@
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
 
-	const { node, onClose } = $props<{
+	let { node, position, onClose } = $props<{
 		node: Node;
+		position: { x: number; y: number };
 		onClose: () => void;
 	}>();
 
-	let editableText = $state(node.text);
-	let inputRef = $state<HTMLTextAreaElement>();
+	let modalElement: HTMLDivElement;
+	let inputElement: HTMLTextAreaElement;
+	let inputValue = $state(
+		node.type === 'correction' ? node.correctionData?.correctedText || node.text : node.text
+	);
 	let isProcessingEdit = $state(false);
 
+	// Add this function to adjust textarea height
+	function adjustTextareaHeight(textarea: HTMLTextAreaElement) {
+		textarea.style.height = 'auto';
+		textarea.style.height = `${textarea.scrollHeight}px`;
+	}
+
+	// Modify the effect to include height adjustment
 	$effect(() => {
-		if (inputRef) {
-			inputRef.focus();
-			inputRef.select();
+		if (!modalElement || !inputElement) return;
+
+		const rect = modalElement.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+
+		let x = position.x;
+		let y = position.y;
+
+		x += 10;
+		y += 10;
+
+		if (x + rect.width > viewportWidth) {
+			x = viewportWidth - rect.width - 10;
 		}
+		if (y + rect.height > viewportHeight) {
+			y = viewportHeight - rect.height - 10;
+		}
+
+		modalElement.style.left = `${x}px`;
+		modalElement.style.top = `${y}px`;
+
+		// Focus and adjust height
+		inputElement.focus();
+		inputElement.select();
+		adjustTextareaHeight(inputElement);
 	});
 
-	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			onClose();
-		} else if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			handleSave();
+	// Add input handler for dynamic height adjustment
+	function handleInput(event: Event) {
+		const textarea = event.target as HTMLTextAreaElement;
+		adjustTextareaHeight(textarea);
+	}
+
+	// Handle click outside
+	function handleClickOutside(event: MouseEvent) {
+		if (modalElement && !modalElement.contains(event.target as HTMLElement)) {
+			handleSubmit();
 		}
+	}
+
+	// Cleanup
+	$effect.root(() => {
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	});
+
+	function handleSubmit() {
+		if (isProcessingEdit) return;
+
+		const trimmedValue = inputValue.trim();
+		if (!trimmedValue || trimmedValue === node.text) {
+			onClose();
+			return;
+		}
+
+		isProcessingEdit = true;
+		editorStore.updateNode(
+			node.id,
+			node.text,
+			{
+				originalText: node.text,
+				correctedText: trimmedValue,
+				pattern: ''
+			},
+			undefined,
+			'correction'
+		);
+		onClose();
 	}
 
 	function handleDelete() {
@@ -40,52 +108,37 @@
 	}
 
 	function handleAddAfter() {
-		if (isProcessingEdit || !editableText.trim()) return;
+		if (isProcessingEdit || !inputValue.trim()) return;
 		isProcessingEdit = true;
-		editorStore.insertNodeAfter(node.id, editableText.trim(), 'addition');
+		editorStore.insertNodeAfter(node.id, inputValue.trim(), 'addition');
 		onClose();
 	}
 
-	function handleCorrect() {
-		if (isProcessingEdit || !editableText.trim() || editableText.trim() === node.text) return;
-		isProcessingEdit = true;
-		editorStore.updateNode(
-			node.id,
-			node.text,
-			{
-				originalText: node.text,
-				correctedText: editableText.trim(),
-				pattern: ''
-			},
-			undefined,
-			'correction'
-		);
-		onClose();
-	}
-
-	function handleSave() {
-		if (isProcessingEdit) return;
-		const trimmedText = editableText.trim();
-		if (!trimmedText || trimmedText === node.text) {
+	function handleKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			handleSubmit();
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
 			onClose();
-			return;
 		}
-		handleCorrect();
 	}
 </script>
 
 <div
 	class="overlay"
-	role="button"
+	role="textbox"
 	tabindex="0"
+	aria-label="Edit text"
+	onkeydown={handleKeyDown}
 	onclick={onClose}
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
 >
 	<div
-		class="modal"
+		class="modal-container"
+		bind:this={modalElement}
 		role="button"
 		tabindex="0"
-		aria-label="Edit text"
+		aria-label="Modal container"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
@@ -95,21 +148,23 @@
 		}}
 	>
 		<textarea
-			bind:this={inputRef}
-			bind:value={editableText}
+			bind:this={inputElement}
+			bind:value={inputValue}
 			onkeydown={handleKeyDown}
+			oninput={handleInput}
+			aria-label="Edit text input"
 			placeholder="Type to edit..."
-			rows="3"
+			rows="1"
 			aria-multiline="true"
 		></textarea>
-		<div class="actions" aria-label="Editing actions">
+		<div class="actions" role="toolbar" aria-label="Editing actions">
 			<button onclick={handleDelete} type="button" title="Delete text">
 				<Slash />
 			</button>
 			<button onclick={handleAddAfter} type="button" title="Add after">
 				<Add />
 			</button>
-			<button onclick={handleCorrect} type="button" title="Correct">
+			<button onclick={handleSubmit} type="button" title="Correct">
 				<Correction />
 			</button>
 		</div>
@@ -124,9 +179,16 @@
 		display: grid;
 		place-items: center;
 		z-index: var(--z-modal);
+		border: none;
+		padding: 0;
+		margin: 0;
+		width: 100%;
+		cursor: default;
 	}
 
-	.modal {
+	.modal-container {
+		position: fixed;
+		z-index: var(--z-20);
 		background: var(--background-primary);
 		border-radius: var(--radius-lg);
 		width: min(280px, 90vw);
@@ -148,6 +210,8 @@
 		padding: var(--spacing-3);
 		transition: var(--transition-all);
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+		min-height: calc(var(--line-height-relaxed) * 1em + var(--spacing-3) * 2);
+		overflow-y: hidden; /* Hide scrollbar */
 	}
 
 	textarea:focus {
