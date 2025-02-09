@@ -1,7 +1,7 @@
 <script lang="ts">
 	const {
 		size = 'var(--icon-base)',
-		fill = 'var(--interactive-accent)',
+		fill = 'var(--text-normal)',
 		stroke = '',
 		strokeWidth = 'var(--icon-stroke-normal)'
 	} = $props<{

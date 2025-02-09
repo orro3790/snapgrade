@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
 	import { invalidateAll, goto } from '$app/navigation';
@@ -12,14 +11,8 @@
 	let isLoggingOut = $state(false);
 	let user = $derived($userStore);
 
-	const {
-		size = 'var(--icon-base)',
-		stroke = 'currentColor',
-		strokeWidth = 'var(--icon-stroke-normal)'
-	} = $props<{
-		size?: string;
-		stroke?: string;
-		strokeWidth?: string;
+	let { collapsed = false } = $props<{
+		collapsed?: boolean;
 	}>();
 
 	function toggleMenu() {
@@ -73,6 +66,7 @@
 	<button
 		type="button"
 		class="user-trigger"
+		class:collapsed
 		onclick={toggleMenu}
 		aria-expanded={isOpen}
 		aria-haspopup="true"
@@ -83,18 +77,18 @@
 			<img src={user.photoUrl} alt="User avatar" class="avatar" />
 		{:else}
 			<div class="avatar">
-				<Avatar {size} />
+				<Avatar size="var(--icon-base)" />
 			</div>
 		{/if}
 
-		{#if $sidebarStore.state === 'expanded'}
+		{#if !collapsed}
 			<span class="user-name">{user?.name ?? 'Guest'}</span>
+			<CaretUpDown size="20" />
 		{/if}
-		<CaretUpDown size="20" />
 	</button>
 
 	{#if isOpen}
-		<div class="menu-content" role="menu">
+		<div class="menu-content" role="menu" class:collapsed>
 			<div class="menu-header">
 				<div class="user-info">
 					<strong>{user?.name ?? 'Guest'}</strong>
@@ -131,29 +125,35 @@
 		width: 100%;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.5rem;
+		gap: var(--spacing-2);
 		background: none;
 		border: none;
-		border-radius: 4px;
+		padding: var(--spacing-2);
+		border-radius: var(--radius-base);
 		cursor: pointer;
 		color: var(--text-normal);
-		transition: background-color 0.2s ease;
+		transition: var(--transition-all);
 	}
 
 	.user-trigger:hover {
-		background: var(--interactive-hover);
+		background: var(--background-modifier-hover);
+	}
+
+	.user-trigger.collapsed {
+		justify-content: center;
+		padding: 0;
 	}
 
 	.avatar {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		background: var(--interactive-accent);
+		width: var(--spacing-8);
+		height: var(--spacing-8);
+		border-radius: var(--radius-base);
+		background: var(--background-secondary);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
+		flex-shrink: 0;
 	}
 
 	.user-name {
@@ -168,53 +168,61 @@
 
 	.menu-content {
 		position: absolute;
-		bottom: 100%;
+		bottom: 0%;
 		left: 100%;
-		width: 100%;
-		min-width: 200px;
-		background: var(--background-secondary);
+		width: 220px;
+		background: var(--background-primary);
 		border: 1px solid var(--background-modifier-border);
-		border-radius: 4px;
-		box-shadow: 0 2px 4px var(--background-modifier-box-shadow);
-		margin-bottom: 0.5rem;
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		margin-left: var(--spacing-2);
+		z-index: 50;
 	}
 
 	.menu-header {
-		padding: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		padding: var(--spacing-3);
+		border-bottom: 1px solid var(--border-color);
 	}
 
 	.user-info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: var(--spacing-1);
+	}
+
+	.user-info strong {
+		font-size: var(--text-sm);
+		color: var(--text-normal);
 	}
 
 	.user-email {
-		font-size: 0.875rem;
+		font-size: var(--text-xs);
 		color: var(--text-muted);
 	}
 
 	.menu-items {
-		padding: 0.5rem;
+		padding: var(--spacing-1);
 	}
 
 	.menu-item {
 		width: 100%;
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem;
+		gap: var(--spacing-2);
+		padding: var(--spacing-2) var(--spacing-3);
 		background: none;
 		border: none;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		cursor: pointer;
 		color: var(--text-normal);
-		transition: background-color 0.2s ease;
+		font-size: var(--text-sm);
+		transition: var(--transition-all);
+		justify-content: flex-start;
+		text-align: left;
 	}
 
 	.menu-item:hover {
-		background: var(--interactive-hover);
+		background: var(--background-modifier-hover);
 	}
 
 	.menu-item:disabled {

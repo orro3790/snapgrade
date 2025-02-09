@@ -63,6 +63,13 @@
 		return () => window.removeEventListener('resize', checkMobile);
 	});
 
+	// Add effect to collapse sidebar on logout
+	$effect(() => {
+		if (!$userStore) {
+			sidebarStore.collapse();
+		}
+	});
+
 	function handleNavClick(itemId: string) {
 		activeItem = itemId;
 		if ($sidebarStore.isMobile) {
@@ -108,10 +115,12 @@
 						onkeydown={(e) => handleKeyNav(e, id)}
 						aria-label={label}
 					>
-						<Icon
-							size="var(--icon-sm)"
-							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-						/>
+						<span class="nav-item-icon">
+							<Icon
+								stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+								size="var(--icon-sm)"
+							/>
+						</span>
 						{#if $sidebarStore.state === 'expanded'}
 							<span class="nav-label">{label}</span>
 						{/if}
@@ -133,10 +142,12 @@
 						onkeydown={(e) => handleKeyNav(e, id)}
 						aria-label={label}
 					>
-						<Icon
-							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-							size="var(--icon-sm)"
-						/>
+						<span class="nav-item-icon">
+							<Icon
+								stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+								size="var(--icon-sm)"
+							/>
+						</span>
 						{#if $sidebarStore.state === 'expanded'}
 							<span class="nav-label">{label}</span>
 						{/if}
@@ -149,10 +160,12 @@
 	<!-- Footer Actions -->
 	<div class="sidebar-footer">
 		{#if user}
-			<UserMenu />
+			<UserMenu collapsed={$sidebarStore.state !== 'expanded'} />
 		{:else}
 			<a href="/login" class="nav-item" role="button" tabindex="0">
-				<Login size="var(--icon-sm)" />
+				<span class="nav-item-icon">
+					<Login size="var(--icon-sm)" />
+				</span>
 				{#if $sidebarStore.state === 'expanded'}
 					<span class="nav-label">Login</span>
 				{/if}
@@ -165,23 +178,26 @@
 	.sidebar {
 		position: relative;
 		height: 100vh;
-		width: 72px; /* Keep explicit width for sidebar */
-		min-width: 72px; /* Add back min-width */
+		width: var(--spacing-12);
+		min-width: var(--spacing-12);
 		background: var(--background-primary);
 		border-right: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		flex-direction: column;
-		transition: width var(--transition-duration-200) var(--transition-timing-ease);
+		transition: var(--transition-sidebar);
 		z-index: var(--z-drawer);
+		transform: translateX(0);
 	}
 
 	.sidebar.expanded {
-		width: 280px; /* Keep explicit width for expanded state */
+		width: 280px;
+		min-width: 280px;
 	}
 
 	.nav-section {
 		flex: 1;
 		overflow-y: auto;
+		overflow-x: hidden;
 		padding: var(--spacing-2);
 		display: flex;
 		flex-direction: column;
@@ -195,7 +211,7 @@
 	}
 
 	.nav-group-label {
-		padding: var(--spacing-2) var(--spacing-3);
+		padding: var(--spacing-2);
 		font-size: var(--font-size-xs);
 		font-weight: var(--font-weight-medium);
 		color: var(--text-muted);
@@ -208,14 +224,35 @@
 		align-items: center;
 		justify-content: start;
 		gap: var(--spacing-4);
-		padding: var(--spacing-3);
-		width: 100%;
+		padding: var(--spacing-2);
 		border: none;
 		border-radius: var(--radius-base);
 		background: none;
-		color: var(--text-muted);
+		color: var(--text-normal);
 		cursor: pointer;
-		transition: all var(--transition-duration-150) var(--transition-timing-ease);
+		transition: var(--transition-all);
+		min-height: var(--spacing-8);
+		height: var(--spacing-8);
+	}
+
+	/* Add an icon wrapper to control size */
+	.nav-item-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--icon-sm);
+		height: var(--icon-sm);
+		flex: 0 0 var(--icon-sm); /* shorthand for flex-grow: 0, flex-shrink: 0, flex-basis: var(--icon-sm) */
+	}
+
+	.sidebar.expanded .nav-item {
+		width: 100%;
+	}
+
+	.sidebar:not(.expanded) .nav-item {
+		width: var(--spacing-8);
+		padding: var(--spacing-2);
+		justify-content: center;
 	}
 
 	.nav-item:hover {
@@ -238,6 +275,8 @@
 
 	.sidebar-footer {
 		padding: var(--spacing-2);
+		position: relative;
+		overflow: visible;
 	}
 
 	@keyframes spin {
@@ -248,17 +287,14 @@
 
 	/* Mobile styles */
 	.sidebar.mobile {
-		width: 0;
+		position: fixed;
+		width: 280px;
 		transform: translateX(-100%);
-		transition:
-			transform var(--transition-duration-200) var(--transition-timing-ease),
-			width 0s linear var(--transition-duration-200);
+		transition: var(--transition-transform);
 	}
 
 	.sidebar.mobile.expanded {
-		width: 280px; /* Keep explicit width */
 		transform: translateX(0);
-		transition: transform var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
 	/* Backdrop for mobile */
@@ -271,13 +307,15 @@
 		height: 100vh;
 		background: var(--background-modifier-cover);
 		opacity: 0;
+		visibility: hidden;
 		pointer-events: none;
-		transition: opacity var(--transition-duration-200) var(--transition-timing-ease);
+		transition: var(--transition-opacity), var(--transition-visibility);
 		z-index: calc(var(--z-drawer) - 1);
 	}
 
 	.sidebar.mobile.expanded::after {
 		opacity: 1;
+		visibility: visible;
 		pointer-events: auto;
 	}
 
@@ -287,26 +325,23 @@
 	}
 
 	/* Center icons when collapsed */
-	.sidebar:not(.expanded) .nav-item {
-		justify-content: center;
-	}
-
-	/* Add hover effect to show labels */
 	.sidebar:not(.expanded):not(.mobile) .nav-item:hover {
 		position: relative;
 	}
 
 	.sidebar:not(.expanded):not(.mobile) .nav-item:hover .nav-label {
+		left: var(--spacing-8);
 		position: absolute;
-		left: calc(100% + var(--spacing-2));
 		top: 50%;
 		transform: translateY(-50%);
 		background: var(--background-primary);
-		padding: var(--spacing-2) var(--spacing-3);
+		padding: var(--spacing-2);
 		border-radius: var(--radius-base);
 		box-shadow: var(--shadow-md);
 		display: block;
 		white-space: nowrap;
 		z-index: var(--z-popover);
+		height: auto;
+		min-height: unset;
 	}
 </style>

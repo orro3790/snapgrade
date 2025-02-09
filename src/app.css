@@ -174,9 +174,9 @@
 
   /* Icon Stroke Widths */
   --icon-stroke-thin: 1px;
-  --icon-stroke-normal: 1.5px;
-  --icon-stroke-medium: 2px;
-  --icon-stroke-thick: 2.5px;
+  --icon-stroke-normal: 2px;
+  --icon-stroke-medium: 2.5px;
+  --icon-stroke-thick: 3px;
 
   /* Z-index Scale */
   --z-negative: -1;
@@ -196,30 +196,30 @@
   --z-popover: var(--z-50);
   
   /* Transitions */
-  --duration-instant: 0ms;
-  --duration-fast: 100ms;      /* Quick micro-interactions */
-  --duration-normal: 200ms;    /* Most UI interactions */
-  --duration-slow: 300ms;      /* Complex animations */
-  --duration-slower: 500ms;    /* Elaborate transitions */
-  --duration-longest: 1000ms;  /* Page transitions */
-
-  /* Easing */
-  --ease-linear: linear;
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
+  --transition-duration-50: 50ms;
+  --transition-duration-100: 100ms;
+  --transition-duration-150: 150ms;
+  --transition-duration-200: 200ms;
+  --transition-duration-300: 300ms;
+  --transition-duration-500: 500ms;
+  
+  /* Timing Functions */
+  --transition-timing-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-timing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --transition-timing-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --transition-timing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  
   /* Common Transitions */
-  --transition-transform: transform var(--duration-normal) var(--ease-in-out);
-  --transition-opacity: opacity var(--duration-normal) var(--ease-in-out);
-  --transition-colors: background-color var(--duration-fast) var(--ease-in-out),
-                      border-color var(--duration-fast) var(--ease-in-out),
-                      color var(--duration-fast) var(--ease-in-out),
-                      fill var(--duration-fast) var(--ease-in-out),
-                      stroke var(--duration-fast) var(--ease-in-out);
-  --transition-shadow: box-shadow var(--duration-fast) var(--ease-in-out);
-  --transition-all: all var(--duration-normal) var(--ease-in-out);
+  --transition-transform: transform var(--transition-duration-200) var(--transition-timing-ease);
+  --transition-width: width var(--transition-duration-200) var(--transition-timing-ease);
+  --transition-opacity: opacity var(--transition-duration-150) var(--transition-timing-ease);
+  --transition-visibility: visibility var(--transition-duration-150) var(--transition-timing-ease);
+  --transition-all: all var(--transition-duration-200) var(--transition-timing-ease);
+  
+  /* Composite Transitions */
+  --transition-sidebar: width var(--transition-duration-200) var(--transition-timing-ease),
+                       transform var(--transition-duration-200) var(--transition-timing-ease),
+                       opacity var(--transition-duration-150) var(--transition-timing-ease);
 }
 
 /* Base Styles */
