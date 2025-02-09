@@ -1,180 +1,212 @@
 # ESL Job Platform Design System
 
-This design system provides a consistent and accessible foundation for building user interfaces across the ESL Job Platform. It combines Geist typography with a carefully crafted set of design tokens for spacing, colors, and interactions.
+## Core Principles
 
-## Design Principles
-
-- **Accessible**: Following WCAG 2.1 guidelines for text contrast and interactive elements
-- **Consistent**: Using standardized tokens for predictable layouts and interactions
-- **Purposeful**: Every design decision serves a clear functional purpose
-- **Scalable**: Design patterns that work across different screen sizes and contexts
+- **Accessible**: WCAG 2.1 compliant with clear visual hierarchy and sufficient contrast
+- **Consistent**: Standardized tokens ensure predictable layouts and behaviors
+- **Purposeful**: Each design decision serves a clear functional goal
+- **Scalable**: Patterns work across screen sizes and contexts
+- **Performant**: Optimized transitions and animations for smooth interactions
 
 ## Typography
 
-### Font Family
+### Font Stack
 
-We use Geist for its excellent readability and modern feel:
+Primary: 'Geist'
 
-- Primary: 'Geist' for all interface text
-- Weights: Regular (400), Medium (500), Bold (700)
+```css
+font-family:
+	'Geist',
+	system-ui,
+	-apple-system,
+	sans-serif;
+```
+
+### Font Weights
+
+- `--font-weight-regular: 400` - Body text, secondary content
+- `--font-weight-medium: 500` - Navigation, interactive elements, emphasis
+- `--font-weight-bold: 700` - Headings, primary actions
 
 ### Font Sizes
 
-- `--font-size-xs`: 0.75rem (12px) - Fine print, captions, tags
-- `--font-size-sm`: 0.875rem (14px) - Secondary text, supporting information
-- `--font-size-base`: 1rem (16px) - Default body text
-- `--font-size-lg`: 1.125rem (18px) - Emphasized body text
-- `--font-size-xl`: 1.25rem (20px) - Small headings
-- `--font-size-2xl`: 1.5rem (24px) - Medium headings
-- `--font-size-3xl`: 1.875rem (30px) - Large headings
-- `--font-size-4xl`: 2.25rem (36px) - Main headings
+- `--font-size-xs: 0.75rem` (12px)
+  - Labels in compact UIs
+  - Meta information
+  - Navigation group labels
+- `--font-size-sm: 0.875rem` (14px)
+  - Navigation items
+  - Secondary text
+  - Form labels
+- `--font-size-base: 1rem` (16px)
+  - Body text
+  - Form inputs
+  - Button text
+- `--font-size-lg: 1.125rem` (18px)
+  - Emphasized content
+  - Section headers
+- `--font-size-xl: 1.25rem` (20px)
+  - Card headers
+  - Modal titles
+- `--font-size-2xl: 1.5rem` (24px)
+  - Page section headers
+- `--font-size-3xl: 1.875rem` (30px)
+  - Page titles
+- `--font-size-4xl: 2.25rem` (36px)
+  - Hero content
+  - Landing page headers
 
-## Spacing
+### Line Heights
 
-Our spacing scale is based on 4px increments for consistent rhythm:
+- `--line-height-none: 1` - Single line text (buttons, labels)
+- `--line-height-tight: 1.25` - Headings
+- `--line-height-snug: 1.375` - Compact body text
+- `--line-height-base: 1.5` - Default body text
+- `--line-height-relaxed: 1.625` - Long-form content
+- `--line-height-loose: 2` - Educational content
 
-- `--spacing-1`: 0.25rem (4px) - Minimal spacing between related elements
-- `--spacing-2`: 0.5rem (8px) - Default spacing between unrelated elements
-- `--spacing-3`: 0.75rem (12px) - Padding in smaller components
-- `--spacing-4`: 1rem (16px) - Standard container padding
-- `--spacing-6`: 1.5rem (24px) - Section spacing
-- `--spacing-8`: 2rem (32px) - Major section divisions
-- `--spacing-12`: 3rem (48px) - Page-level spacing
-- `--spacing-16`: 4rem (64px) - Large compositions
+## Spacing System
 
-## Colors
+### Component-Specific Spacing
+
+- Micro (2-4px)
+  - `--spacing-0-5: 0.125rem` (2px) - Minimal internal spacing
+  - `--spacing-1: 0.25rem` (4px) - Tight grouping of related items
+- Small (8-12px)
+  - `--spacing-2: 0.5rem` (8px) - Default padding for navigation items
+  - `--spacing-3: 0.75rem` (12px) - Form control padding
+- Medium (16-24px)
+  - `--spacing-4: 1rem` (16px) - Standard container padding
+  - `--spacing-6: 1.5rem` (24px) - Section spacing
+- Large (32px+)
+  - `--spacing-8: 2rem` (32px) - Major section divisions
+  - `--spacing-12: 3rem` (48px) - Page-level spacing
+  - `--spacing-16: 4rem` (64px) - Hero sections
+
+### Usage Guidelines
+
+- Use smaller spacing (`--spacing-1` to `--spacing-2`) for related elements
+- Use medium spacing (`--spacing-4` to `--spacing-6`) for section divisions
+- Use larger spacing (`--spacing-8` and above) for major layout blocks
+
+## Color System
 
 ### Background Colors
 
-- `--background-primary`: #202020 - Main application background
-- `--background-alt`: #1a1a1a - Alternative background for contrast
-- `--background-modifier-hover`: #303030 - Hover states
-- `--background-modifier-active`: #404040 - Active/selected states
+- `--background-primary: #202020`
+  - Main application background
+  - Sidebar base
+- `--background-alt: #1a1a1a`
+  - Alternative sections
+  - Cards
+- `--background-secondary: #161616`
+  - Nested components
+  - Dropdowns
+- `--background-modifier-hover: #303030`
+  - Interactive element hover states
+  - Navigation item hover
 
 ### Text Colors
 
-- `--text-normal`: #dcddde - Primary content
-- `--text-muted`: #999 - Secondary content
-- `--text-faint`: #666 - Tertiary content
-- `--text-accent`: #7f6df2 - Interactive elements
-- `--text-on-accent`: #ffffff - Text on accent backgrounds
+- `--text-normal: #dcddde` - Primary content
+- `--text-muted: #999`
+  - Secondary text
+  - Icon default state
+  - Navigation labels
+- `--text-faint: #666` - Tertiary content
+- `--text-accent: #7f6df2` - Interactive elements
+- `--text-on-accent: #ffffff` - Text on colored backgrounds
 
 ### Interactive Colors
 
-- `--interactive-normal`: #2a2a2a - Default state
-- `--interactive-hover`: #303030 - Hover state
-- `--interactive-accent`: #7f6df2 - Primary actions
-- `--interactive-accent-hover`: #8875ff - Primary actions hover
+- `--interactive-accent: #7f6df2`
+  - Primary buttons
+  - Active navigation items
+  - Selected states
+- `--interactive-accent-hover: #8875ff`
+  - Hover state for accent elements
+- `--interactive-accent-secondary: #483699`
+  - Focus rings
+  - Secondary actions
 
 ### Status Colors
 
-- `--status-error`: #ff3333 - Error states and destructive actions
-- `--status-success`: #197300 - Success states and confirmations
-- `--status-warning`: #ffd700 - Warnings and important notices
-- `--status-info`: #7f6df2 - Informational content
+Use for feedback and system states:
 
-## Icons
+- `--status-error: #ff3333` - Error messages, destructive actions
+- `--status-success: #197300` - Success confirmations
+- `--status-warning: #ffd700` - Warning states
+- `--status-info: #7f6df2` - Information messages
 
-### Icon Sizes
+## Component Patterns
 
-We use standardized sizes for icons throughout the interface. When implementing icons, pass these size tokens as props:
+### Navigation Items
 
-\`\`\`typescript
-type IconSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl';
-\`\`\`
+```css
+.nav-item {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-4);
+	padding: var(--spacing-2);
+	height: var(--spacing-8);
+	border-radius: var(--radius-base);
+}
+```
 
-- `--icon-xs`: 1rem (16px) - Used for:
+### Icons
 
-  - Inline text indicators
-  - Small status indicators
-  - Dense UI elements
+Base Sizes:
 
-- `--icon-sm`: 1.25rem (20px) - Used for:
+- `--icon-xs: 1rem` (16px) - Inline indicators
+- `--icon-sm: 1.25rem` (20px) - Navigation icons
+- `--icon-base: 1.5rem` (24px) - Standard UI elements
+- `--icon-lg: 2rem` (32px) - Feature highlights
+- `--icon-xl: 2.5rem` (40px) - Hero sections
+- `--icon-2xl: 3rem` (48px) - Splash displays
 
+Implementation:
+
+```svelte
+<Icon size="var(--icon-sm)" stroke="var(--text-muted)" />
+```
+
+## Layout & Structure
+
+### Z-Index Scale
+
+Organized by UI layer:
+
+- `--z-dropdown: 10` - Dropdown menus
+- `--z-sticky: 20` - Sticky headers
+- `--z-drawer: 30` - Sidebar, drawers
+- `--z-modal: 40` - Modal dialogs
+- `--z-popover: 50` - Tooltips, popovers
+
+### Shadows
+
+- `--shadow-sm` - Subtle elevation (buttons)
+- `--shadow-base` - Cards, dropdowns
+- `--shadow-md` - Floating elements
+- `--shadow-lg` - Modals
+- `--shadow-xl` - Notifications
+
+### Border Radius
+
+- `--radius-base: 0.25rem` (4px)
+  - Buttons
+  - Input fields
   - Navigation items
-  - Toolbar actions
-  - List items
+- `--radius-lg: 0.5rem` (8px)
+  - Cards
+  - Modals
+- `--radius-full: 9999px`
+  - Avatars
+  - Pills
 
-- `--icon-base`: 1.5rem (24px) - Used for:
+## Animations & Transitions
 
-  - Default button icons
-  - Standard UI elements
-  - Form field add-ons
+### Duration Tokens
 
-- `--icon-lg`: 2rem (32px) - Used for:
-
-  - Primary actions
-  - Feature highlights
-  - Card actions
-
-- `--icon-xl`: 2.5rem (40px) - Used for:
-
-  - Hero sections
-  - Empty states
-  - Feature introductions
-
-- `--icon-2xl`: 3rem (48px) - Used for:
-  - Splash screens
-  - Large displays
-  - Marketing sections
-
-### Implementation
-
-When using icons in components:
-
-\`\`\`svelte
-<Icon size="base" /> <!-- Default size -->
-<Icon size="lg" /> <!-- Larger, more prominent -->
-<Icon size="sm" /> <!-- Smaller, supporting -->
-\`\`\`
-
-### Icon Colors
-
-Icons inherit their color from the text color by default. Use semantic color tokens for different states:
-
-- Default: Inherits from parent
-- Muted: `--text-muted`
-- Accent: `--text-accent`
-- Error: `--status-error`
-- Success: `--status-success`
-
-## Animation & Transitions
-
-### Durations
-
-- `--duration-instant`: 0ms - Immediate feedback
-- `--duration-fast`: 100ms - Micro-interactions (hover)
-- `--duration-normal`: 200ms - Standard interactions (buttons)
-- `--duration-slow`: 300ms - Complex animations (modals)
-- `--duration-slower`: 500ms - Elaborate transitions
-
-### Easing Functions
-
-- `--ease-in-out`: Default smoothing
-- `--ease-in`: Elements leaving the screen
-- `--ease-out`: Elements entering the screen
-- `--ease-bounce`: Playful interactions
-
-## Shadows & Elevation
-
-- `--shadow-sm`: Subtle elevation (buttons, cards)
-- `--shadow-base`: Default elevation (dropdowns)
-- `--shadow-md`: Medium elevation (popovers)
-- `--shadow-lg`: High elevation (modals)
-- `--shadow-xl`: Highest elevation (notifications)
-
-## Border Radius
-
-- `--radius-sm`: 0.125rem (2px) - Subtle rounding
-- `--radius-base`: 0.25rem (4px) - Default rounding
-- `--radius-md`: 0.375rem (6px) - Medium rounding
-- `--radius-lg`: 0.5rem (8px) - Large rounding
-- `--radius-full`: 9999px - Circular elements
-
-## Z-Index Scale
-
-- `--z-dropdown`: 10 - Dropdown menus
-- `--z-sticky`: 20 - Sticky elements
-- `--z-drawer`: 30 - Drawers/Sidebars
-- `--z-modal`: 40 - Modals/Dialogs
-- `--z-popover`: 50 - Popovers/Tooltips
+- `--transition-duration-150: 150ms` - Micro-interactions
+- `--transition-duration-200: 200ms` - Standard transitions
+- `--transition-duration-300: 300ms`

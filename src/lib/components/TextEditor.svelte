@@ -104,10 +104,10 @@
 	.paragraph-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--spacing-2);
 		align-items: end;
-		min-height: 2rem; /* Ensures consistent height for empty rows */
-		margin-bottom: 1rem; /* Space between paragraphs */
+		min-height: var(--spacing-8); /* Ensures consistent height for empty rows */
+		margin-bottom: var(--spacing-4); /* Space between paragraphs */
 	}
 
 	/* Preview section */
@@ -116,70 +116,11 @@
 		width: 210mm; /* A4 width */
 		min-height: 297mm; /* A4 height */
 		padding: 20mm; /* A4 margins */
-		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-		border-radius: 0.5rem;
-		margin: 2rem auto;
+		box-shadow: var(--shadow-lg);
+		border-radius: var(--radius-lg);
+		margin: var(--spacing-8) auto;
 		color: var(--text-normal);
-		font-size: 12pt;
-		line-height: 1.5;
-	}
-
-	/* Print styles */
-	@media print {
-		:global(*) {
-			background-color: transparent !important;
-			color: black !important;
-			box-shadow: none !important;
-		}
-
-		/* Hide UI elements */
-		:global(nav),
-		:global(header),
-		:global(footer),
-		:global(.sidebar),
-		:global(.stats-container),
-		:global(.print-hide) {
-			display: none !important;
-		}
-
-		/* Reset layout for printing */
-		.editor-wrapper {
-			min-height: 0;
-			background: none;
-			display: block !important;
-			padding: 0 !important;
-			margin: 0 !important;
-		}
-
-		.main-content {
-			margin: 0 !important;
-			padding: 0 !important;
-			display: block !important;
-			width: 100% !important;
-		}
-
-		.a4-content {
-			width: 100% !important;
-			min-height: 0;
-			padding: 0 !important;
-			box-shadow: none;
-			margin: 0 !important;
-			border-radius: 0;
-		}
-
-		.a4-content {
-			color: black;
-		}
-
-		.paragraph-row {
-			display: flex;
-			gap: 0;
-			margin-bottom: 1em;
-		}
-
-		@page {
-			size: A4;
-			margin: 20mm;
-		}
+		font-size: var(--font-size-base);
+		line-height: var(--line-height-relaxed);
 	}
 </style>

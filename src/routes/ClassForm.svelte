@@ -2,26 +2,24 @@
 <script lang="ts">
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { SuperValidated } from 'sveltekit-superforms';
-	import type { Class } from '$lib/schemas/class';
+	import { type Class } from '$lib/schemas/class';
 
-	// Props
+	// Props with proper typing
 	let { data, onCancel } = $props<{
-		data: SuperValidated<any>;
+		data: SuperValidated<Class>; // Fixed type parameter
 		onCancel: () => void;
 	}>();
 
-	const { form, errors, enhance, message } = superForm(data);
-	let isSubmitting = $state(false);
-
-	function handleSubmit() {
-		isSubmitting = true;
-		return async ({ result }) => {
+	const { form, errors, enhance, message } = superForm(data, {
+		// Add proper type definition for the enhance function
+		onResult: ({ result }) => {
 			if (result.type === 'success') {
-				onCancel(); // Close form on success
+				onCancel();
 			}
 			isSubmitting = false;
-		};
-	}
+		}
+	});
+	let isSubmitting = $state(false);
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
@@ -30,13 +28,21 @@
 	}
 </script>
 
-<div class="form-container" onkeydown={handleKeydown}>
+<div class="form-container" role="dialog" aria-modal="true">
 	<div class="form-header">
 		<h2>{$form.metadata?.id ? 'Edit' : 'New'} Class</h2>
-		<button type="button" class="close-button" onclick={onCancel} aria-label="Cancel"> × </button>
+		<button
+			type="button"
+			class="close-button"
+			onclick={onCancel}
+			onkeydown={handleKeydown}
+			aria-label="Cancel"
+		>
+			×
+		</button>
 	</div>
 
-	<form method="POST" action="?/manageClass" use:enhance={handleSubmit}>
+	<form method="POST" action="?/manageClass" use:enhance>
 		{#if $form.metadata?.id}
 			<input type="hidden" name="id" value={$form.metadata.id} />
 		{/if}

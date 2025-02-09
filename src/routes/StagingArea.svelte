@@ -4,15 +4,14 @@
 	import { toastStore } from '$lib/stores/toastStore';
 	import { onMount } from 'svelte';
 	import { superForm } from 'sveltekit-superforms/client';
-	import { createStagedDocumentSchema, type CreateStagedDocument } from '$lib/schemas/document';
-	import type { PageData } from './$types';
 	import type { SuperValidated } from 'sveltekit-superforms';
 	import { zod } from 'sveltekit-superforms/adapters';
+	import { createDocumentSchema, type CreateDocument } from '$lib/schemas/document';
 
 	// Props
 	let { data } = $props<{
 		data: {
-			stageDocumentForm: SuperValidated<CreateStagedDocument>;
+			stageDocumentForm: SuperValidated<CreateDocument>;
 			user: App.Locals['user'];
 			uid: App.Locals['uid'];
 		};
@@ -20,7 +19,7 @@
 
 	// Form initialization
 	const { form, errors, enhance, submitting } = superForm(data.stageDocumentForm, {
-		validators: zod(createStagedDocumentSchema),
+		validators: zod(createDocumentSchema),
 		onSubmit: async () => {
 			isSubmitting = true;
 		},
@@ -364,8 +363,8 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: var(--modal-backdrop-bg);
-		z-index: 998;
+		background: var(--background-modifier-cover);
+		z-index: var(--z-modal);
 		backdrop-filter: blur(2px);
 	}
 
@@ -374,11 +373,11 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		background: var(--modal-bg);
-		border-radius: var(--component-border-radius);
-		border: var(--component-border);
-		box-shadow: var(--component-box-shadow);
-		z-index: 999;
+		background: var(--background-secondary);
+		border-radius: var(--radius-lg);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		box-shadow: var(--shadow-lg);
+		z-index: var(--z-modal);
 		width: 90%;
 		max-width: 1200px;
 		height: 90vh;
@@ -391,58 +390,62 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--component-padding);
-		border-bottom: var(--component-border);
-		background: var(--modal-header-bg);
+		padding: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
+		background: var(--background-alt);
+	}
+
+	h1,
+	h2,
+	h3 {
+		margin: 0;
+		color: var(--text-normal);
+		font-family: var(--font-family-base);
 	}
 
 	h1 {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--modal-title-color);
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 	}
 
 	h2,
 	h3 {
-		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 500;
-		color: var(--text-normal);
+		font-size: var(--font-size-lg);
+		font-weight: var(--font-weight-medium);
 	}
 
 	.close-button {
 		background: none;
 		border: none;
-		font-size: 1.5rem;
+		font-size: var(--font-size-xl);
 		cursor: pointer;
-		padding: 0.5rem;
-		color: var(--modal-close-button-color);
-		transition: all 0.2s ease;
-		line-height: 1;
-		border-radius: 0.25rem;
+		padding: var(--spacing-2);
+		color: var(--text-muted);
+		transition: var(--transition-all);
+		line-height: var(--line-height-none);
+		border-radius: var(--radius-base);
 	}
 
 	.close-button:hover {
-		color: var(--modal-close-button-hover-color);
-		background: var(--modal-close-button-hover-bg);
+		color: var(--text-normal);
+		background: var(--background-modifier-hover);
 	}
 
 	.modal-content {
 		flex: 1;
 		display: grid;
 		grid-template-columns: 300px 1fr;
-		gap: 1rem;
+		gap: var(--spacing-4);
 		overflow: hidden;
-		padding: var(--component-padding);
+		padding: var(--spacing-4);
 	}
 
 	.document-list-container {
-		border-right: var(--component-border);
-		padding-right: var(--component-padding);
+		border-right: var(--border-width-thin) solid var(--background-modifier-border);
+		padding-right: var(--spacing-4);
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--spacing-4);
 	}
 
 	.document-list {

@@ -4,9 +4,20 @@
 	import type { CreateDocument } from '$lib/schemas/document';
 	import { modalStore } from '$lib/stores/modalStore';
 
-	let { data } = $props();
-	const { form, errors, enhance, message } = superForm(data);
+	let { data } = $props<{ data: SuperValidated<CreateDocument> }>();
 	let isSubmitting = $state(false);
+
+	const { form, errors, enhance, message } = superForm(data, {
+		onSubmit: () => {
+			isSubmitting = true;
+		},
+		onResult: ({ result }: { result: { type: string } }) => {
+			if (result.type === 'success') {
+				closeModal();
+			}
+			isSubmitting = false;
+		}
+	});
 
 	function closeModal() {
 		modalStore.close();
@@ -17,35 +28,20 @@
 			closeModal();
 		}
 	}
-
-	function handleSubmit() {
-		isSubmitting = true;
-		return async ({ result }) => {
-			if (result.type === 'success') {
-				closeModal();
-			}
-			isSubmitting = false;
-		};
-	}
 </script>
 
 <!-- Backdrop -->
-<div
-	class="modal-backdrop"
-	role="presentation"
-	onclick={closeModal}
-	onkeydown={handleKeydown}
-></div>
+<div class="modal-backdrop" role="presentation" onclick={closeModal}></div>
 
 <!-- Modal -->
-<div class="form-modal" role="dialog" aria-labelledby="upload-title" onkeydown={handleKeydown}>
+<dialog class="form-modal" aria-labelledby="upload-title" tabindex="-1">
 	<div class="modal-header">
 		<h2 id="upload-title">Upload Document</h2>
 		<button type="button" class="close-button" onclick={closeModal} aria-label="Close upload form">
 			×
 		</button>
 	</div>
-	<form method="POST" action="?/uploadDocument" use:enhance={handleSubmit}>
+	<form method="POST" action="?/uploadDocument" use:enhance>
 		<div class="form-group">
 			<label for="studentName">Student Name</label>
 			<input
@@ -116,7 +112,7 @@
 			{$message}
 		</div>
 	{/if}
-</div>
+</dialog>
 
 <style>
 	.modal-backdrop {
@@ -125,8 +121,8 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: rgba(0, 0, 0, 0.5);
-		z-index: 998;
+		background: var(--background-modifier-cover);
+		z-index: var(--z-modal);
 		backdrop-filter: blur(2px);
 	}
 
@@ -136,11 +132,11 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		background: var(--background-secondary);
-		padding: 1.5rem;
-		border-radius: 0.5rem;
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		z-index: 999;
+		padding: var(--spacing-6);
+		border-radius: var(--radius-lg);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		box-shadow: var(--shadow-lg);
+		z-index: var(--z-modal);
 		width: 90%;
 		max-width: 32rem;
 	}
@@ -149,29 +145,29 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 1.5rem;
-		padding-bottom: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		margin-bottom: var(--spacing-6);
+		padding-bottom: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 	}
 
 	h2 {
 		margin: 0;
-		font-size: 1.25rem;
+		font-size: var(--font-size-xl);
 		color: var(--text-normal);
-		font-family: var(--brand-font);
-		font-weight: 600;
+		font-family: var(--font-family-base);
+		font-weight: var(--font-weight-medium);
 	}
 
 	.close-button {
 		background: none;
 		border: none;
-		font-size: 1.5rem;
+		font-size: var(--font-size-xl);
 		cursor: pointer;
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 		color: var(--text-muted);
-		transition: all 0.2s ease;
-		line-height: 1;
-		border-radius: 0.25rem;
+		transition: var(--transition-all);
+		line-height: var(--line-height-none);
+		border-radius: var(--radius-base);
 	}
 
 	.close-button:hover {
@@ -181,30 +177,29 @@
 
 	form {
 		display: grid;
-		gap: 1.25rem;
+		gap: var(--spacing-5);
 	}
 
 	.form-group {
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--spacing-2);
 	}
 
 	label {
 		color: var(--text-normal);
-		font-size: 0.875rem;
-		font-weight: 500;
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
 	}
 
 	input,
 	textarea {
-		padding: 0.75rem;
-		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
+		padding: var(--spacing-3);
+		background: var(--background-modifier-form);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		border-radius: var(--radius-base);
+		font-size: var(--font-size-sm);
 		color: var(--text-normal);
-		transition: border-color 0.2s ease;
-		width: 100%;
+		transition: var(--transition-all);
 	}
 
 	textarea {
@@ -212,41 +207,47 @@
 		resize: vertical;
 	}
 
+	input:hover,
+	textarea:hover {
+		background: var(--background-modifier-form-hover);
+	}
+
 	input:focus,
 	textarea:focus {
 		outline: none;
-		border-color: var(--text-accent);
+		border-color: var(--interactive-accent);
+		box-shadow: 0 0 0 2px var(--interactive-accent-secondary);
 	}
 
 	input[aria-invalid='true'],
 	textarea[aria-invalid='true'] {
-		border-color: var(--error-color);
+		border-color: var(--status-error);
 	}
 
 	.error {
-		color: var(--error-color);
-		font-size: 0.75rem;
-		margin-top: 0.25rem;
+		color: var(--status-error);
+		font-size: var(--font-size-xs);
+		margin-top: var(--spacing-1);
 	}
 
 	button[type='submit'] {
-		padding: 0.75rem 1rem;
-		background: var(--text-accent);
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--interactive-accent);
 		color: var(--text-on-accent);
 		border: none;
-		border-radius: 0.375rem;
+		border-radius: var(--radius-base);
 		cursor: pointer;
-		font-size: 0.875rem;
-		font-weight: 500;
-		transition: opacity 0.2s ease;
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
+		transition: var(--transition-all);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		gap: var(--spacing-2);
 	}
 
-	button[type='submit']:hover {
-		opacity: 0.9;
+	button[type='submit']:hover:not(:disabled) {
+		background: var(--interactive-accent-hover);
 	}
 
 	button[type='submit']:disabled {
@@ -256,11 +257,11 @@
 
 	.spinner {
 		display: inline-block;
-		width: 1rem;
-		height: 1rem;
+		width: var(--font-size-base);
+		height: var(--font-size-base);
 		border: 2px solid var(--text-on-accent);
 		border-top: 2px solid transparent;
-		border-radius: 50%;
+		border-radius: var(--radius-full);
 		animation: spin 0.8s linear infinite;
 	}
 
@@ -274,12 +275,12 @@
 	}
 
 	.form-message {
-		margin-top: 1rem;
-		padding: 0.75rem;
-		border-radius: 0.375rem;
+		margin-top: var(--spacing-4);
+		padding: var(--spacing-3);
+		border-radius: var(--radius-base);
 		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
 		color: var(--text-normal);
-		font-size: 0.875rem;
+		font-size: var(--font-size-sm);
 	}
 </style>

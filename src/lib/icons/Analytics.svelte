@@ -1,7 +1,7 @@
 <script lang="ts">
 	const {
 		size = 'var(--icon-base)',
-		stroke = 'currentColor',
+		stroke = 'var(--text-normal)',
 		strokeWidth = 'var(--icon-stroke-normal)'
 	} = $props<{
 		size?: string;

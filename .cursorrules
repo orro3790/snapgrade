@@ -41,6 +41,11 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 - Firestore
 
+#### 2.5 Design System
+
+- Read the design system documentation @/documentation/design-system.md before you start coding.
+- Use design tokens and follow the design system guidelines.
+
 ## 3. Forbidden To Use
 
 ### 3.1 Frameworks

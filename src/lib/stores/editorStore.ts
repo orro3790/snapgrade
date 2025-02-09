@@ -25,35 +25,31 @@ function groupNodesByParagraph(nodes: Node[]) {
     const paragraphs: { id: string; corrections: Node[] }[] = [];
     let currentParagraph: Node[] = [];
 
-    console.log("Initial nodes:", nodes);
-
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
         if (node.type === 'spacer' && node.spacerData?.subtype === 'newline') {
             // Add current paragraph (without the newline)
-            paragraphs.push({
-                id: crypto.randomUUID(),
-                corrections: [...currentParagraph]
-            });
+            if (currentParagraph.length > 0) {
+                paragraphs.push({
+                    id: crypto.randomUUID(),
+                    corrections: [...currentParagraph]
+                });
+            }
             currentParagraph = [];
 
-            console.log("Paragraph added (newline encountered):", paragraphs);
-
-            // Consume ALL consecutive newlines
+            // Handle consecutive newlines more efficiently
             while (i + 1 < nodes.length &&
                    nodes[i + 1].type === 'spacer' &&
                    nodes[i + 1].spacerData?.subtype === 'newline') {
                 paragraphs.push({
                     id: crypto.randomUUID(),
-                    corrections: [nodes[i+1]] // Add the newline node to the empty paragraph
+                    corrections: [nodes[i+1]]
                 });
-                console.log("Empty paragraph added:", paragraphs);
-                i++; // Increment i to consume the newline
+                i++;
             }
         } else {
             currentParagraph.push(node);
-            console.log("Node added to current paragraph:", currentParagraph);
         }
     }
 
@@ -63,10 +59,19 @@ function groupNodesByParagraph(nodes: Node[]) {
             id: crypto.randomUUID(),
             corrections: currentParagraph
         });
-        console.log("Final paragraph added:", paragraphs);
     }
 
     return paragraphs;
+}
+
+// Add a debug mode flag
+const DEBUG = false;
+
+// Update logging to be conditional
+function log(...args: any[]) {
+    if (DEBUG) {
+        console.log(...args);
+    }
 }
 
 /**
@@ -88,7 +93,7 @@ function parseContent(content: string) {
 
     tokens.forEach(token => {
         // Handle text or punctuation
-        const isPunctuation = /^[.,!?;:]$/.test(token);
+        const isPunctuation = /^[.,!?;:]/.test(token);
         console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`);
         newNodes.push({
             id: crypto.randomUUID(),
@@ -148,23 +153,23 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
         const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
         if (nodeIndex === -1) return $nodes;
 
-        // Save current state for undo
-        updateUndoStack($undoStack => [...$undoStack, [...$nodes]]);
-        updateRedoStack(() => []);
+        // Only save to undo stack if there's an actual change
+        const oldNode = $nodes[nodeIndex];
+        if (oldNode.text !== text || oldNode.type !== type) {
+            updateUndoStack($undoStack => [...$undoStack, $nodes]);
+            updateRedoStack(() => []);
+        }
 
-        const updatedNode = {
-            ...$nodes[nodeIndex],
+        const newNodes = [...$nodes];
+        newNodes[nodeIndex] = {
+            ...oldNode,
             text,
             type,
             ...(correctionData && { correctionData }),
             ...(spacerData && { spacerData })
         };
 
-        return [
-            ...$nodes.slice(0, nodeIndex),
-            updatedNode,
-            ...$nodes.slice(nodeIndex + 1)
-        ];
+        return newNodes;
     });
 }
 
@@ -180,7 +185,7 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
         if (nodeIndex === -1) return $nodes;
         
         // Save current state for undo
-        updateUndoStack($undoStack => [...$undoStack, [...$nodes]]);
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
         updateRedoStack(() => []);
         
         const newNode: Node = {
@@ -197,11 +202,10 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
             }
         };
         
-        return [
-            ...$nodes.slice(0, nodeIndex + 1),
-            newNode,
-            ...$nodes.slice(nodeIndex + 1)
-        ];
+        // More efficient array manipulation
+        const newNodes = [...$nodes];
+        newNodes.splice(nodeIndex + 1, 0, newNode);
+        return newNodes;
     });
 }
 
@@ -215,13 +219,13 @@ function removeNode(nodeId: string) {
         if (nodeIndex === -1) return $nodes;
         
         // Save current state for undo
-        updateUndoStack($undoStack => [...$undoStack, [...$nodes]]);
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
         updateRedoStack(() => []);
         
-        return [
-            ...$nodes.slice(0, nodeIndex),
-            ...$nodes.slice(nodeIndex + 1)
-        ];
+        // More efficient array manipulation
+        const newNodes = [...$nodes];
+        newNodes.splice(nodeIndex, 1);
+        return newNodes;
     });
 }
 
@@ -282,7 +286,7 @@ function redo() {
 function getContent(): string {
     let content = '';
     nodesSubscribe(($nodes) => {
-        content = $nodes.map(node => node.text).join('');
+        content = $nodes.reduce((acc, node) => acc + node.text, '');
     })();
     return content;
 }

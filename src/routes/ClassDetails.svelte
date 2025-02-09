@@ -6,10 +6,21 @@
 	import type { Student } from '$lib/schemas/student';
 	import Pencil from '$lib/icons/Pencil.svelte';
 
-	// Props
+	// Add proper type for metadata
+	interface Metadata {
+		id: string;
+		createdAt: Date;
+		updatedAt: Date;
+	}
+
+	interface StudentWithMetadata extends Student {
+		metadata: Metadata;
+	}
+
+	// Update props typing
 	let { selectedClass, onStudentSelect, onEditClass, onAddStudent } = $props<{
 		selectedClass: Class;
-		onStudentSelect: (student: Student) => void;
+		onStudentSelect: (student: StudentWithMetadata) => void;
 		onEditClass: () => void;
 		onAddStudent: () => void;
 	}>();
@@ -26,7 +37,7 @@
 
 		const studentsQuery = query(
 			collection(db, 'students'),
-			where('classId', '==', selectedClass.metadata.id),
+			where('classId', '==', selectedClass.id),
 			where('status', '==', 'active')
 		);
 
@@ -46,15 +57,16 @@
 		return unsubscribe;
 	});
 
-	function handleStudentClick(student: Student) {
-		selectedStudentId = student.metadata.id;
+	// Update student click handler
+	function handleStudentClick(student: StudentWithMetadata) {
+		selectedStudentId = student.id;
 		onStudentSelect(student);
 	}
 
 	function handleKeyDown(event: KeyboardEvent, student: Student) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			handleStudentClick(student);
+			handleStudentClick(student as StudentWithMetadata);
 		}
 	}
 </script>
@@ -68,7 +80,7 @@
 			{/if}
 		</div>
 		<button type="button" class="edit-button" onclick={onEditClass} aria-label="Edit class details">
-			<Pencil size={20} />
+			<Pencil size="var(--icon-sm)" />
 		</button>
 	</div>
 
@@ -76,7 +88,7 @@
 		<div class="section-header">
 			<h3>Students</h3>
 			<button type="button" class="add-button" onclick={onAddStudent} aria-label="Add new student">
-				<Pencil size={20} />
+				<Pencil size="var(--icon-sm)" />
 				<span>Add Student</span>
 			</button>
 		</div>
@@ -94,10 +106,9 @@
 						<button
 							type="button"
 							class="student-item"
-							class:selected={selectedStudentId === student.metadata.id}
-							onclick={() => handleStudentClick(student)}
+							class:selected={selectedStudentId === student.id}
+							onclick={() => handleStudentClick(student as StudentWithMetadata)}
 							onkeydown={(e) => handleKeyDown(e, student)}
-							aria-selected={selectedStudentId === student.metadata.id}
 						>
 							<span class="student-name">{student.name}</span>
 							<span class="document-count">{student.notes.length} documents</span>
@@ -202,7 +213,7 @@
 	.student-list {
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: var(--spacing-2);
 		overflow-y: auto;
 		flex: 1;
 	}
@@ -212,7 +223,6 @@
 		padding: 1rem;
 		background: none;
 		border: none;
-		border-bottom: 1px solid var(--background-modifier-border);
 		cursor: pointer;
 		display: flex;
 		justify-content: space-between;
@@ -227,7 +237,7 @@
 
 	.student-item.selected {
 		background: var(--background-modifier-hover);
-		border-left: 3px solid var(--text-accent);
+		border-left: var(--border-width-medium) solid var(--interactive-accent);
 	}
 
 	.student-name {

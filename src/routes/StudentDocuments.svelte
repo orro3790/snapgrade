@@ -47,6 +47,8 @@
 	function handleDocumentClick(documentBody: string) {
 		const currentContent = editorStore.getContent();
 
+		console.log(`currentContent: ${currentContent}`);
+
 		if (!currentContent.trim()) {
 			// If editor is empty, load directly
 			editorStore.parseContent(documentBody);
@@ -90,7 +92,7 @@
 								<h3 class="document-title">{document.documentName}</h3>
 								<span class="document-date">
 									<!-- Convert from Firestore Timestamp to Date -->
-									{new Date(document.createdAt.seconds * 1000).toLocaleDateString()}
+									{new Date(document.createdAt).toLocaleDateString()}
 								</span>
 							</div>
 							<p class="document-preview">

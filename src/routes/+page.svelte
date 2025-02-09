@@ -39,7 +39,7 @@
 					<SidebarToggle size="var(--icon-sm)" />
 				</button>
 				<div class="header-content">
-					<h1>Untitled Document</h1>
+					<h1>No Document Loaded</h1>
 				</div>
 			</header>
 			<div class="editor-container">
@@ -126,7 +126,6 @@
 
 	.editor-container {
 		flex: 1;
-		padding: 1rem;
 		overflow-y: auto;
 		background-color: var(--background-secondary);
 	}
