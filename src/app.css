@@ -328,6 +328,7 @@ select {
   transition: var(--transition-colors), var(--transition-shadow);
 }
 
+
 input:hover,
 textarea:hover,
 select:hover {
@@ -339,8 +340,6 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px var(--interactive-accent-secondary);
 }
 
 textarea {

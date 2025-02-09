@@ -1,4 +1,4 @@
-<!-- file: src/routes/+page.svelte -->
+<!-- src/routes/+page.svelte -->
 <script lang="ts">
 	import type { PageData } from './$types';
 	import TextEditor from '$lib/components/TextEditor.svelte';
@@ -13,6 +13,7 @@
 	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 
 	let { data } = $props<{ data: PageData }>();
+
 	// Initialize state and stores
 	let user = $state(data?.user ?? null);
 	let settings = $state(data?.settings ?? null);
@@ -48,9 +49,9 @@
 		</div>
 	</div>
 
-	{#if $modalStore === 'upload'}
+	{#if $modalStore?.type === 'upload'}
 		<UploadDocument data={data.documentForm} />
-	{:else if $modalStore === 'classManager'}
+	{:else if $modalStore?.type === 'classManager'}
 		<ClassManager
 			data={{
 				classForm: data.classForm,
@@ -59,7 +60,7 @@
 				uid: data.uid
 			}}
 		/>
-	{:else if $modalStore === 'stagingArea'}
+	{:else if $modalStore?.type === 'stagingArea'}
 		<StagingArea
 			data={{
 				stageDocumentForm: data.stageDocumentForm,
@@ -91,11 +92,13 @@
 	}
 
 	.editor-header {
-		height: 48px;
+		height: var(--spacing-12);
 		display: flex;
 		align-items: center;
-		padding: 0 1rem;
-		gap: 1rem;
+		padding: 0 var(--spacing-4);
+		gap: var(--spacing-4);
+		background: var(--background-primary);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 	}
 
 	.header-content {
@@ -103,20 +106,20 @@
 	}
 
 	.header-content h1 {
-		font-size: 1.25rem;
-		font-weight: 500;
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 		margin: 0;
 	}
 
 	.toggle-button {
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 		color: var(--text-muted);
 		background: none;
 		border: none;
-		border-radius: 4px;
+		border-radius: var(--radius-base);
 		cursor: pointer;
-		transition: background-color 0.2s ease;
+		transition: var(--transition-colors);
 	}
 
 	.toggle-button:hover {

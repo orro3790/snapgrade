@@ -64,16 +64,6 @@ function groupNodesByParagraph(nodes: Node[]) {
     return paragraphs;
 }
 
-// Add a debug mode flag
-const DEBUG = false;
-
-// Update logging to be conditional
-function log(...args: any[]) {
-    if (DEBUG) {
-        console.log(...args);
-    }
-}
-
 /**
  * Parses the input text content and creates an array of nodes.
  * @param {string} content - The input text content.

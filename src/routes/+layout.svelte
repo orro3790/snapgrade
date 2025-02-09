@@ -17,15 +17,6 @@
 		children: Snippet;
 	} = $props();
 
-	let documentToLoad = $state('');
-
-	// Pass user data and uid to all child routes
-	$effect(() => {
-		if (data.user && data.uid) {
-			console.log('User authenticated:', { user: data.user, uid: data.uid });
-		}
-	});
-
 	// Handle keyboard shortcuts
 	$effect(() => {
 		const handleKeydown = (e: KeyboardEvent) => {
@@ -55,7 +46,7 @@
 </div>
 
 <!-- Modal management -->
-{#if $modalStore === 'keyboard'}
+{#if $modalStore?.type === 'keyboard'}
 	<div class="modal-overlay" role="dialog" aria-modal="true">
 		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
 		></button>
@@ -63,12 +54,12 @@
 			<KeyboardControls />
 		</div>
 	</div>
-{:else if $modalStore === 'documentLoad'}
+{:else if $modalStore?.type === 'documentLoad'}
 	<div class="modal-overlay" role="dialog" aria-modal="true">
 		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
 		></button>
 		<div class="modal-content">
-			<DocumentLoadModal documentBody={documentToLoad} />
+			<DocumentLoadModal documentToLoad={$modalStore.data?.documentToLoad ?? ''} />
 		</div>
 	</div>
 {/if}
@@ -80,11 +71,12 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
+		background: var(--background-modifier-cover);
+		backdrop-filter: blur(2px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 100;
+		z-index: var(--z-modal);
 	}
 
 	.overlay-button {
@@ -103,7 +95,7 @@
 		max-width: 90vw;
 		max-height: 90vh;
 		overflow-y: auto;
-		z-index: 1;
+		z-index: calc(var(--z-modal) + 1);
 	}
 
 	.main-content {

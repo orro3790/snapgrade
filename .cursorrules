@@ -136,9 +136,79 @@ leap/
 
 ### 5.2 Accessibility Requirements
 
-- **Click Events**: Must include keyboard handlers
-- **Alternatives**: `<button type="button">`, `<a>`
-- **Documentation**: Accessibility Warnings
+#### 5.2.1 Interactive Elements
+
+- **Click Events**:
+  - Must include keyboard handlers (onkeydown or onkeyup)
+  - Required keyboard events for Enter and Space keys
+  - Example implementation:
+  ```svelte
+  <div
+  		class="modal"
+  		role="button"
+  		tabindex="0"
+  		aria-label="Edit text"
+  		onclick={(e) => e.stopPropagation()}
+  		onkeydown={(e) => {
+  			if (e.key === 'Enter' || e.key === ' ') {
+  				e.preventDefault();
+  				e.stopPropagation();
+  			}
+  		}}
+  	>
+  ```
+
+#### 5.2.2 Non-interactive to Interactive Conversion
+
+When converting a non-interactive element (like a div) to be interactive:
+
+1. **Required Attributes**:
+   - `role="button"` (or appropriate ARIA role)
+   - `tabindex="0"` (for keyboard focus)
+   - `aria-label` or appropriate labeling
+2. **Required Event Handlers**:
+
+   - `onclick` for mouse interaction
+   - `onkeydown` for keyboard interaction
+   - Must handle both Enter and Space keys
+
+3. **Implementation Example**:
+
+```svelte
+<div
+	role="button"
+	tabindex="0"
+	aria-label="Edit item"
+	onclick={handleClick}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleClick();
+		}
+	}}
+>
+	Content
+</div>
+```
+
+#### 5.2.3 Preferred Alternatives
+
+In order of preference:
+
+1. Native `<button type="button">` element
+2. Native `<a>` element for navigation
+3. Enhanced `<div>` with full ARIA attributes only when necessary
+
+#### 5.2.4 ARIA Guidelines
+
+- All interactive elements must have:
+  - Appropriate ARIA role
+  - Descriptive aria-label or aria-labelledby
+  - aria-expanded for expandable elements
+  - aria-controls when controlling other elements
+  - aria-describedby for additional descriptions
+
+[Rest of the file remains the same]
 
 ### 5.3 HTML Elements
 

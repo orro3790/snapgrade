@@ -1,4 +1,4 @@
-<!-- File: src/routes/StudentDocuments.svelte -->
+<!-- src/routes/StudentDocuments.svelte -->
 <script lang="ts">
 	import { db } from '$lib/firebase/client';
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -6,6 +6,7 @@
 	import type { Document } from '$lib/schemas/document';
 	import { editorStore } from '$lib/stores/editorStore';
 	import { modalStore } from '$lib/stores/modalStore';
+	import ConfirmationPopover from '$lib/components/ConfirmationPopover.svelte';
 
 	// Props
 	let { selectedStudent } = $props<{
@@ -16,7 +17,6 @@
 	let documents = $state<Document[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let documentToLoad = $state('');
 
 	// Subscribe to documents collection
 	$effect(() => {
@@ -31,7 +31,14 @@
 		const unsubscribe = onSnapshot(
 			documentsQuery,
 			(snapshot) => {
-				documents = snapshot.docs.map((doc) => doc.data() as Document);
+				documents = snapshot.docs.map((doc) => {
+					const data = doc.data();
+					return {
+						...data,
+						createdAt: data.createdAt?.toDate(),
+						updatedAt: data.updatedAt?.toDate()
+					} as Document;
+				});
 				isLoading = false;
 			},
 			(err) => {
@@ -44,19 +51,32 @@
 		return unsubscribe;
 	});
 
+	/**
+	 * Handles document selection and loading
+	 */
 	function handleDocumentClick(documentBody: string) {
 		const currentContent = editorStore.getContent();
-
-		console.log(`currentContent: ${currentContent}`);
 
 		if (!currentContent.trim()) {
 			// If editor is empty, load directly
 			editorStore.parseContent(documentBody);
 		} else {
-			// If editor has content, show confirmation modal
-			documentToLoad = documentBody;
-			modalStore.open('documentLoad');
+			// If editor has content, show confirmation
+			modalStore.open('documentLoad', {
+				documentToLoad: documentBody,
+				showConfirmation: true,
+				confirmationMessage:
+					'Loading a new document will replace the current content. Do you want to continue?'
+			});
 		}
+	}
+
+	/**
+	 * Creates a preview of the document text
+	 */
+	function createPreview(text: string, length: number = 150): string {
+		if (text.length <= length) return text;
+		return text.slice(0, length).trim() + '...';
 	}
 </script>
 
@@ -79,26 +99,23 @@
 			<div class="empty-state">No documents found</div>
 		{:else}
 			<ul class="document-list">
-				{#each documents as document}
+				{#each documents as document (document.id)}
 					<li>
-						<div
+						<button
+							type="button"
 							class="document-item"
 							onclick={() => handleDocumentClick(document.documentBody)}
-							onkeydown={(e) => e.key === 'Enter' && handleDocumentClick(document.documentBody)}
-							role="button"
-							tabindex="0"
 						>
 							<div class="document-header">
 								<h3 class="document-title">{document.documentName}</h3>
 								<span class="document-date">
-									<!-- Convert from Firestore Timestamp to Date -->
-									{new Date(document.createdAt).toLocaleDateString()}
+									{document.createdAt.toLocaleDateString()}
 								</span>
 							</div>
 							<p class="document-preview">
-								{document.documentBody.slice(0, 150)}...
+								{createPreview(document.documentBody)}
 							</p>
-						</div>
+						</button>
 					</li>
 				{/each}
 			</ul>
@@ -116,8 +133,8 @@
 	}
 
 	.header {
-		padding: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		padding: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
@@ -129,21 +146,21 @@
 
 	h2 {
 		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 600;
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	.description {
-		margin: 0.5rem 0 0;
-		font-size: 0.875rem;
+		margin: var(--spacing-2) 0 0;
+		font-size: var(--font-size-sm);
 		color: var(--text-muted);
 	}
 
 	.documents-section {
 		flex: 1;
 		overflow-y: auto;
-		padding: 1rem;
+		padding: var(--spacing-4);
 	}
 
 	.document-list {
@@ -151,58 +168,67 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 1rem;
+		gap: var(--spacing-4);
 	}
 
 	.document-item {
+		width: 100%;
+		text-align: left;
 		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.5rem;
-		padding: 1rem;
-		transition: all 0.2s ease;
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-4);
+		transition: var(--transition-all);
+		cursor: pointer;
 	}
 
 	.document-item:hover {
 		border-color: var(--text-accent);
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.document-item:focus-visible {
+		outline: none;
+		border-color: var(--interactive-accent);
+		box-shadow: 0 0 0 2px var(--interactive-accent-secondary);
 	}
 
 	.document-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		margin-bottom: 0.5rem;
+		margin-bottom: var(--spacing-2);
 	}
 
 	.document-title {
 		margin: 0;
-		font-size: 1rem;
-		font-weight: 500;
+		font-size: var(--font-size-base);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	.document-date {
-		font-size: 0.75rem;
+		font-size: var(--font-size-xs);
 		color: var(--text-muted);
 	}
 
 	.document-preview {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--font-size-sm);
 		color: var(--text-muted);
-		line-height: 1.5;
-		cursor: pointer;
+		line-height: var(--line-height-relaxed);
 	}
 
 	.loading,
 	.error,
 	.empty-state {
-		padding: 1rem;
+		padding: var(--spacing-4);
 		text-align: center;
 		color: var(--text-muted);
+		font-size: var(--font-size-base);
 	}
 
 	.error {
-		color: var(--error-color);
+		color: var(--status-error);
 	}
 </style>

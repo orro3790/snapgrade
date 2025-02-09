@@ -2,6 +2,9 @@
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
 	import type { Node } from '$lib/schemas/textNode';
+	import Add from '$lib/icons/Add.svelte';
+	import Correction from '$lib/icons/Correction.svelte';
+	import Slash from '$lib/icons/Slash.svelte';
 
 	const { node, onClose } = $props<{
 		node: Node;
@@ -32,259 +35,156 @@
 	function handleDelete() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
-
-		try {
-			editorStore.updateNode(node.id, node.text, undefined, 'deletion');
-		} finally {
-			isProcessingEdit = false;
-			onClose();
-		}
+		editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
+		onClose();
 	}
 
 	function handleAddAfter() {
 		if (isProcessingEdit || !editableText.trim()) return;
 		isProcessingEdit = true;
-
-		try {
-			editorStore.insertNodeAfter(node.id, editableText.trim(), 'addition');
-		} finally {
-			isProcessingEdit = false;
-			onClose();
-		}
+		editorStore.insertNodeAfter(node.id, editableText.trim(), 'addition');
+		onClose();
 	}
 
 	function handleCorrect() {
 		if (isProcessingEdit || !editableText.trim() || editableText.trim() === node.text) return;
 		isProcessingEdit = true;
-
-		try {
-			editorStore.updateNode(
-				node.id,
-				node.text,
-				{
-					originalText: node.text,
-					correctedText: editableText.trim(),
-					pattern: '' // Will be set via pattern selector
-				},
-				'correction'
-			);
-		} finally {
-			isProcessingEdit = false;
-			onClose();
-		}
+		editorStore.updateNode(
+			node.id,
+			node.text,
+			{
+				originalText: node.text,
+				correctedText: editableText.trim(),
+				pattern: ''
+			},
+			undefined,
+			'correction'
+		);
+		onClose();
 	}
 
 	function handleSave() {
 		if (isProcessingEdit) return;
-
 		const trimmedText = editableText.trim();
-
 		if (!trimmedText || trimmedText === node.text) {
 			onClose();
 			return;
 		}
-
 		handleCorrect();
-	}
-
-	// Handle click outside to close
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('.modal-content')) {
-			onClose();
-		}
 	}
 </script>
 
 <div
-	class="modal-overlay"
-	onclick={handleClickOutside}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="modal-title"
+	class="overlay"
+	role="button"
+	tabindex="0"
+	onclick={onClose}
+	onkeydown={(e) => e.key === 'Escape' && onClose()}
 >
-	<div class="modal-content" role="document">
-		<h2 id="modal-title" class="sr-only">Edit Text</h2>
-		<div class="input-wrapper">
-			<textarea
-				bind:this={inputRef}
-				bind:value={editableText}
-				onkeydown={handleKeyDown}
-				aria-label="Edit text"
-				placeholder="Type to edit..."
-				rows="3"
-			></textarea>
-		</div>
-		<div class="actions-grid">
-			<button onclick={handleDelete} type="button" class="action delete" title="Delete text">
-				Delete
+	<div
+		class="modal"
+		role="button"
+		tabindex="0"
+		aria-label="Edit text"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
+	>
+		<textarea
+			bind:this={inputRef}
+			bind:value={editableText}
+			onkeydown={handleKeyDown}
+			placeholder="Type to edit..."
+			rows="3"
+			aria-multiline="true"
+		></textarea>
+		<div class="actions" aria-label="Editing actions">
+			<button onclick={handleDelete} type="button" title="Delete text">
+				<Slash />
 			</button>
-			<button
-				onclick={handleAddAfter}
-				type="button"
-				class="action add"
-				title="Add after current text"
-			>
-				Add After
+			<button onclick={handleAddAfter} type="button" title="Add after">
+				<Add />
 			</button>
-			<button
-				onclick={handleCorrect}
-				type="button"
-				class="action correct"
-				title="Mark as correction"
-			>
-				Correct
+			<button onclick={handleCorrect} type="button" title="Correct">
+				<Correction />
 			</button>
-		</div>
-		<div class="modal-footer">
-			<button onclick={onClose} type="button" class="secondary"> Cancel </button>
-			<button onclick={handleSave} type="button" class="primary"> Save </button>
 		</div>
 	</div>
 </div>
 
 <style>
-	.modal-overlay {
+	.overlay {
 		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
+		inset: 0;
 		background: var(--background-modifier-cover);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
+		display: grid;
+		place-items: center;
+		z-index: var(--z-modal);
 	}
 
-	.modal-content {
+	.modal {
 		background: var(--background-primary);
-		padding: 1.5rem;
-		border-radius: 0.5rem;
-		min-width: 400px;
-		box-shadow: 0 2px 10px var(--background-modifier-box-shadow);
-	}
-
-	.input-wrapper {
-		margin-bottom: 1rem;
+		border-radius: var(--radius-lg);
+		width: min(280px, 90vw);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		outline: 1px solid var(--background-modifier-border);
 	}
 
 	textarea {
 		width: 100%;
-		min-height: 80px;
-		padding: 0.75rem;
-		margin-bottom: 0.5rem;
-		background: var(--background-modifier-form-field);
+		background: var(--background-modifier-form);
 		color: var(--text-normal);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.25rem;
-		font-family: var(--brand);
-		line-height: 1.5;
-		resize: vertical;
+		border: none;
+		font-family: var(--font-family-base);
+		font-size: var(--font-size-base);
+		line-height: var(--line-height-relaxed);
+		resize: none;
+		padding: var(--spacing-3);
+		transition: var(--transition-all);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
 
 	textarea:focus {
 		outline: none;
-		border-color: var(--interactive-accent);
-		box-shadow: 0 0 0 2px var(--interactive-accent-hover);
 	}
 
-	.actions-grid {
+	.actions {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
-	.action {
-		padding: 0.5rem;
-		border: none;
-		border-radius: 0.25rem;
-		font-family: var(--brand);
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		color: var(--text-on-accent);
-	}
-
-	.action:hover {
-		transform: translateY(-1px);
-	}
-
-	.action.delete {
-		background: var(--text-error);
-	}
-
-	.action.delete:hover {
-		background: var(--text-error-hover);
-	}
-
-	.action.add {
-		background: var(--background-modifier-success);
-	}
-
-	.action.add:hover {
-		background: var(--interactive-success);
-	}
-
-	.action.correct {
-		background: var(--interactive-accent);
-	}
-
-	.action.correct:hover {
-		background: var(--interactive-accent-hover);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.75rem;
-		margin-top: 1rem;
 		border-top: 1px solid var(--background-modifier-border);
-		padding-top: 1rem;
 	}
 
 	button {
-		padding: 0.5rem 1rem;
-		border-radius: 0.25rem;
-		font-family: var(--brand);
-		font-size: 0.875rem;
+		display: grid;
+		place-items: center;
+		height: 40px;
+		background: none;
 		border: none;
 		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	button.secondary {
-		background: var(--interactive-normal);
-		color: var(--text-normal);
-	}
-
-	button.primary {
-		background: var(--interactive-accent);
-		color: var(--text-on-accent);
+		color: var(--text-muted);
+		transition: var(--transition-all);
 	}
 
 	button:hover {
-		transform: translateY(-1px);
+		background: var(--background-modifier-hover);
+		color: var(--text-normal);
 	}
 
-	button.secondary:hover {
-		background: var(--interactive-hover);
+	button:first-child:hover {
+		color: var(--text-error);
 	}
 
-	button.primary:hover {
-		background: var(--interactive-accent-hover);
+	button:nth-child(2):hover {
+		color: var(--background-modifier-success);
 	}
 
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
+	button:last-child:hover {
+		color: var(--interactive-accent);
 	}
 </style>

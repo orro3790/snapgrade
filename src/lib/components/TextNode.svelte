@@ -39,16 +39,16 @@
 			if (node.type === 'empty') return;
 
 			if (node.type === 'deletion') {
-				editorStore.updateNode(node.id, node.text, undefined, 'normal');
+				editorStore.updateNode(node.id, node.text);
 			} else {
-				editorStore.updateNode(node.id, node.text, undefined, 'deletion');
+				editorStore.updateNode(node.id, node.text);
 			}
 			return;
 		}
 
 		// Handle normal clicks on deletion nodes: Restore to normal
 		if (node.type === 'deletion') {
-			editorStore.updateNode(node.id, node.text, undefined, 'normal');
+			editorStore.updateNode(node.id, node.text);
 			return;
 		}
 
@@ -69,7 +69,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === '`' && !isEditing) {
 			event.preventDefault();
-			editorStore.updateNode(node.id, node.text, undefined, 'deletion');
+			editorStore.updateNode(node.id, node.text);
 			return;
 		}
 
@@ -147,7 +147,7 @@
 
 	.text-node[data-subtype='newline'] {
 		width: 100%;
-		height: 1em;
+		height: var(--font-size-base);
 		border: none;
 	}
 
@@ -168,68 +168,55 @@
 		height: 100%;
 	}
 
-	/* Base text node styling - applies to all node types */
+	/* Base text node styling */
 	.text-node {
-		/* Use flexbox for better content alignment */
 		display: flex;
 		position: relative;
 		cursor: pointer;
-
-		/* Consistent padding for all nodes */
-		padding: 0 0.25em 0 0.25em;
-		border-radius: 0.2em;
-
-		/* Smooth transitions for hover/active states */
-		transition: all 0.2s ease;
-
-		/* Default border style */
-		border: 2px dotted var(--interactive-normal);
-
-		/* Establish minimum dimensions */
-		min-width: 1em;
+		padding: 0 var(--spacing-1) 0 var(--spacing-1);
+		border-radius: var(--radius-sm);
+		transition: var(--transition-all);
+		border: var(--border-width-medium) dotted var(--interactive-normal);
+		min-width: var(--font-size-base);
 	}
 
-	/* Special node types (deletion, addition) get solid borders */
+	/* Special node types */
 	.text-node.deletion,
 	.text-node.addition {
-		border: 2px solid var(--background-secondary);
+		border: var(--border-width-medium) solid var(--background-primary);
 	}
 
 	.text-node.correction {
-		border: 2px solid var(--background-secondary);
-		border-bottom: 2px dotted var(--text-error-hover);
+		border: var(--border-width-medium) solid var(--background-primary);
+		border-bottom: var(--border-width-medium) dotted var(--text-error-hover);
 	}
 
-	/* Punctuation nodes get special treatment */
+	/* Punctuation nodes */
 	.punctuation {
-		min-width: 1.5em;
+		min-width: var(--font-size-lg);
 		border: none;
 		border-radius: 0;
-
-		/* Center punctuation marks */
 		display: flex;
 		justify-content: center;
 	}
 
-	/* Hover state for all nodes */
+	/* Interactive states */
 	.text-node:hover {
 		background-color: var(--interactive-hover);
 	}
 
-	/* Active (selected) node state */
 	.text-node.active {
 		background-color: var(--interactive-active);
 	}
 
-	/* Currently editing node state */
 	.text-node.highlighted {
-		border: 2px dotted var(--interactive-highlight);
-		z-index: 1; /* Ensure highlighted node appears above others */
+		border: var(--border-width-medium) dotted var(--interactive-highlight);
+		z-index: var(--z-10);
 	}
 
-	/* Animation for save confirmation */
+	/* Save animation */
 	.saved-flash {
-		animation: saveFlash 0.3s ease-out;
+		animation: saveFlash var(--transition-duration-300) var(--transition-timing-ease-out);
 	}
 
 	@keyframes saveFlash {
@@ -241,38 +228,37 @@
 		}
 	}
 
-	/* Correction node specific styling */
+	/* Correction styling */
 	.correction-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5em;
+		gap: var(--spacing-2);
 		min-width: max-content;
 		justify-content: center;
 	}
 
 	.correction-text {
 		color: var(--text-accent);
-		font-weight: bold;
+		font-weight: var(--font-weight-bold);
 		white-space: nowrap;
 		min-width: max-content;
 	}
 
-	/* Base text content styling */
 	.text-content {
 		display: flex;
 		align-items: end;
 	}
 
-	/* Highlight states for different node types */
+	/* Highlight states */
 	.text-node.highlight-correction,
 	.text-node.highlight-deletion,
 	.text-node.highlight-addition,
 	.text-node.highlight-normal {
-		border: 2px solid var(--text-accent);
-		transition: border-color 0.2s ease;
+		border: var(--border-width-medium) solid var(--text-accent);
+		transition: border-color var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
-	/* Deleted text styling */
+	/* Deleted text */
 	.deleted {
 		color: var(--text-error);
 		opacity: 0.75;
@@ -280,44 +266,42 @@
 		min-width: min-content;
 	}
 
-	/* Strikethrough line for deleted text */
 	.deleted::before {
 		content: '';
 		position: absolute;
 		top: 50%;
 		left: 50%;
 		width: min(100%, 1.75em);
-		height: 1px;
+		height: var(--border-width-thin);
 		background: var(--text-error);
 		transform: translate(-50%, 0) rotate(135deg);
 		transform-origin: center;
 	}
 
-	/* Special case for punctuation deletion */
 	.punctuation .deleted::before {
 		width: 1.75em;
 		left: 0%;
 	}
 
-	/* Added text styling */
+	/* Added text */
 	.addition {
 		color: var(--background-modifier-success);
 	}
 
-	/* Empty node styling */
+	/* Empty node */
 	.empty {
 		width: 2em;
-		border: 2px dotted var(--interactive-success);
+		border: var(--border-width-medium) dotted var(--interactive-success);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: var(--interactive-success);
 	}
 
-	/* Print-specific styles */
+	/* Print styles */
 	@media print {
 		* {
-			color: #000000 !important;
+			color: var(--color-black) !important;
 		}
 	}
 </style>

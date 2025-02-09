@@ -3,17 +3,17 @@ import type { PageServerLoad, Actions } from './$types';
 import { zod } from 'sveltekit-superforms/adapters';
 import { classSchema } from '$lib/schemas/class';
 import { studentSchema } from '$lib/schemas/student';
-import { createDocumentSchema, createStagedDocumentSchema } from '$lib/schemas/document';
+import { createDocumentSchema } from '$lib/schemas/document';
 import { fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms/server';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const [classForm, studentForm, documentForm, stageDocumentForm] = await Promise.all([
+	const [classForm, studentForm, documentForm] = await Promise.all([
 		superValidate(zod(classSchema)),
 		superValidate(zod(studentSchema)),
 		superValidate(zod(createDocumentSchema)),
-		superValidate(zod(createStagedDocumentSchema))
 	]);
+
 
 	return {
 		user: locals.user || null,
@@ -22,7 +22,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		classForm,
 		studentForm,
 		documentForm,
-		stageDocumentForm
 	};
 };
 
@@ -161,8 +160,9 @@ export const actions = {
 		}
 	},
 	stageDocument: async ({ request, fetch, cookies }) => {
-		const form = await superValidate(request, zod(createStagedDocumentSchema));
+		const form = await superValidate(request, zod(createDocumentSchema));
 		console.log('Stage document form validation:', form);
+
 
 		if (!form.valid) {
 			console.log('Form validation failed:', form.errors);
