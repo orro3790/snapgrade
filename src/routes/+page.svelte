@@ -1,36 +1,66 @@
-<!-- file: src/routes/+page.svelte -->
+<!-- src/routes/+page.svelte -->
 <script lang="ts">
+	import type { PageData } from './$types';
 	import TextEditor from '$lib/components/TextEditor.svelte';
 	import { userStore } from '$lib/stores/userStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
 	import { modalStore } from '$lib/stores/modalStore';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { editorStore } from '$lib/stores/editorStore';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
+	import StagingArea from './StagingArea.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 
 	let { data } = $props<{ data: PageData }>();
+
 	// Initialize state and stores
 	let user = $state(data?.user ?? null);
-
 	let settings = $state(data?.settings ?? null);
+	let documentName = $state('');
+
+	// Subscribe to document name changes
+	$effect(() => {
+		editorStore.documentName.subscribe((value) => {
+			documentName = value;
+		});
+	});
 
 	// Initialize stores with data
 	$effect(() => {
 		userStore.set(user);
 		settingsStore.set(settings);
 	});
-
-	// Sample text with corrections
-	const sampleText =
-		'Me and my friend go to school in Busan.  We learn many thing, like English and math.  Sometimes, English is very difficult, but I try my bestest.  After school, we play soccer and eat kimchi with my family.';
 </script>
 
 <div class="app-container">
-	<Sidebar />
+	<div class="sidebar-editor-wrapper">
+		<Sidebar />
+		<div class="content-wrapper">
+			<header class="editor-header">
+				<button
+					type="button"
+					class="toggle-button"
+					onclick={() => sidebarStore.toggle()}
+					aria-label={$sidebarStore.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
+					aria-expanded={$sidebarStore.state === 'expanded'}
+				>
+					<SidebarToggle size="var(--icon-sm)" />
+				</button>
+				<div class="header-content">
+					<h1>{documentName || 'No Document Loaded'}</h1>
+				</div>
+			</header>
+			<div class="editor-container">
+				<TextEditor initialContent="" />
+			</div>
+		</div>
+	</div>
 
-	{#if $modalStore === 'upload'}
+	{#if $modalStore?.type === 'upload'}
 		<UploadDocument data={data.documentForm} />
-	{:else if $modalStore === 'classManager'}
+	{:else if $modalStore?.type === 'classManager'}
 		<ClassManager
 			data={{
 				classForm: data.classForm,
@@ -39,34 +69,76 @@
 				uid: data.uid
 			}}
 		/>
+	{:else if $modalStore?.type === 'stagingArea'}
+		<StagingArea
+			data={{
+				stageDocumentForm: data.stageDocumentForm,
+				user: data.user,
+				uid: data.uid
+			}}
+		/>
 	{/if}
-
-	<div class="center-container">
-		<TextEditor initialContent={sampleText} />
-	</div>
 </div>
 
 <style>
 	.app-container {
 		width: 100%;
 		min-height: 100vh;
-		background-color: var(--background-primary);
-		overflow-x: hidden; /* Prevent horizontal scrolling when sidebar transitions */
-	}
-
-	:global(body) {
-		margin: 0;
-		padding: 0;
 		overflow-x: hidden;
 	}
 
-	/* API TEST CONTAINER STYLES*/
-	.center-container {
+	.sidebar-editor-wrapper {
+		display: flex;
+		width: 100%;
+		height: 100vh;
+	}
+
+	.content-wrapper {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
+		overflow: hidden;
+	}
+
+	.editor-header {
+		height: var(--spacing-12);
+		display: flex;
 		align-items: center;
-		width: 100%;
-		padding-top: 3rem;
+		padding: 0 var(--spacing-4);
+		gap: var(--spacing-4);
+		background: var(--background-primary);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
+	}
+
+	.header-content {
+		flex: 1;
+	}
+
+	.header-content h1 {
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
+		color: var(--text-normal);
+		margin: 0;
+	}
+
+	.toggle-button {
+		padding: var(--spacing-2);
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		border-radius: var(--radius-base);
+		cursor: pointer;
+		transition: var(--transition-colors);
+	}
+
+	.toggle-button:hover {
+		background: var(--interactive-hover);
+		color: var(--text-normal);
+	}
+
+	.editor-container {
+		flex: 1;
+		overflow-y: auto;
+		background-color: var(--background-secondary);
 	}
 </style>

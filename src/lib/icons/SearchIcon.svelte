@@ -1,14 +1,21 @@
 <script lang="ts">
-	let { size = 20 } = $props<{ size?: number }>();
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'var(--text-normal)',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
+		stroke?: string;
+		strokeWidth?: string;
+	}>();
 </script>
 
 <svg
-	width={size}
-	height={size}
+	style="width: {size}; height: {size};"
 	viewBox="0 0 24 24"
 	fill="none"
-	stroke="currentColor"
-	stroke-width="2"
+	{stroke}
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >

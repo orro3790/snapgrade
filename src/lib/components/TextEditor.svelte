@@ -1,10 +1,8 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore, activeCorrection, paragraphs } from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
-
-	import StatsDisplay from './StatsDisplay.svelte';
 
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
@@ -12,22 +10,38 @@
 		onContentChange?: (content: string) => void;
 	}>();
 
-	// Use derived values for reactive state
-	let nodeList = $derived($editorStore.nodeList);
-	let activeNodeId = $derived($editorStore.activeNodeId);
+	// Subscribe to stores
+	let paragraphsList = $derived($paragraphs);
+	let activeNodeId = $derived($activeCorrection);
 	let editorContent = $derived(editorStore.getContent());
+
+	// Add inspections for key store values
+	$inspect(editorContent).with((type, content) => {
+		console.group('Editor Content Update');
+		console.log(`Type: ${type}`);
+		console.log('Content:', content);
+		console.groupEnd();
+	});
+
+	$inspect(paragraphsList).with((type, paragraphs) => {
+		console.group('Paragraphs Update');
+		console.log(`Type: ${type}`);
+		console.log('Paragraphs:', paragraphs);
+		console.groupEnd();
+	});
+
+	// Add trace to effects to debug reactivity
+	$effect(() => {
+		$inspect.trace('Content Change Effect');
+		if (editorContent !== initialContent) {
+			onContentChange(editorContent);
+		}
+	});
 
 	// Initialize content
 	$effect(() => {
 		if (initialContent && !editorContent) {
 			editorStore.parseContent(initialContent);
-		}
-	});
-
-	// Notify parent of changes (upon text loading), this allows parent to prevent back navigation on unsaved changes
-	$effect(() => {
-		if (editorContent !== initialContent) {
-			onContentChange(editorContent);
 		}
 	});
 
@@ -54,18 +68,17 @@
 	aria-label="Text editor content"
 	role="textbox"
 >
-	<StatsDisplay />
-	<div class="main-content" class:sidebar-expanded={$sidebarStore.isOpen}>
-		<!-- Preview/Print content -->
-		<div class="preview-container" role="complementary" aria-label="Preview">
-			<div class="a4-content">
-				<div class="line-row">
-					{#if nodeList.length > 0}
-						{#each nodeList[0].nodes as node (node.id)}
+	<div class="main-content" class:sidebar-expanded={$sidebarStore.state === 'expanded'}>
+		<!-- Wrap the a4-content in a print-only container -->
+		<div class="print-container">
+			<div class="a4-content" role="complementary" aria-label="Preview">
+				{#each paragraphsList as paragraph (paragraph.id)}
+					<div class="paragraph">
+						{#each paragraph.corrections as node (node.id)}
 							<TextNode {node} isActive={node.id === activeNodeId} />
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>
@@ -85,88 +98,25 @@
 		display: flex;
 		justify-content: center;
 		align-items: flex-start;
+		background-color: var(--background-secondary);
 	}
 
-	.line-row {
+	.paragraph {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
 		align-items: end;
-		min-height: 2rem; /* Ensures consistent height for empty rows */
 	}
 
 	/* Preview section */
-	.preview-container {
-		background-color: var(--background-secondary);
+	.a4-content {
+		background-color: var(--background-primary);
 		width: 210mm; /* A4 width */
 		min-height: 297mm; /* A4 height */
 		padding: 20mm; /* A4 margins */
-		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-		border-radius: 0.5rem;
-		margin: 0 auto;
-	}
-
-	.a4-content {
+		box-shadow: var(--shadow-lg);
+		border-radius: var(--radius-lg);
+		margin: var(--spacing-8) auto;
 		color: var(--text-normal);
-		font-size: 12pt;
-		line-height: 1.5;
-	}
-
-	/* Print styles */
-	@media print {
-		:global(*) {
-			background-color: transparent !important;
-			color: black !important;
-			box-shadow: none !important;
-		}
-
-		/* Hide UI elements */
-		:global(nav),
-		:global(header),
-		:global(footer),
-		:global(.sidebar),
-		:global(.stats-container),
-		:global(.print-hide) {
-			display: none !important;
-		}
-
-		/* Reset layout for printing */
-		.editor-wrapper {
-			min-height: 0;
-			background: none;
-			display: block !important;
-			padding: 0 !important;
-			margin: 0 !important;
-		}
-
-		.main-content {
-			margin: 0 !important;
-			padding: 0 !important;
-			display: block !important;
-			width: 100% !important;
-		}
-
-		.preview-container {
-			width: 100% !important;
-			min-height: 0;
-			padding: 0 !important;
-			box-shadow: none;
-			margin: 0 !important;
-			border-radius: 0;
-		}
-
-		.a4-content {
-			color: black;
-		}
-
-		.line-row {
-			display: flex;
-			gap: 0;
-		}
-
-		@page {
-			size: A4;
-			margin: 20mm;
-		}
+		font-size: var(--font-size-base);
 	}
 </style>

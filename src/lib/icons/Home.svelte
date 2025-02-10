@@ -1,27 +1,27 @@
 <!-- src/lib/icons/Home.svelte -->
 <script lang="ts">
 	const {
-		size = 24,
-		stroke = 'currentColor',
-		fill = 'none'
+		size = 'var(--icon-base)',
+		stroke = 'var(--text-normal)',
+		strokeWidth = 'var(--icon-stroke-normal)'
 	} = $props<{
-		size?: number;
+		size?: string;
 		stroke?: string;
-		fill?: string;
+		strokeWidth?: string;
 	}>();
 </script>
 
 <svg
-	width={size}
-	height={size}
+	class="icon"
+	style="width: {size}; height: {size};"
 	viewBox="0 0 24 24"
-	{fill}
+	fill="none"
 	{stroke}
-	stroke-width="2"
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >
-	<path
-		d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-	/>
+	<path d="M5 12H3l9-9 9 9h-2" />
+	<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+	<path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6" />
 </svg>

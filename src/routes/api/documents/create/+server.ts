@@ -1,4 +1,4 @@
-import { documentSchema, documentResponseSchema  } from '$lib/schemas/document';
+import { createStagedDocumentSchema, createDocumentSchema, documentResponseSchema  } from '$lib/schemas/document';
 import { adminAuth, adminDb } from '$lib/firebase/admin';
 import type { RequestHandler } from '../$types';
 import { json } from '@sveltejs/kit';
@@ -53,56 +53,67 @@ export const POST: RequestHandler = async (event) => {
             );
         }
 
-        // Parse and validate request data
+        // Parse and validate request data using appropriate schema
         const { data } = await request.json();
-        const validatedDoc = documentSchema.parse({
-            ...data,
-            userId: decodedToken.uid,
-            sourceType: 'manual' // Web submissions are always manual
-        });
-        
+
+        // Determine which schema to use based on 'status'
+        let validatedDoc;
+        if (data.status === 'staged') {
+            validatedDoc = createStagedDocumentSchema.parse({
+                ...data,
+                userId: decodedToken.uid,
+                sourceType: data.sourceType || 'llmwhisperer' // Default to 'llmwhisperer' if not provided
+            });
+        } else {
+            validatedDoc = createDocumentSchema.parse({
+                ...data,
+                userId: decodedToken.uid,
+                sourceType: 'manual' // Web submissions are always manual
+            });
+        }
+
         // Add metadata
         const docWithMetadata = {
             ...validatedDoc,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
-        
+
         // Store in Firestore
         const docRef = await adminDb
             .collection('documents')
             .add(docWithMetadata);
-        
+
         // Validate response format
         const response = documentResponseSchema.parse({
             ...docWithMetadata,
             id: docRef.id
         });
-        
+
         return json({
             status: 'success' as const,
             data: response
         });
-        
+
     } catch (error) {
         console.error('Error:', error);
-        
-        // Handle validation errors
+
+         // Handle validation errors
         if (error instanceof z.ZodError) {
-            return json(
-                { 
-                    status: 'error' as const,
-                    message: 'Invalid document format',
-                    errors: error.errors
-                },
-                { status: 400 }
-            );
+          return json(
+              {
+                  status: 'error' as const,
+                  message: 'Invalid document format',
+                  errors: error.errors
+              },
+              { status: 400 }
+          );
         }
-        
+
         // Handle Firebase errors
         if (error instanceof FirebaseError) {
             return json(
-                { 
+                {
                     status: 'error' as const,
                     message: error.message,
                     code: error.code
@@ -110,10 +121,10 @@ export const POST: RequestHandler = async (event) => {
                 { status: error.code.includes('auth') ? 401 : 500 }
             );
         }
-        
+
         // Handle unknown errors
         return json(
-            { 
+            {
                 status: 'error' as const,
                 message: error instanceof Error ? error.message : 'Unknown error',
                 code: 'internal/unknown'

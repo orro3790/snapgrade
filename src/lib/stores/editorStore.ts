@@ -1,355 +1,441 @@
-// stores/editorStore.ts
-import { writable, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
+import { type Node, type NodeType, type CorrectionData } from '$lib/schemas/textNode';
 
-// Type Definitions
-type CorrectionType = 'normal' | 'deletion' | 'addition' | 'correction' | 'empty';
+// Core state
+const { subscribe: nodesSubscribe, set: setNodes, update: updateNodes } = writable<Node[]>([]);
+const { subscribe: activeNodeSubscribe, set: setActiveNode } = writable<string | null>(null);
+const { subscribe: undoStackSubscribe, update: updateUndoStack } = writable<Node[][]>([]);
+const { subscribe: redoStackSubscribe, update: updateRedoStack } = writable<Node[][]>([]);
 
-interface TextNode {
-  id: string;
-  text: string;
-  type: CorrectionType;
-  correctionText?: string;
-  hasNextCorrection?: boolean;
-  startIndex: number;
-  endIndex: number;
-  isPunctuation?: boolean;
-  mispunctuation?: boolean;
-}
+// Document name store
+const { subscribe: documentNameSubscribe, set: setDocumentName } = writable<string>("");
 
-interface NodeList {
-  id: string;
-  nodes: TextNode[];
-  originalText: string;
-}
+// Derived state for paragraphs
+/**
+ * A derived store that groups nodes into paragraphs based on newline spacer nodes.
+ */
+export const paragraphs = derived(
+    { subscribe: nodesSubscribe },
+    ($nodes) => groupNodesByParagraph($nodes)
+);
 
-interface EditorState {
-  nodeList: NodeList[];
-  activeNodeId: string | null;
-  undoStack: NodeList[][];
-  redoStack: NodeList[][];
-  isSaving: boolean;
-  lastSavedContent: string;
-  initialState: NodeList[] | null;
-}
+/**
+ * Groups an array of nodes into paragraphs.  Paragraphs are delimited by 'newline' spacer nodes.
+ * @param {Node[]} nodes - The array of nodes to group.
+ * @returns {{ id: string; corrections: Node[] }[]} An array of paragraph objects, where each object contains a unique ID and an array of nodes belonging to that paragraph.
+ */
+function groupNodesByParagraph(nodes: Node[]) {
+    const paragraphs: { id: string; corrections: Node[] }[] = [];
+    let currentParagraph: Node[] = [];
 
-// Create the editor store with a complete set of operations
-export function createEditorStore() {
-  const { subscribe, update } = writable<EditorState>({
-    nodeList: [],
-    activeNodeId: null,
-    undoStack: [],
-    redoStack: [],
-    isSaving: false,
-    lastSavedContent: '',
-    initialState: null
-  });
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
 
-  // Helper function to save state for undo/redo
-  function saveState(state: EditorState): EditorState {
-    return {
-      ...state,
-      undoStack: [...state.undoStack, state.nodeList],
-      redoStack: []
-    };
-  }
+        if (node.type === 'spacer' && node.spacerData?.subtype === 'newline') {
+            // Add current paragraph (without the newline)
+            if (currentParagraph.length > 0) {
+                paragraphs.push({
+                    id: crypto.randomUUID(),
+                    corrections: [...currentParagraph]
+                });
+            }
+            currentParagraph = [];
 
-  // Helper function to parse text into nodes
-  function parseTextIntoNodes(text: string, startIndex: number): TextNode[] {
-    const nodes: TextNode[] = [];
-    let currentIndex = startIndex;
-    
-    interface Match {
-      type: CorrectionType;
-      text: string;
-      correction?: string;
-      index: number;
-      length: number;
-    }
-  
-    const matches: Match[] = [];
-  
-    // Find all special syntax matches first
-    let match;
-    // Corrections: word !correction!
-    const correctionRegex = /(\S+)\s+!([^!]+)!/g;
-    while ((match = correctionRegex.exec(text)) !== null) {
-      matches.push({
-        type: 'correction',
-        text: match[1],
-        correction: match[2],
-        index: match.index,
-        length: match[0].length
-      });
-    }
-  
-    // Deletions: -word-
-    const deletionRegex = /-([^-]+)-/g;
-    while ((match = deletionRegex.exec(text)) !== null) {
-      matches.push({
-        type: 'deletion',
-        text: match[1],
-        index: match.index,
-        length: match[0].length
-      });
-    }
-  
-    // Additions: [word]
-    const additionRegex = /\[([^\]]+)\]/g;
-    while ((match = additionRegex.exec(text)) !== null) {
-      matches.push({
-        type: 'addition',
-        text: match[1],
-        index: match.index,
-        length: match[0].length
-      });
-    }
-  
-    // Sort matches by position
-    matches.sort((a, b) => a.index - b.index);
-  
-    let lastIndex = 0;
-    
-    // Helper function to process normal text
-    const processNormalText = (normalText: string) => {
-      // Split the text into words and punctuation, preserving order
-      // This regex splits on:
-      // 1. Spaces (but doesn't create nodes for them)
-      // 2. Punctuation marks (creating separate nodes)
-      const parts = normalText.split(/(\s+)|([.,!?;:])/).filter(Boolean);
-      
-      for (const part of parts) {
-        // Skip whitespace parts
-        if (!/^\s+$/.test(part)) {
-          const isPunctuation = /^[.,!?;:]$/.test(part);
-          
-          nodes.push({
-            id: crypto.randomUUID(),
-            text: part,
-            type: 'normal',
-            startIndex: currentIndex,
-            endIndex: currentIndex + part.length,
-            isPunctuation,
-            mispunctuation: false
-          });
-          
-          currentIndex += part.length;
+            // Handle consecutive newlines more efficiently
+            while (i + 1 < nodes.length &&
+                   nodes[i + 1].type === 'spacer' &&
+                   nodes[i + 1].spacerData?.subtype === 'newline') {
+                paragraphs.push({
+                    id: crypto.randomUUID(),
+                    corrections: [nodes[i+1]]
+                });
+                i++;
+            }
         } else {
-          // Just update the index for whitespace
-          currentIndex += part.length;
+            currentParagraph.push(node);
         }
-      }
-    };
-  
-    // Process text with special syntax
-    for (const match of matches) {
-      // Process normal text before the match
-      if (match.index > lastIndex) {
-        const normalText = text.slice(lastIndex, match.index);
-        processNormalText(normalText);
-      }
-  
-      // Add the matched node
-      const matchNode: TextNode = {
-        id: crypto.randomUUID(),
-        text: match.text,
-        type: match.type,
-        startIndex: currentIndex,
-        endIndex: currentIndex + match.text.length,
-        isPunctuation: false
-      };
-  
-      if (match.type === 'correction' && match.correction) {
-        matchNode.correctionText = match.correction;
-        matchNode.hasNextCorrection = false;
-      }
-  
-      nodes.push(matchNode);
-      currentIndex += match.length;
-      lastIndex = match.index + match.length;
     }
-  
-    // Process remaining normal text
-    if (lastIndex < text.length) {
-      const remainingText = text.slice(lastIndex);
-      processNormalText(remainingText);
-    }
-  
-    // Post-process nodes for adjacent corrections
-    for (let i = 0; i < nodes.length - 1; i++) {
-      if (nodes[i].type === 'correction' && nodes[i + 1].type === 'correction') {
-        nodes[i].hasNextCorrection = true;
-      }
-      if (nodes[i].type === 'correction' && nodes[i + 1].isPunctuation) {
-        nodes[i].hasNextCorrection = true;
-      }
-    }
-  
-    return nodes;
-  }
-  const actions = {
-    subscribe,
 
-    parseContent: (content: string) => {
-      const nodeList = content.split('\n\n').map((text, index) => ({
-        id: crypto.randomUUID(),
-        nodes: parseTextIntoNodes(text, index * 1000),
-        originalText: text
-      }));
-
-      update(state => ({
-        ...state,
-        nodeList,
-        lastSavedContent: content,
-        initialState: state.initialState === null ? nodeList : state.initialState
-      }));
-    },
-
-    insertNodeAfter: (nodeId: string, text: string, type: CorrectionType = 'normal') => {
-      update(state => {
-        const newState = saveState(state);
-        
-        let nodeIndex = -1;
-        const targetParagraph = state.nodeList.find(para => {
-          nodeIndex = para.nodes.findIndex(n => n.id === nodeId);
-          return nodeIndex !== -1;
+    // Add final paragraph if there are remaining nodes
+    if (currentParagraph.length > 0) {
+        paragraphs.push({
+            id: crypto.randomUUID(),
+            corrections: currentParagraph
         });
-
-        if (!targetParagraph || nodeIndex === -1) return state;
-
-        const newNode: TextNode = {
-          id: crypto.randomUUID(),
-          text,
-          type,
-          startIndex: targetParagraph.nodes[nodeIndex].endIndex + 1,
-          endIndex: targetParagraph.nodes[nodeIndex].endIndex + 1 + text.length,
-          isPunctuation: false
-        };
-
-        const nodeList = state.nodeList.map(para => {
-          if (para.id === targetParagraph.id) {
-            const newNodes = [...para.nodes];
-            newNodes.splice(nodeIndex + 1, 0, newNode);
-            return {
-              ...para,
-              nodes: newNodes
-            };
-          }
-          return para;
-        });
-
-        return {
-          ...newState,
-          nodeList,
-          activeNodeId: newNode.id // Set the new node as active
-        };
-      });
-    },
-
-    removeNode: (nodeId: string) => {
-      update(state => {
-          const newState = saveState(state);
-          
-          // Filter out paragraphs with no nodes to prevent empty paragraphs
-          const nodeList = state.nodeList
-              .map(para => ({
-                  ...para,
-                  nodes: para.nodes.filter(node => node.id !== nodeId)
-              }))
-              .filter(para => para.nodes.length > 0);  // Remove empty paragraphs
-  
-          return {
-              ...newState,
-              nodeList,
-              activeNodeId: state.activeNodeId === nodeId ? null : state.activeNodeId
-          };
-      });
-  },
-
-    updateNode: (nodeId: string, newText: string, newCorrectionText?: string, newType?: CorrectionType) => {
-      update(state => {
-        const newState = saveState(state);
-        
-        const nodeList = state.nodeList.map(para => ({
-          ...para,
-          nodes: para.nodes.map(node => 
-            node.id === nodeId 
-              ? { 
-                  ...node, 
-                  text: newText,
-                  type: newType || node.type,
-                  ...(newCorrectionText !== undefined && { correctionText: newCorrectionText })
-                }
-              : node
-          )
-        }));
-
-        return {
-          ...newState,
-          nodeList
-        };
-      });
-    },
-
-    setActiveNode: (nodeId: string | null) => {
-      update(state => ({ ...state, activeNodeId: nodeId }));
-    },
-
-    undo: () => {
-      update(state => {
-        if (state.undoStack.length === 0) return state;
-
-        const newUndoStack = [...state.undoStack];
-        const lastState = newUndoStack.pop()!;
-        
-        return {
-          ...state,
-          nodeList: lastState,
-          undoStack: newUndoStack,
-          redoStack: [...state.redoStack, state.nodeList]
-        };
-      });
-    },
-
-    redo: () => {
-      update(state => {
-        if (state.redoStack.length === 0) return state;
-
-        const newRedoStack = [...state.redoStack];
-        const nextState = newRedoStack.pop()!;
-        
-        return {
-          ...state,
-          nodeList: nextState,
-          undoStack: [...state.undoStack, state.nodeList],
-          redoStack: newRedoStack
-        };
-      });
-    },
-
-    getContent: () => {
-      const state = get({ subscribe });
-      return state.nodeList
-        .map(para => 
-          para.nodes
-            .map(node => {
-              switch (node.type) {
-                case 'deletion':
-                  return `-${node.text}-`;
-                case 'addition':
-                  return `[${node.text}]`;
-                case 'correction':
-                  return `${node.text} !${node.correctionText}!`;
-                default:
-                  return node.text;
-              }
-            })
-            .join(' ')
-        )
-        .join('\n\n');
     }
-  };
 
-  return actions;
+    return paragraphs;
 }
 
-export const editorStore = createEditorStore();
+/**
+ * Sets both the document content and name.
+ * @param {string} content - The document content to parse.
+ * @param {string} name - The name of the document.
+ */
+function setDocument(content: string, name: string) {
+    parseContent(content);
+    setDocumentName(name);
+}
+
+/**
+ * Parses the input text content and creates an array of nodes.
+ * @param {string} content - The input text content.
+ */
+function parseContent(content: string) {
+    const newNodes: Node[] = [];
+    let position = 0;
+
+    // Split content into words and punctuation, ignoring whitespace
+    const tokens = content
+        .split(/([.,!?;:]|\s+)/)  // Split by punctuation or whitespace sequences
+        .map(token => token.trim()) // Trim any whitespace
+        .filter(token => {
+            // Keep only non-empty tokens that aren't pure whitespace
+            return token && !/^\s+$/.test(token);
+        });
+
+    tokens.forEach(token => {
+        // Handle text or punctuation
+        const isPunctuation = /^[.,!?;:]/.test(token);
+        console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`);
+        newNodes.push({
+            id: crypto.randomUUID(),
+            text: token,
+            type: 'normal',
+            metadata: {
+                position: position++,
+                lineNumber: 1,
+                isPunctuation,
+                isWhitespace: false,
+                startIndex: 0,
+                endIndex: 0
+            }
+        });
+    });
+
+    setNodes(newNodes);
+    updateUndoStack(() => []);
+    updateRedoStack(() => []);
+}
+
+/**
+ * Serializes the current nodes array into a JSON string for storage.
+ * @returns {string} The serialized JSON string.
+ */
+function getSerializedContent(): string {
+    let nodes: Node[] = [];
+    nodesSubscribe(($nodes) => {
+        nodes = $nodes;
+    })();
+    return serializeNodes(nodes);
+}
+
+/**
+ * Loads and deserializes nodes from a JSON string.
+ * @param {string} serialized - The serialized JSON string.
+ */
+function loadSerializedContent(serialized: string) {
+    const nodes = deserializeNodes(serialized);
+    setNodes(nodes);
+    updateUndoStack(() => []);
+    updateRedoStack(() => []);
+}
+
+import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
+
+/**
+ * Updates the properties of an existing node.
+ * @param {string} nodeId - The ID of the node to update.
+ * @param {string} text - The new text content of the node.
+ * @param {CorrectionData} [correctionData] - Optional correction data.
+ * @param {{ subtype: 'newline' | 'tab' }} [spacerData] - Optional spacer data (for spacer nodes).
+ * @param {NodeType} [type='normal'] - The node type. Defaults to 'normal'.
+ */
+function updateNode(nodeId: string, text: string, correctionData?: CorrectionData, spacerData?: { subtype: 'newline' | 'tab' }, type: NodeType = 'normal') {
+    updateNodes($nodes => {
+        const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
+        if (nodeIndex === -1) return $nodes;
+
+        const oldNode = $nodes[nodeIndex];
+        
+        // Determine the new type based on current node type
+        let newType = type;
+        if (oldNode.type === 'addition') {
+            // Preserve addition type
+            newType = 'addition';
+        } else if (oldNode.type === 'empty') {
+            // Empty nodes can only become addition nodes or remain empty
+            newType = type === 'deletion' ? 'empty' : type;
+        }
+
+        // Only save to undo stack if there's an actual change
+        if (oldNode.text !== text || oldNode.type !== newType) {
+            updateUndoStack($undoStack => [...$undoStack, $nodes]);
+            updateRedoStack(() => []);
+        }
+
+        const newNodes = [...$nodes];
+        newNodes[nodeIndex] = {
+            ...oldNode,
+            text,
+            type: newType,
+            ...(correctionData && { correctionData }),
+            ...(spacerData && { spacerData })
+        };
+
+        return newNodes;
+    });
+}
+
+/**
+ * Toggles the deletion state of a node.
+ * @param {string} nodeId - The ID of the node to toggle.
+ */
+function toggleDeletion(nodeId: string) {
+    updateNodes($nodes => {
+        const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
+        if (nodeIndex === -1) return $nodes;
+
+        const node = $nodes[nodeIndex];
+        
+        // Don't toggle if it's an empty or spacer node
+        if (node.type === 'empty' || node.type === 'spacer') return $nodes;
+
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+
+        const newNodes = [...$nodes];
+        newNodes[nodeIndex] = {
+            ...node,
+            type: node.type === 'deletion' ? 'normal' : 'deletion'
+        };
+
+        return newNodes;
+    });
+}
+
+/**
+ * Inserts a new node after the specified node.
+ * @param {string} nodeId - The ID of the node after which to insert the new node.
+ * @param {string} text - The text content of the new node.
+ * @param {NodeType} [type='normal'] - The type of the new node. Defaults to 'normal'.
+ */
+function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal') {
+    updateNodes($nodes => {
+        const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
+        if (nodeIndex === -1) return $nodes;
+        
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+        
+        const newNode: Node = {
+            id: crypto.randomUUID(),
+            text,
+            type,
+            metadata: {
+                position: $nodes[nodeIndex].metadata.position + 1,
+                lineNumber: $nodes[nodeIndex].metadata.lineNumber,
+                isPunctuation: /^[.,!?;:]$/.test(text),
+                isWhitespace: /^\s+$/.test(text),
+                startIndex: 0,
+                endIndex: 0
+            }
+        };
+        
+        // More efficient array manipulation
+        const newNodes = [...$nodes];
+        newNodes.splice(nodeIndex + 1, 0, newNode);
+        return newNodes;
+    });
+}
+
+/**
+ * Removes a node from the editor.
+ * @param {string} nodeId - The ID of the node to remove.
+ */
+function removeNode(nodeId: string) {
+    updateNodes($nodes => {
+        const nodeIndex = $nodes.findIndex(n => n.id === nodeId);
+        if (nodeIndex === -1) return $nodes;
+        
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+        
+        // More efficient array manipulation
+        const newNodes = [...$nodes];
+        newNodes.splice(nodeIndex, 1);
+        return newNodes;
+    });
+}
+
+/**
+ * Undoes the last action.
+ */
+function undo() {
+    let canUndo = false;
+    undoStackSubscribe(($undoStack) => {
+        canUndo = $undoStack.length > 0;
+    })();
+
+    if (!canUndo) return;
+
+    let currentNodes: Node[] = [];
+    nodesSubscribe(($nodes) => {
+        currentNodes = $nodes;
+    })();
+    
+    updateRedoStack($redoStack => [currentNodes, ...$redoStack]);
+    
+    updateUndoStack($undoStack => {
+        const previousState = $undoStack[$undoStack.length - 1];
+        setNodes(previousState);
+        return $undoStack.slice(0, -1);
+    });
+}
+
+/**
+ * Redoes the last undone action.
+ */
+function redo() {
+    let canRedo = false;
+    redoStackSubscribe(($redoStack) => {
+        canRedo = $redoStack.length > 0;
+    })();
+
+    if (!canRedo) return;
+
+    let currentNodes: Node[] = [];
+    nodesSubscribe(($nodes) => {
+        currentNodes = $nodes;
+    })();
+    
+    updateUndoStack($undoStack => [...$undoStack, currentNodes]);
+    
+    updateRedoStack($redoStack => {
+        const nextState = $redoStack[0];
+        setNodes(nextState);
+        return $redoStack.slice(1);
+    });
+}
+
+/**
+ * Gets the current text content of the editor by joining the text of all nodes.
+ * @returns {string} The current text content.
+ */
+function getContent(): string {
+    let content = '';
+    nodesSubscribe(($nodes) => {
+        content = $nodes.reduce((acc, node) => acc + node.text, '');
+    })();
+    return content;
+}
+
+/**
+ * The main editor store object, containing functions and stores for managing the editor state.
+ */
+export const editorStore = {
+    /**
+     * Subscribe to changes in the nodes array.
+     */
+    subscribe: nodesSubscribe,
+    /**
+     * Store for managing the active node.
+     */
+    activeNode: {
+        /**
+         * Subscribe to changes in the active node ID.
+         */
+        subscribe: activeNodeSubscribe,
+        /**
+         * Sets the active node ID.
+         * @param {string | null} nodeId - The ID of the node to set as active, or null to clear the active node.
+         */
+        set: setActiveNode
+    },
+    /**
+     * Store for managing the document name.
+     */
+    documentName: {
+        subscribe: documentNameSubscribe
+    },
+    /**
+     * A derived store that groups nodes into paragraphs.
+     */
+    paragraphs,
+    /**
+     * Parses the input text content and creates nodes.
+     * @param {string} content - The input text content.
+     */
+    parseContent,
+    /**
+     * Updates the properties of an existing node.
+     * @param {string} nodeId - The ID of the node to update.
+     * @param {string} text - The new text content.
+     * @param {CorrectionData} [correctionData] - Optional correction data.
+     * @param {object} [spacerData] - Optional spacerData (subtype).
+     * @param {NodeType} [type='normal'] - The node type.
+     */
+    updateNode,
+    /**
+     * Inserts a new node after the specified node.
+     * @param {string} nodeId - The ID of the node after which to insert.
+     * @param {string} text - The text content of the new node.
+     * @param {NodeType} [type='normal'] - The type of the new node.
+     */
+    insertNodeAfter,
+    /**
+     * Removes a node from the editor.
+     * @param {string} nodeId - The ID of the node to remove.
+     */
+    removeNode,
+     /**
+     * Sets the active node ID.
+     * @param {string | null} nodeId The ID of the node to set as active, or null to clear the active node.
+     */
+    setActiveNode: (nodeId: string | null) => setActiveNode(nodeId),
+    /**
+     * Undoes the last action.
+     */
+    undo,
+    /**
+     * Redoes the last undone action.
+     */
+    redo,
+    /**
+     * Gets the current text content of the editor.
+     * @returns {string} The current text content.
+     */
+    getContent,
+    /**
+     * Serializes the current nodes array into a JSON string.
+     * @returns {string} The serialized JSON string.
+     */
+    getSerializedContent,
+    /**
+     * Loads and deserializes nodes from a JSON string.
+     * @param {string} serialized - The serialized JSON string.
+     */
+    loadSerializedContent,
+    /**
+     * Toggles the deletion state of a node.
+     */
+    toggleDeletion,
+    /**
+     * Sets both the document content and name.
+     */
+    setDocument
+};
+
+/**
+ * A separate store for easier access to the active correction.
+ */
+// Export active node as a separate store for easier access
+export const activeCorrection = {
+    /**
+     * Subscribe to changes in the active node ID.
+     */
+    subscribe: activeNodeSubscribe
+};

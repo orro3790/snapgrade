@@ -1,21 +1,25 @@
 <script lang="ts">
-	const { size = 24, stroke = 'currentColor' } = $props<{
-		size?: number;
+	const {
+		size = 'var(--icon-base)',
+		stroke = 'var(--text-normal)',
+		strokeWidth = 'var(--icon-stroke-normal)'
+	} = $props<{
+		size?: string;
 		stroke?: string;
+		strokeWidth?: string;
 	}>();
 </script>
 
 <svg
-	width={size}
-	height={size}
+	class="icon"
+	style="width: {size}; height: {size};"
 	viewBox="0 0 24 24"
 	fill="none"
 	{stroke}
-	stroke-width="2"
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >
-	<line x1="18" y1="20" x2="18" y2="10" />
-	<line x1="12" y1="20" x2="12" y2="4" />
-	<line x1="6" y1="20" x2="6" y2="14" />
+	<path d="M3 3v18h18" />
+	<path d="M18.4 8l-4.3 3.2-3.7-3.2-4.4 4.2" />
 </svg>

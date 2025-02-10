@@ -2,17 +2,33 @@
 <script lang="ts">
 	import '../app.css';
 	import { modalStore } from '$lib/stores/modalStore';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
+	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
 
-	let { data } = $props<{ data: LayoutData }>();
+	let {
+		data,
+		children
+	}: {
+		data: LayoutData;
+		children: Snippet;
+	} = $props();
 
-	// Pass user data and uid to all child routes
+	// Handle keyboard shortcuts
 	$effect(() => {
-		if (data.user && data.uid) {
-			console.log('User authenticated:', { user: data.user, uid: data.uid });
-		}
+		const handleKeydown = (e: KeyboardEvent) => {
+			// Toggle sidebar with Cmd/Ctrl + B
+			if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+				e.preventDefault();
+				sidebarStore.toggle();
+			}
+		};
+
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
 	});
 
 	function handleModalClose() {
@@ -23,19 +39,30 @@
 <!-- Layout structure -->
 <Toast />
 
-<div class="flex min-h-screen">
-	<main class="flex-1">
-		<slot {data} />
+<div>
+	<main class="main-content">
+		{@render children()}
 	</main>
 </div>
 
 <!-- Modal management -->
-{#if $modalStore === 'keyboard'}
+{#if $modalStore?.type === 'keyboard'}
 	<div class="modal-overlay" role="dialog" aria-modal="true">
 		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
 		></button>
 		<div class="modal-content">
 			<KeyboardControls />
+		</div>
+	</div>
+{:else if $modalStore?.type === 'documentLoad'}
+	<div class="modal-overlay" role="dialog" aria-modal="true">
+		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
+		></button>
+		<div class="modal-content">
+			<DocumentLoadModal
+				documentToLoad={$modalStore.data?.documentToLoad ?? ''}
+				documentName={$modalStore.data?.documentName ?? ''}
+			/>
 		</div>
 	</div>
 {/if}
@@ -47,11 +74,12 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
+		background: var(--background-modifier-cover);
+		backdrop-filter: blur(2px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 100;
+		z-index: var(--z-modal);
 	}
 
 	.overlay-button {
@@ -70,6 +98,10 @@
 		max-width: 90vw;
 		max-height: 90vh;
 		overflow-y: auto;
-		z-index: 1;
+		z-index: calc(var(--z-modal) + 1);
+	}
+
+	.main-content {
+		width: 100%;
 	}
 </style>

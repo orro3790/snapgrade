@@ -1,140 +1,284 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore';
+	import type { Node } from '$lib/schemas/textNode';
+	import Add from '$lib/icons/Add.svelte';
+	import Correction from '$lib/icons/Correction.svelte';
+	import Slash from '$lib/icons/Slash.svelte';
+	import Eraser from '$lib/icons/Eraser.svelte';
 
-	const { node, onClose } = $props<{
-		node: {
-			id: string;
-			text: string;
-			type: 'normal' | 'deletion' | 'addition' | 'correction' | 'empty';
-			correctionText?: string;
-			hasNextCorrection?: boolean;
-			isWhitespace?: boolean;
-		};
+	let { node, position, onClose } = $props<{
+		node: Node;
+		position: { x: number; y: number };
 		onClose: () => void;
 	}>();
 
-	let editableText = $state(node.text);
-	let inputRef = $state<HTMLInputElement>();
+	let modalElement: HTMLDivElement;
+	let inputElement: HTMLTextAreaElement;
+	let inputValue = $state(
+		node.type === 'correction' ? node.correctionData?.correctedText || node.text : node.text
+	);
 	let isProcessingEdit = $state(false);
 
+	// Add this function to adjust textarea height
+	function adjustTextareaHeight(textarea: HTMLTextAreaElement) {
+		textarea.style.height = 'auto';
+		textarea.style.height = `${textarea.scrollHeight}px`;
+	}
+
+	// Modify the effect to include height adjustment
 	$effect(() => {
-		if (inputRef) {
-			inputRef.focus();
-			inputRef.select();
+		if (!modalElement || !inputElement) return;
+
+		const rect = modalElement.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+
+		let x = position.x;
+		let y = position.y;
+
+		x += 10;
+		y += 10;
+
+		if (x + rect.width > viewportWidth) {
+			x = viewportWidth - rect.width - 10;
 		}
+		if (y + rect.height > viewportHeight) {
+			y = viewportHeight - rect.height - 10;
+		}
+
+		modalElement.style.left = `${x}px`;
+		modalElement.style.top = `${y}px`;
+
+		// Focus and adjust height
+		inputElement.focus();
+		inputElement.select();
+		adjustTextareaHeight(inputElement);
 	});
 
-	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === 'Escape') {
-			event.preventDefault();
-			finishEditing();
+	// Add input handler for dynamic height adjustment
+	function handleInput(event: Event) {
+		const textarea = event.target as HTMLTextAreaElement;
+		adjustTextareaHeight(textarea);
+	}
+
+	// Handle click outside
+	function handleClickOutside(event: MouseEvent) {
+		if (modalElement && !modalElement.contains(event.target as HTMLElement)) {
+			handleSubmit();
 		}
 	}
 
-	function finishEditing() {
+	// Cleanup
+	$effect.root(() => {
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	});
+
+	function handleSubmit() {
+		if (isProcessingEdit) return;
+
+		const trimmedValue = inputValue.trim();
+		if (!trimmedValue || trimmedValue === node.text) {
+			onClose();
+			return;
+		}
+
+		isProcessingEdit = true;
+
+		// Handle empty nodes differently - convert to addition
+		if (node.type === 'empty') {
+			editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
+		} else {
+			// Handle other nodes as corrections
+			editorStore.updateNode(
+				node.id,
+				node.text,
+				{
+					originalText: node.text,
+					correctedText: trimmedValue,
+					pattern: ''
+				},
+				undefined,
+				'correction'
+			);
+		}
+		onClose();
+	}
+
+	function handleRemove() {
+		if (isProcessingEdit) return;
+		isProcessingEdit = true;
+		editorStore.removeNode(node.id);
+		onClose();
+	}
+
+	// Modify handleDelete to only handle deletion state
+	function handleDelete() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
 
-		const trimmedText = editableText.trim();
+		// Don't allow empty nodes to be marked as deletion
+		if (node.type === 'empty') {
+			isProcessingEdit = false; // Reset the flag before returning
+			return;
+		}
 
-		try {
-			if (node.type === 'empty') {
-				if (trimmedText) {
-					editorStore.updateNode(node.id, trimmedText, undefined, 'addition');
-				} else {
-					editorStore.removeNode(node.id);
-				}
-				return;
-			}
+		editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
+		onClose();
+	}
 
-			if (!trimmedText || trimmedText === node.text) {
-				if (!trimmedText) {
-					editorStore.updateNode(node.id, node.text, undefined, 'normal');
-				}
-				return;
-			}
+	function handleAddAfter() {
+		if (isProcessingEdit || !inputValue.trim()) return;
+		isProcessingEdit = true;
+		editorStore.insertNodeAfter(node.id, inputValue.trim(), 'addition');
+		onClose();
+	}
 
-			if (trimmedText.startsWith('`')) {
-				editorStore.updateNode(node.id, node.text, undefined, 'deletion');
-			} else if (trimmedText.startsWith('@')) {
-				const newText = trimmedText.slice(1);
-				if (newText) {
-					editorStore.updateNode(node.id, node.text);
-					editorStore.insertNodeAfter(node.id, newText);
-				}
-			} else if (trimmedText.startsWith('!')) {
-				const plainText = trimmedText.slice(1);
-				if (plainText !== node.text) {
-					editorStore.updateNode(node.id, plainText);
-				}
-			} else {
-				editorStore.updateNode(node.id, node.text, trimmedText, 'correction');
-			}
-		} finally {
-			isProcessingEdit = false;
+	function handleKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			handleSubmit();
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
 			onClose();
 		}
 	}
 </script>
 
 <div
-	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-label="Edit text modal"
-	tabindex="-1"
+	class="overlay"
+	role="textbox"
+	tabindex="0"
+	aria-label="Edit text"
+	onkeydown={handleKeyDown}
+	onclick={onClose}
 >
-	<div class="modal-content" role="document">
-		<input
-			bind:this={inputRef}
-			bind:value={editableText}
-			class="edit-input"
+	<div
+		class="modal-container"
+		bind:this={modalElement}
+		role="button"
+		tabindex="0"
+		aria-label="Modal container"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
+	>
+		<textarea
+			bind:this={inputElement}
+			bind:value={inputValue}
 			onkeydown={handleKeyDown}
-			onblur={finishEditing}
-			aria-label="Edit text"
-			type="text"
-		/>
+			oninput={handleInput}
+			aria-label="Edit text input"
+			placeholder="Type to edit..."
+			rows="1"
+			aria-multiline="true"
+		></textarea>
+		<div class="actions" role="toolbar" aria-label="Editing actions">
+			<button onclick={handleDelete} type="button" title="Mark for deletion">
+				<Slash />
+			</button>
+			<button onclick={handleAddAfter} type="button" title="Add after">
+				<Add />
+			</button>
+			<button onclick={handleSubmit} type="button" title="Correct">
+				<Correction />
+			</button>
+			<button onclick={handleRemove} type="button" title="Remove node">
+				<Eraser />
+			</button>
+		</div>
 	</div>
 </div>
 
 <style>
-	.modal-overlay {
+	.overlay {
 		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background-color: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.modal-content {
-		background-color: var(--background-secondary);
-		padding: 1rem;
-		border-radius: 0.5rem;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		min-width: 300px;
-	}
-
-	.edit-input {
+		inset: 0;
+		background: var(--background-modifier-cover);
+		display: grid;
+		place-items: center;
+		z-index: var(--z-modal);
+		border: none;
+		padding: 0;
+		margin: 0;
 		width: 100%;
-		font-size: 1rem;
-		padding: 0.5rem;
-		border: 2px solid var(--interactive-normal);
-		transition: border-color 0.2s ease;
-		border-radius: 0.25rem;
-		background-color: var(--background-secondary-alt);
+		cursor: default;
+	}
+
+	.modal-container {
+		position: fixed;
+		z-index: var(--z-20);
+		background: var(--background-primary);
+		border-radius: var(--radius-lg);
+		width: min(280px, 90vw);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		outline: 1px solid var(--background-modifier-border);
+	}
+
+	textarea {
+		width: 100%;
+		background: var(--background-modifier-form);
+		color: var(--text-normal);
+		border: none;
+		font-family: var(--font-family-base);
+		font-size: var(--font-size-base);
+		line-height: var(--line-height-relaxed);
+		resize: none;
+		padding: var(--spacing-3);
+		transition: var(--transition-all);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+		min-height: calc(var(--line-height-relaxed) * 1em + var(--spacing-3) * 2);
+		overflow-y: hidden; /* Hide scrollbar */
+	}
+
+	textarea:focus {
+		outline: none;
+	}
+
+	.actions {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		border-top: 1px solid var(--background-modifier-border);
+	}
+
+	button {
+		display: grid;
+		place-items: center;
+		height: 40px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-muted);
+		transition: var(--transition-all);
+	}
+
+	button:hover {
+		background: var(--background-modifier-hover);
 		color: var(--text-normal);
 	}
 
-	.edit-input:focus {
-		outline: none;
-		border-color: var(--interactive-accent);
-		box-shadow: 0 0 0 2px var(--interactive-accent-hover);
-		transition: border-color 0.2s ease;
+	button:first-child:hover {
+		color: var(--text-error);
+	}
+
+	button:nth-child(2):hover {
+		color: var(--background-modifier-success);
+	}
+
+	button:nth-child(3):hover {
+		color: var(--interactive-accent);
+	}
+
+	button:last-child:hover {
+		color: var(--text-error-hover);
 	}
 </style>

@@ -4,6 +4,7 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Class } from '$lib/schemas/class';
 	import Pencil from '$lib/icons/Pencil.svelte';
+	import Settings from '$lib/icons/Settings.svelte';
 
 	// Props
 	let { onClassSelect, onAddClass, user, uid } = $props<{
@@ -39,7 +40,11 @@
 			(snapshot) => {
 				classes = snapshot.docs.map((doc) => ({
 					...doc.data(),
-					metadata: { id: doc.id }
+					id: doc.id,
+					metadata: {
+						createdAt: doc.data().metadata?.createdAt,
+						updatedAt: doc.data().metadata?.updatedAt
+					}
 				})) as Class[];
 				isLoading = false;
 			},
@@ -54,7 +59,7 @@
 	});
 
 	function handleClassClick(classData: Class) {
-		selectedClassId = classData.metadata.id;
+		selectedClassId = classData.id;
 		onClassSelect(classData);
 	}
 
@@ -70,7 +75,7 @@
 	<div class="header">
 		<h2>Classes</h2>
 		<button type="button" class="add-button" onclick={onAddClass} aria-label="Add new class">
-			<Pencil size={20} />
+			<Pencil size="var(--icon-sm)" />
 			<span>New Class</span>
 		</button>
 	</div>
@@ -88,10 +93,9 @@
 					<button
 						type="button"
 						class="class-item"
-						class:selected={selectedClassId === classData.metadata.id}
+						class:selected={selectedClassId === classData.id}
 						onclick={() => handleClassClick(classData)}
 						onkeydown={(e) => handleKeyDown(e, classData)}
-						aria-selected={selectedClassId === classData.metadata.id}
 					>
 						<span class="class-name">{classData.name}</span>
 						<span class="student-count">{classData.students.length} students</span>
@@ -107,14 +111,14 @@
 		width: 280px;
 		height: 100%;
 		background: var(--background-secondary);
-		border-right: 1px solid var(--background-modifier-border);
+		border-right: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		flex-direction: column;
 	}
 
 	.header {
-		padding: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		padding: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -122,49 +126,45 @@
 
 	h2 {
 		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 600;
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	.add-button {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.375rem;
+		gap: var(--spacing-2);
+		padding: var(--spacing-2) var(--spacing-3);
+		background: var(--interactive-normal);
 		color: var(--text-normal);
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s ease;
+		font-size: var(--font-size-sm);
+		border-radius: var(--radius-base);
 	}
 
 	.add-button:hover {
-		background: var(--background-modifier-hover);
+		background: var(--interactive-hover);
 	}
 
 	.class-list {
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: var(--spacing-2);
 		overflow-y: auto;
 		flex: 1;
 	}
 
 	.class-item {
 		width: 100%;
-		padding: 1rem;
+		padding: var(--spacing-4);
 		background: none;
 		border: none;
-		border-bottom: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-base);
 		cursor: pointer;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		text-align: left;
-		transition: background-color 0.2s ease;
 	}
 
 	.class-item:hover {
@@ -173,28 +173,28 @@
 
 	.class-item.selected {
 		background: var(--background-modifier-hover);
-		border-left: 3px solid var(--text-accent);
+		border-left: var(--border-width-medium) solid var(--interactive-accent);
 	}
 
 	.class-name {
-		font-weight: 500;
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	.student-count {
-		font-size: 0.875rem;
+		font-size: var(--font-size-sm);
 		color: var(--text-muted);
 	}
 
 	.loading,
 	.error,
 	.empty-state {
-		padding: 1rem;
+		padding: var(--spacing-4);
 		text-align: center;
 		color: var(--text-muted);
 	}
 
 	.error {
-		color: var(--error-color);
+		color: var(--status-error);
 	}
 </style>

@@ -1,16 +1,19 @@
 // File: src/routes/+page.server.ts
 import type { PageServerLoad, Actions } from './$types';
-import { superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { classSchema } from '$lib/schemas/class';
 import { studentSchema } from '$lib/schemas/student';
 import { createDocumentSchema } from '$lib/schemas/document';
 import { fail } from '@sveltejs/kit';
+import { superValidate } from 'sveltekit-superforms/server';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const classForm = await superValidate(zod(classSchema));
-	const studentForm = await superValidate(zod(studentSchema));
-	const documentForm = await superValidate(zod(createDocumentSchema));
+	const [classForm, studentForm, documentForm] = await Promise.all([
+		superValidate(zod(classSchema)),
+		superValidate(zod(studentSchema)),
+		superValidate(zod(createDocumentSchema)),
+	]);
+
 
 	return {
 		user: locals.user || null,
@@ -18,7 +21,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		uid: locals.uid || null,
 		classForm,
 		studentForm,
-		documentForm
+		documentForm,
 	};
 };
 
@@ -154,6 +157,63 @@ export const actions = {
 			console.error('Upload error:', error);
 			form.message = 'An unexpected error occurred';
 			return fail(500, { form });
+		}
+	},
+	stageDocument: async ({ request, fetch, cookies }) => {
+		const form = await superValidate(request, zod(createDocumentSchema));
+		console.log('Stage document form validation:', form);
+
+
+		if (!form.valid) {
+			console.log('Form validation failed:', form.errors);
+			return fail(400, { form });
+		}
+
+		try {
+			const sessionCookie = cookies.get('session');
+			if (!sessionCookie) {
+				return fail(401, {
+					form,
+					error: 'You must be logged in to stage documents'
+				});
+			}
+
+			const response = await fetch(`/api/documents/create`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Cookie: `session=${sessionCookie}`
+				},
+				body: JSON.stringify({
+					data: {
+						...form.data,
+						status: 'editing',
+						title: form.data.title || '',
+						subtitle: form.data.subtitle || '',
+						headings: form.data.headings || []
+					}
+				})
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				return fail(response.status, {
+					form,
+					error: result.message || 'Failed to stage document'
+				});
+			}
+
+			return {
+				form,
+				success: true
+			};
+		} catch (error) {
+			console.error('Staging error:', error);
+			return fail(500, {
+				form,
+				error: 'An unexpected error occurred'
+			});
 		}
 	}
 } satisfies Actions;

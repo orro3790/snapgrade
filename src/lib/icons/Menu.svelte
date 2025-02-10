@@ -1,23 +1,23 @@
 <!-- src/lib/icons/Menu.svelte -->
 <script lang="ts">
 	const {
-		size = 24,
-		stroke = 'currentColor',
-		fill = 'none'
+		size = 'var(--icon-base)',
+		stroke = 'var(--text-normal)',
+		strokeWidth = 'var(--icon-stroke-normal)'
 	} = $props<{
-		size?: number;
+		size?: string;
 		stroke?: string;
-		fill?: string;
+		strokeWidth?: string;
 	}>();
 </script>
 
 <svg
-	width={size}
-	height={size}
+	class="icon"
+	style="width: {size}; height: {size};"
 	viewBox="0 0 24 24"
-	{fill}
+	fill="none"
 	{stroke}
-	stroke-width="2"
+	stroke-width={strokeWidth}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >

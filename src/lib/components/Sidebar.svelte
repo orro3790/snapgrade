@@ -2,68 +2,87 @@
 <script lang="ts">
 	import { modalStore } from '$lib/stores/modalStore';
 	import { userStore } from '$lib/stores/userStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
 
 	// Import icons
-	import Home from '$lib/icons//Home.svelte';
-	import Files from '$lib/icons//Files.svelte';
-	import Upload from '$lib/icons//Upload.svelte';
-	import HowTo from '$lib/icons//HowTo.svelte';
-	import Analytics from '$lib/icons//Analytics.svelte';
-	import ClassManager from '$lib/icons//ClassManager.svelte';
-	import Settings from '$lib/icons//Settings.svelte';
-	import Menu from '$lib/icons//Menu.svelte';
-	import { enhance } from '$app/forms';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import Logout from '$lib/icons/Logout.svelte';
+	import Home from '$lib/icons/Home.svelte';
+	import Files from '$lib/icons/Files.svelte';
+	import Upload from '$lib/icons/Upload.svelte';
+	import HowTo from '$lib/icons/HowTo.svelte';
+	import Analytics from '$lib/icons/Analytics.svelte';
+	import ClassManager from '$lib/icons/ClassManager.svelte';
+	import Settings from '$lib/icons/Settings.svelte';
+	import StagingArea from '$lib/icons/StagingArea.svelte';
 	import Login from '$lib/icons/Login.svelte';
-	import Avatar from '$lib/icons/Avatar.svelte';
+	import UserMenu from '$lib/components/UserMenu.svelte';
 
 	// Define the NavItem type
 	type NavItem = {
 		id: string;
 		label: string;
-		Icon: any; // You might want to define a more specific type for the Icon component
+		Icon: any;
+		group: 'base' | 'authenticated';
 	};
 
 	// Get user from store
 	let user = $derived($userStore);
-	let isLoggingOut = $state(false);
-
-	// Define base nav items
-	const baseNavItems: NavItem[] = [
-		{ id: 'home', label: 'Dashboard', Icon: Home },
-		{ id: 'how-to-use', label: 'How to use', Icon: HowTo }
-	];
-
-	// Define authenticated nav items
-	const authenticatedNavItems: NavItem[] = [
-		{ id: 'files', label: 'File Manager', Icon: Files },
-		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload },
-		{ id: 'analytics', label: 'Analytics', Icon: Analytics },
-		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager },
-		{ id: 'settings', label: 'Setting', Icon: Settings }
-	];
-
-	// Use $derived for navItems
-	let navItems = $derived(user ? [...baseNavItems, ...authenticatedNavItems] : baseNavItems);
-
-	let isExpanded = $state(false);
 	let activeItem = $state('home');
 
-	function toggleSidebar() {
-		isExpanded = !isExpanded;
-	}
+	// Define all nav items with their groups
+	const navItems: NavItem[] = [
+		{ id: 'home', label: 'Dashboard', Icon: Home, group: 'base' },
+		{ id: 'how-to-use', label: 'How to use', Icon: HowTo, group: 'base' },
+		{ id: 'files', label: 'File Manager', Icon: Files, group: 'authenticated' },
+		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload, group: 'authenticated' },
+		{ id: 'staging-area', label: 'Staging Area', Icon: StagingArea, group: 'authenticated' },
+		{ id: 'analytics', label: 'Analytics', Icon: Analytics, group: 'authenticated' },
+		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager, group: 'authenticated' },
+		{ id: 'settings', label: 'Settings', Icon: Settings, group: 'authenticated' }
+	];
+
+	// Filter nav items based on user authentication
+	let filteredNavItems = $derived(
+		navItems.filter((item) => item.group === 'base' || (user && item.group === 'authenticated'))
+	);
+
+	// Group nav items
+	let groupedNavItems = $derived({
+		base: filteredNavItems.filter((item) => item.group === 'base'),
+		authenticated: filteredNavItems.filter((item) => item.group === 'authenticated')
+	});
+
+	// Effect to check if we're on mobile
+	$effect(() => {
+		const checkMobile = () => {
+			sidebarStore.setMobile(window.innerWidth <= 768);
+		};
+
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+
+		return () => window.removeEventListener('resize', checkMobile);
+	});
+
+	// Add effect to collapse sidebar on logout
+	$effect(() => {
+		if (!$userStore) {
+			sidebarStore.collapse();
+		}
+	});
 
 	function handleNavClick(itemId: string) {
 		activeItem = itemId;
+		if ($sidebarStore.isMobile) {
+			sidebarStore.toggle();
+		}
 		if (itemId === 'how-to-use') {
 			modalStore.open('keyboard');
 		} else if (itemId === 'direct-upload') {
 			modalStore.open('upload');
 		} else if (itemId === 'class-manager') {
 			modalStore.open('classManager');
+		} else if (itemId === 'staging-area') {
+			modalStore.open('stagingArea');
 		}
 	}
 
@@ -73,296 +92,256 @@
 			handleNavClick(itemId);
 		}
 	}
-
-	function handleLogin(event: MouseEvent | KeyboardEvent) {
-		event.preventDefault();
-		modalStore.open('login');
-	}
-
-	const enhanceLogout: SubmitFunction = () => {
-		isLoggingOut = true;
-		return async ({ result }) => {
-			if (result.type === 'success') {
-				// Clear all stores
-				userStore.set(null);
-				settingsStore.set(null);
-
-				// Reset active item to home
-				activeItem = 'home';
-
-				// Show success toast
-				toastStore.show({
-					message: 'Successfully logged out',
-					type: 'success'
-				});
-			} else {
-				toastStore.show({
-					message: 'Logout failed. Please try again.',
-					type: 'error'
-				});
-			}
-			isLoggingOut = false;
-		};
-	};
 </script>
 
-<nav class="sidebar" class:expanded={isExpanded} aria-label="Main navigation">
-	<div class="sidebar-content">
-		<!-- User Profile Section -->
-		<div class="user-section" class:expanded={isExpanded}>
-			{#if user?.photoUrl}
-				<img src={user.photoUrl} class="avatar" alt="User avatar" />
-			{:else}
-				<div class="avatar">
-					<Avatar size={48} />
-				</div>
-			{/if}
-			{#if isExpanded}
-				<div class="user-info">
-					<p class="name">{user?.name ?? 'Guest'}</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Toggle Button -->
-		<button
-			type="button"
-			class="menu-toggle"
-			onclick={toggleSidebar}
-			onkeydown={(e) => e.key === 'Enter' && toggleSidebar()}
-			aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
-			aria-expanded={isExpanded}
-		>
-			<Menu size={24} />
-		</button>
-
-		<!-- Navigation Items -->
-		<div class="nav-items">
-			{#each navItems as { id, label, Icon }}
-				<button
-					type="button"
-					class="nav-item"
-					class:active={activeItem === id}
-					onclick={() => handleNavClick(id)}
-					onkeydown={(e) => handleKeyNav(e, id)}
-					aria-label={label}
-				>
-					<span class="icon">
-						<Icon
-							size={24}
-							stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-						/>
-					</span>
-					{#if isExpanded}
-						<span class="label">{label}</span>
-					{/if}
-				</button>
-			{/each}
-
-			<!-- Login/Logout Button -->
-			{#if user}
-				<form action="?/logout" method="POST" use:enhance={enhanceLogout}>
+<nav
+	class="sidebar"
+	class:expanded={$sidebarStore.state === 'expanded'}
+	class:mobile={$sidebarStore.isMobile}
+	aria-label="Main navigation"
+>
+	<!-- Navigation Items -->
+	<div class="nav-section">
+		<!-- Base Group -->
+		{#if groupedNavItems.base.length > 0}
+			<div class="nav-group">
+				<div class="nav-group-label">Snapgrade</div>
+				{#each groupedNavItems.base as { id, label, Icon }}
 					<button
-						type="submit"
+						type="button"
 						class="nav-item"
-						class:active={activeItem === 'logout'}
-						aria-label="Logout"
+						class:active={activeItem === id}
+						onclick={() => handleNavClick(id)}
+						onkeydown={(e) => handleKeyNav(e, id)}
+						aria-label={label}
 					>
-						<span class="icon">
-							{#if isLoggingOut}
-								<div class="spinner"></div>
-							{:else}
-								<Logout
-									size={24}
-									stroke={activeItem === 'logout' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-								/>
-							{/if}
+						<span class="nav-item-icon">
+							<Icon
+								stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+								size="var(--icon-sm)"
+							/>
 						</span>
-						{#if isExpanded}
-							<span class="label">Logout</span>
+						{#if $sidebarStore.state === 'expanded'}
+							<span class="nav-label">{label}</span>
 						{/if}
 					</button>
-				</form>
-			{:else}
-				<a
-					href="/login"
-					class="nav-item"
-					class:active={activeItem === 'login'}
-					role="button"
-					tabindex="0"
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							window.location.href = '/login';
-						}
-					}}
-					aria-label="Login"
-				>
-					<span class="icon">
-						<Login
-							size={24}
-							stroke={activeItem === 'login' ? 'var(--text-on-accent)' : 'var(--text-muted)'}
-						/>
-					</span>
-					{#if isExpanded}
-						<span class="label">Login</span>
-					{/if}
-				</a>
-			{/if}
-		</div>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Authenticated Group -->
+		{#if groupedNavItems.authenticated.length > 0}
+			<div class="nav-group">
+				<div class="nav-group-label">Features</div>
+				{#each groupedNavItems.authenticated as { id, label, Icon }}
+					<button
+						type="button"
+						class="nav-item"
+						class:active={activeItem === id}
+						onclick={() => handleNavClick(id)}
+						onkeydown={(e) => handleKeyNav(e, id)}
+						aria-label={label}
+					>
+						<span class="nav-item-icon">
+							<Icon
+								stroke={activeItem === id ? 'var(--text-on-accent)' : 'var(--text-muted)'}
+								size="var(--icon-sm)"
+							/>
+						</span>
+						{#if $sidebarStore.state === 'expanded'}
+							<span class="nav-label">{label}</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	<!-- Footer Actions -->
+	<div class="sidebar-footer">
+		{#if user}
+			<UserMenu collapsed={$sidebarStore.state !== 'expanded'} />
+		{:else}
+			<a href="/login" class="nav-item" role="button" tabindex="0">
+				<span class="nav-item-icon">
+					<Login size="var(--icon-sm)" />
+				</span>
+				{#if $sidebarStore.state === 'expanded'}
+					<span class="nav-label">Login</span>
+				{/if}
+			</a>
+		{/if}
 	</div>
 </nav>
 
 <style>
 	.sidebar {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: var(--sidebar-width, 80px);
+		position: relative;
 		height: 100vh;
-		background: var(--background-secondary-alt);
-		transition: width 0.3s ease;
-		z-index: 50;
-		overflow: hidden;
+		width: var(--spacing-12);
+		min-width: var(--spacing-12);
+		background: var(--background-primary);
+		border-right: var(--border-width-thin) solid var(--background-modifier-border);
+		display: flex;
+		flex-direction: column;
+		transition: var(--transition-sidebar);
+		z-index: var(--z-drawer);
+		transform: translateX(0);
 	}
 
 	.sidebar.expanded {
-		--sidebar-width: 280px;
-	}
-
-	.sidebar-content {
-		height: 100%;
 		width: 280px;
-		display: flex;
-		flex-direction: column;
-		padding: 1rem;
-		gap: 2rem;
+		min-width: 280px;
 	}
 
-	.user-section {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		background: var(--background-modifier-form-field);
-		border-radius: 8px;
-		transition: all 0.3s ease;
-	}
-
-	.avatar {
-		width: 48px;
-		height: 48px;
-		border-radius: 50%;
-		object-fit: cover;
-		flex-shrink: 0;
-		border: 1px solid var(--interactive-accent);
-		box-shadow: 0 0 8px var(--interactive-accent);
-		transition: box-shadow 0.2s ease;
-	}
-
-	.user-info {
+	.nav-section {
 		flex: 1;
-		min-width: 0;
-	}
-
-	.name {
-		color: var(--text-normal);
-		font-size: 0.875rem;
-		font-weight: 500;
-		margin: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.menu-toggle {
-		color: var(--text-muted);
-		background: none;
-		border: none;
-		padding: 0.75rem 1rem;
-		cursor: pointer;
-		transition: color 0.2s ease;
-		border-radius: 6px;
-	}
-
-	.menu-toggle:hover {
-		color: var(--text-normal);
-		background: var(--interactive-hover);
-	}
-
-	.nav-items {
+		overflow-y: auto;
+		overflow-x: hidden;
+		padding: var(--spacing-2);
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		gap: var(--spacing-4);
+	}
+
+	.nav-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-1);
+	}
+
+	.nav-group-label {
+		padding: var(--spacing-2);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-medium);
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-wide);
 	}
 
 	.nav-item {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		width: 100%;
-		padding: 0.75rem 1rem;
+		justify-content: start;
+		gap: var(--spacing-4);
+		padding: var(--spacing-2);
 		border: none;
-		border-radius: 6px;
+		border-radius: var(--radius-base);
 		background: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.2s ease;
-		text-align: left;
-	}
-
-	.nav-item:hover {
 		color: var(--text-normal);
-		background: var(--interactive-hover);
+		cursor: pointer;
+		transition: var(--transition-all);
+		min-height: var(--spacing-8);
+		height: var(--spacing-8);
 	}
 
-	.nav-item.active {
-		color: var(--text-on-accent);
-		background: var(--interactive-accent);
-	}
-
-	.icon {
+	/* Add an icon wrapper to control size */
+	.nav-item-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 24px;
-		height: 24px;
-		flex-shrink: 0;
+		width: var(--icon-sm);
+		height: var(--icon-sm);
+		flex: 0 0 var(--icon-sm); /* shorthand for flex-grow: 0, flex-shrink: 0, flex-basis: var(--icon-sm) */
 	}
 
-	.label {
-		font-size: 0.875rem;
-		font-weight: 500;
+	.sidebar.expanded .nav-item {
+		width: 100%;
+	}
+
+	.sidebar:not(.expanded) .nav-item {
+		width: var(--spacing-8);
+		padding: var(--spacing-2);
+		justify-content: center;
+	}
+
+	.nav-item:hover {
+		background: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
+
+	.nav-item.active {
+		background: var(--interactive-accent);
+		color: var(--text-on-accent);
+	}
+
+	.nav-label {
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
-	.spinner {
-		width: 20px;
-		height: 20px;
-		border: 3px solid var(--text-normal);
-		border-top: 3px solid transparent;
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
+	.sidebar-footer {
+		padding: var(--spacing-2);
+		position: relative;
+		overflow: visible;
 	}
 
 	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
+		to {
 			transform: rotate(360deg);
 		}
 	}
 
-	@media (max-width: 768px) {
-		.sidebar {
-			--sidebar-width: 0;
-		}
+	/* Mobile styles */
+	.sidebar.mobile {
+		position: fixed;
+		width: 280px;
+		transform: translateX(-100%);
+		transition: var(--transition-transform);
+	}
 
-		.sidebar.expanded {
-			--sidebar-width: 100%;
-		}
+	.sidebar.mobile.expanded {
+		transform: translateX(0);
+	}
+
+	/* Backdrop for mobile */
+	.sidebar.mobile::after {
+		content: '';
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		background: var(--background-modifier-cover);
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+		transition: var(--transition-opacity), var(--transition-visibility);
+		z-index: calc(var(--z-drawer) - 1);
+	}
+
+	.sidebar.mobile.expanded::after {
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+	}
+
+	/* Hide group labels when collapsed */
+	.sidebar:not(.expanded) .nav-group-label {
+		display: none;
+	}
+
+	/* Center icons when collapsed */
+	.sidebar:not(.expanded):not(.mobile) .nav-item:hover {
+		position: relative;
+	}
+
+	.sidebar:not(.expanded):not(.mobile) .nav-item:hover .nav-label {
+		left: var(--spacing-8);
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		background: var(--background-primary);
+		padding: var(--spacing-2);
+		border-radius: var(--radius-base);
+		box-shadow: var(--shadow-md);
+		display: block;
+		white-space: nowrap;
+		z-index: var(--z-popover);
+		height: auto;
+		min-height: unset;
 	}
 </style>

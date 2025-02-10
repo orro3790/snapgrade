@@ -109,9 +109,8 @@
 				onAddStudent={handleAddStudent}
 			/>
 		{/if}
-
 		<!-- Column 3: Student Form or Documents -->
-		{#if isAddingStudent}
+		{#if isAddingStudent && selectedClass}
 			<StudentForm
 				data={data.studentForm}
 				{selectedClass}
@@ -130,8 +129,8 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: rgba(0, 0, 0, 0.5);
-		z-index: 998;
+		background: var(--background-modifier-cover);
+		z-index: var(--z-modal);
 		backdrop-filter: blur(2px);
 	}
 
@@ -141,10 +140,10 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		background: var(--background-secondary);
-		border-radius: 0.5rem;
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		z-index: 999;
+		border-radius: var(--radius-lg);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		box-shadow: var(--shadow-xl);
+		z-index: var(--z-modal);
 		width: 90%;
 		max-width: 1200px;
 		height: 90vh;
@@ -157,28 +156,28 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		padding: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 		background: var(--background-primary);
 	}
 
 	h1 {
 		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 600;
+		font-size: var(--font-size-2xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	.close-button {
 		background: none;
 		border: none;
-		font-size: 1.5rem;
+		font-size: var(--font-size-2xl);
 		cursor: pointer;
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 		color: var(--text-muted);
-		transition: all 0.2s ease;
-		line-height: 1;
-		border-radius: 0.25rem;
+		transition: var(--transition-all);
+		line-height: var(--line-height-none);
+		border-radius: var(--radius-base);
 	}
 
 	.close-button:hover {
@@ -195,7 +194,7 @@
 	/* Column transition animations */
 	:global(.class-manager-modal .documents-container),
 	:global(.class-manager-modal .class-details-container) {
-		animation: slideIn 0.3s ease-out;
+		animation: slideIn var(--transition-duration-300) var(--transition-timing-ease-out);
 	}
 
 	@keyframes slideIn {

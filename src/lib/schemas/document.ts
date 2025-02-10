@@ -2,45 +2,96 @@
 import { z } from 'zod';
 
 /**
- * Document schema supporting both web and Telegram sources
- * @property {string} studentName - Student's email address
- * @property {string} className - Name of the class
- * @property {string} documentName - Name/title of the document
- * @property {string} documentBody - Main content of the document
- * @property {string} userId - ID of the user who created/owns the document
- * @property {'staged' | 'editing' | 'completed'} status - Current status of the document
- * @property {'telegram' | 'manual'} sourceType - How the document was created
- * @property {string} [id] - Firestore document ID
- * @property {string} createdAt - ISO datetime string of creation
- * @property {string} updatedAt - ISO datetime string of last update
+ * Document status enum
+ */
+export const DocumentStatus = {
+  STAGED: 'staged',
+  EDITING: 'editing',
+  COMPLETED: 'completed'
+} as const;
+
+/**
+ * Document schema with status as an enum field
  */
 export const documentSchema = z.object({
+  // Required fields
+  id: z.string(),
+  userId: z.string(),
   studentId: z.string(),
   studentName: z.string(),
-  className: z.string().optional(),
+  classId: z.string({
+    required_error: "Class selection is required"
+  }),
+  className: z.string({
+    required_error: "Class name is required"
+  }),
   documentName: z.string(),
   documentBody: z.string(),
-  userId: z.string(),
-  status: z.enum(['staged', 'editing', 'completed']),
-  sourceType: z.enum(['telegram', 'manual']),
-  id: z.string(),
-  createdAt: z.date().optional(),
-
-  updatedAt: z.date().optional(),
+  sourceType: z.enum(['manual', 'llmwhisperer']),
+  status: z.enum([DocumentStatus.STAGED, DocumentStatus.EDITING, DocumentStatus.COMPLETED]),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  
+  // Document structure fields
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  headings: z.array(z.string()).optional(),
+  
+  // Source metadata
   sourceMetadata: z.object({
+    rawOcrOutput: z.string().optional(),
     telegramMessageId: z.string().optional(),
     telegramChatId: z.string().optional(),
-    telegramFileId: z.string().optional(),
+    telegramFileId: z.string().optional()
   }).optional()
 });
 
 /**
- * Schema for API responses, extends document schema with required fields
+ * Schema for creating a new document - used when receiving documents
+ * from external sources or manual upload
  */
-export const documentResponseSchema = documentSchema.extend({
-  id: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date()
+export const createDocumentSchema = z.object({
+  studentId: z.string({
+    required_error: "Student selection is required"
+  }),
+  studentName: z.string(),
+  classId: z.string({
+    required_error: "Class selection is required"
+  }),
+  className: z.string(),
+  documentName: z.string().min(1, "Document title is required"),
+  documentBody: z.string().min(1, "Document content is required"),
+  sourceType: z.enum(['manual', 'llmwhisperer']).default('llmwhisperer'),
+  
+  // Document structure fields
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  headings: z.array(z.string()).optional(),
+  
+  // Optional source metadata
+  sourceMetadata: z.object({
+    rawOcrOutput: z.string().optional(),
+    telegramMessageId: z.string().optional(),
+    telegramChatId: z.string().optional(),
+    telegramFileId: z.string().optional()
+  }).optional(),
+  
+  // These fields will be added automatically by the server
+  status: z.literal(DocumentStatus.STAGED).default(DocumentStatus.STAGED),
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date())
+});
+
+/**
+ * Schema for updating document status and content
+ */
+export const updateDocumentSchema = z.object({
+  documentBody: z.string().min(1, "Document content is required"),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  headings: z.array(z.string()).optional(),
+  status: z.enum([DocumentStatus.STAGED, DocumentStatus.EDITING, DocumentStatus.COMPLETED]),
+  updatedAt: z.date().default(() => new Date())
 });
 
 /**
@@ -53,16 +104,8 @@ export const documentErrorSchema = z.object({
   errors: z.array(z.unknown()).optional()
 });
 
+// Type exports
 export type Document = z.infer<typeof documentSchema>;
-export type DocumentResponse = z.infer<typeof documentResponseSchema>;
-export type DocumentError = z.infer<typeof documentErrorSchema>;
-
-export const createDocumentSchema = z.object({
-  studentId: z.string(),
-  studentName: z.string(),
-  className: z.string().optional(),
-  documentName: z.string().min(1, "Document title is required"),
-  documentBody: z.string().min(1, "Document content is required")
-});
-
 export type CreateDocument = z.infer<typeof createDocumentSchema>;
+export type UpdateDocument = z.infer<typeof updateDocumentSchema>;
+export type DocumentError = z.infer<typeof documentErrorSchema>;

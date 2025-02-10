@@ -1,6 +1,6 @@
 # START HERE
 
-This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
+This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and project-documentation.md @/documentation/project-documentation.md and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
 
 ### 1.0 YOUR PERSONALITY AND BEHAVIOR
 
@@ -14,13 +14,13 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ### 1.1 PROJECT OVERVIEW
 
-- We are building a lightweight, simple text-editor that allows users to add corrections to their essays. The editor will be used by a teacher to correct their students' essays. The corrections will be displayed in a printable format. There are three types of corrections: deletions, additions, and corrections. Text can be inputed manually by the teacher, or received automatically from an API endpoint.
+- We are building a lightweight, simple text-editor that allows users to add corrections to their essays. The editor will be used by a teacher to correct their students' essays. The corrections will be displayed in a printable format. Text can be inputed manually by the teacher, or received automatically from an API endpoint. Each word is tokenized and displayed as a TextNode.svelte component. Before storing in the database, the tokens are serialized and stored as a compressed JSON array. When documents are loaded back into the editor, the tokens are deserialized into the TextNode.svelte components.
 
 ## 2. TECH STACK
 
 ### 2.1 FRAMEWORK
 
-- Sveltekit, Svelte 5 (with Runes syntax)
+- Sveltekit, Svelte 5 (with Runes syntax).
 
 ### 2.2 LANGUAGE
 
@@ -29,6 +29,7 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 ### 2.3 Forms and Validation
 
 - Superforms with Zod for validation
+- All types inferred from Zod schemas
 
 ### 2.4 Backend Services
 
@@ -39,6 +40,11 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 #### 2.4.2 Database
 
 - Firestore
+
+#### 2.5 Design System
+
+- Read the design system documentation @/documentation/design-system.md before you start coding.
+- Use design tokens and follow the design system guidelines.
 
 ## 3. Forbidden To Use
 
@@ -52,6 +58,30 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 - **Forbidden**: `<slot>` for parent content
 - **Use Instead**: `{@render ...}` tags
+- **Example Implementation**:
+
+```svelte
+<!-- Card.svelte -->
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	let { content }: { content: Snippet } = $props();
+</script>
+
+<!-- Parent Component -->
+<Card>
+	{#snippet content()}
+		<h2>Title</h2>
+	{/snippet}
+</Card>
+<div>{@render content()}</div>
+```
+
+```svelte
+- For Default Content: Use the `children` snippet
+For Default Content: Use the children snippet
+svelteCopylet { children }: { children: Snippet } = $props();
+{@render children()}
+```
 
 #### 3.2.2 Declaring Props
 
@@ -86,7 +116,7 @@ leap/
 │   ├── lib/
 │   │   ├── components/      # Reusable Svelte components
 │   │   ├── icons/           # Tabler.io SVG components
-│   │   ├── schemas/         # Zod validation schemas
+│   │   ├── schemas/         # Zod validation schemas and types
 │   │   ├── firebase/        # Firebase services
 │   │   └── utils/           # Shared utility functions
 │   ├── routes/
@@ -106,9 +136,79 @@ leap/
 
 ### 5.2 Accessibility Requirements
 
-- **Click Events**: Must include keyboard handlers
-- **Alternatives**: `<button type="button">`, `<a>`
-- **Documentation**: Accessibility Warnings
+#### 5.2.1 Interactive Elements
+
+- **Click Events**:
+  - Must include keyboard handlers (onkeydown or onkeyup)
+  - Required keyboard events for Enter and Space keys
+  - Example implementation:
+  ```svelte
+  <div
+  		class="modal"
+  		role="button"
+  		tabindex="0"
+  		aria-label="Edit text"
+  		onclick={(e) => e.stopPropagation()}
+  		onkeydown={(e) => {
+  			if (e.key === 'Enter' || e.key === ' ') {
+  				e.preventDefault();
+  				e.stopPropagation();
+  			}
+  		}}
+  	>
+  ```
+
+#### 5.2.2 Non-interactive to Interactive Conversion
+
+When converting a non-interactive element (like a div) to be interactive:
+
+1. **Required Attributes**:
+   - `role="button"` (or appropriate ARIA role)
+   - `tabindex="0"` (for keyboard focus)
+   - `aria-label` or appropriate labeling
+2. **Required Event Handlers**:
+
+   - `onclick` for mouse interaction
+   - `onkeydown` for keyboard interaction
+   - Must handle both Enter and Space keys
+
+3. **Implementation Example**:
+
+```svelte
+<div
+	role="button"
+	tabindex="0"
+	aria-label="Edit item"
+	onclick={handleClick}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleClick();
+		}
+	}}
+>
+	Content
+</div>
+```
+
+#### 5.2.3 Preferred Alternatives
+
+In order of preference:
+
+1. Native `<button type="button">` element
+2. Native `<a>` element for navigation
+3. Enhanced `<div>` with full ARIA attributes only when necessary
+
+#### 5.2.4 ARIA Guidelines
+
+- All interactive elements must have:
+  - Appropriate ARIA role
+  - Descriptive aria-label or aria-labelledby
+  - aria-expanded for expandable elements
+  - aria-controls when controlling other elements
+  - aria-describedby for additional descriptions
+
+[Rest of the file remains the same]
 
 ### 5.3 HTML Elements
 
@@ -117,12 +217,19 @@ leap/
   - Tab index
   - ARIA attributes
 
+### 5.4 Date Handling
+
+- Use `z.date()` for date fields
+- Firestore automatically stores dates as Timestamps, so they need conversion on client side
+  - Example document field {...createdAt: {nanoseconds: 285000000, seconds: 1738769371}}
+
 ## 6. Documentation
 
 - Maintain clear README with setup instructions
 - Document API interactions and data flows
 - Keep manifest.json well-documented
 - Don't include comments unless it's for complex logic
+- Always supply JSDOC comments for all functions
 
 ## 7. Git Usage
 

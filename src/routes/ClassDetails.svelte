@@ -4,12 +4,23 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Class } from '$lib/schemas/class';
 	import type { Student } from '$lib/schemas/student';
+	import type { Document } from '$lib/schemas/document';
 	import Pencil from '$lib/icons/Pencil.svelte';
 
-	// Props
+	// Add proper type for metadata
+	interface Metadata {
+		id: string;
+		createdAt: Date;
+		updatedAt: Date;
+	}
+
+	interface StudentWithMetadata extends Student {
+		metadata: Metadata;
+	}
+
 	let { selectedClass, onStudentSelect, onEditClass, onAddStudent } = $props<{
 		selectedClass: Class;
-		onStudentSelect: (student: Student) => void;
+		onStudentSelect: (student: StudentWithMetadata) => void;
 		onEditClass: () => void;
 		onAddStudent: () => void;
 	}>();
@@ -19,42 +30,66 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let selectedStudentId = $state<string | null>(null);
+	let documentCounts = $state<Record<string, number>>({});
 
-	// Subscribe to students collection
 	$effect(() => {
 		if (!selectedClass) return;
 
 		const studentsQuery = query(
 			collection(db, 'students'),
-			where('classId', '==', selectedClass.metadata.id),
+			where('classId', '==', selectedClass.id),
 			where('status', '==', 'active')
 		);
 
-		const unsubscribe = onSnapshot(
+		const documentsQuery = query(collection(db, 'documents'), where('status', '!=', 'staged'));
+
+		const unsubscribeStudents = onSnapshot(
 			studentsQuery,
 			(snapshot) => {
 				students = snapshot.docs.map((doc) => doc.data() as Student);
 				isLoading = false;
 			},
-			(err) => {
-				console.error('Error fetching students:', err);
-				error = 'Failed to load students';
-				isLoading = false;
-			}
+			handleError
 		);
 
-		return unsubscribe;
+		const unsubscribeDocuments = onSnapshot(
+			documentsQuery,
+			(snapshot) => {
+				// Count documents per student, but only for students in this class
+				const newCounts: Record<string, number> = {};
+				snapshot.docs.forEach((doc) => {
+					const document = doc.data() as Document;
+					// Only count documents for students in this class
+					if (students.some((student) => student.id === document.studentId)) {
+						newCounts[document.studentId] = (newCounts[document.studentId] || 0) + 1;
+					}
+				});
+				documentCounts = newCounts;
+			},
+			handleError
+		);
+
+		return () => {
+			unsubscribeStudents();
+			unsubscribeDocuments();
+		};
 	});
 
-	function handleStudentClick(student: Student) {
-		selectedStudentId = student.metadata.id;
+	function handleError(err: Error) {
+		console.error('Error fetching data:', err);
+		error = 'Failed to load data';
+		isLoading = false;
+	}
+
+	function handleStudentClick(student: StudentWithMetadata) {
+		selectedStudentId = student.id;
 		onStudentSelect(student);
 	}
 
 	function handleKeyDown(event: KeyboardEvent, student: Student) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			handleStudentClick(student);
+			handleStudentClick(student as StudentWithMetadata);
 		}
 	}
 </script>
@@ -68,7 +103,7 @@
 			{/if}
 		</div>
 		<button type="button" class="edit-button" onclick={onEditClass} aria-label="Edit class details">
-			<Pencil size={20} />
+			<Pencil size="var(--icon-sm)" />
 		</button>
 	</div>
 
@@ -76,7 +111,7 @@
 		<div class="section-header">
 			<h3>Students</h3>
 			<button type="button" class="add-button" onclick={onAddStudent} aria-label="Add new student">
-				<Pencil size={20} />
+				<Pencil size="var(--icon-sm)" />
 				<span>Add Student</span>
 			</button>
 		</div>
@@ -94,13 +129,16 @@
 						<button
 							type="button"
 							class="student-item"
-							class:selected={selectedStudentId === student.metadata.id}
-							onclick={() => handleStudentClick(student)}
+							class:selected={selectedStudentId === student.id}
+							onclick={() => handleStudentClick(student as StudentWithMetadata)}
 							onkeydown={(e) => handleKeyDown(e, student)}
-							aria-selected={selectedStudentId === student.metadata.id}
 						>
 							<span class="student-name">{student.name}</span>
-							<span class="document-count">{student.notes.length} documents</span>
+							<span class="document-count">
+								{documentCounts[student.id] || 0} document{documentCounts[student.id] !== 1
+									? 's'
+									: ''}
+							</span>
 						</button>
 					</li>
 				{/each}
@@ -202,7 +240,7 @@
 	.student-list {
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: var(--spacing-2);
 		overflow-y: auto;
 		flex: 1;
 	}
@@ -212,7 +250,6 @@
 		padding: 1rem;
 		background: none;
 		border: none;
-		border-bottom: 1px solid var(--background-modifier-border);
 		cursor: pointer;
 		display: flex;
 		justify-content: space-between;
@@ -227,7 +264,7 @@
 
 	.student-item.selected {
 		background: var(--background-modifier-hover);
-		border-left: 3px solid var(--text-accent);
+		border-left: var(--border-width-medium) solid var(--interactive-accent);
 	}
 
 	.student-name {
