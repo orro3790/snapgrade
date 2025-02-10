@@ -12,8 +12,7 @@
 
 <div style="width: {size}; aspect-ratio: 1">
 	<svg
-		width="100%"
-		height="100%"
+		style="width: {size}; height: {size};"
 		viewBox="0 0 24 24"
 		fill="none"
 		{stroke}

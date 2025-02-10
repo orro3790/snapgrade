@@ -4,6 +4,7 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Class } from '$lib/schemas/class';
 	import type { Student } from '$lib/schemas/student';
+	import type { Document } from '$lib/schemas/document';
 	import Pencil from '$lib/icons/Pencil.svelte';
 
 	// Add proper type for metadata
@@ -17,7 +18,6 @@
 		metadata: Metadata;
 	}
 
-	// Update props typing
 	let { selectedClass, onStudentSelect, onEditClass, onAddStudent } = $props<{
 		selectedClass: Class;
 		onStudentSelect: (student: StudentWithMetadata) => void;
@@ -30,8 +30,8 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let selectedStudentId = $state<string | null>(null);
+	let documentCounts = $state<Record<string, number>>({});
 
-	// Subscribe to students collection
 	$effect(() => {
 		if (!selectedClass) return;
 
@@ -41,23 +41,46 @@
 			where('status', '==', 'active')
 		);
 
-		const unsubscribe = onSnapshot(
+		const documentsQuery = query(collection(db, 'documents'), where('status', '!=', 'staged'));
+
+		const unsubscribeStudents = onSnapshot(
 			studentsQuery,
 			(snapshot) => {
 				students = snapshot.docs.map((doc) => doc.data() as Student);
 				isLoading = false;
 			},
-			(err) => {
-				console.error('Error fetching students:', err);
-				error = 'Failed to load students';
-				isLoading = false;
-			}
+			handleError
 		);
 
-		return unsubscribe;
+		const unsubscribeDocuments = onSnapshot(
+			documentsQuery,
+			(snapshot) => {
+				// Count documents per student, but only for students in this class
+				const newCounts: Record<string, number> = {};
+				snapshot.docs.forEach((doc) => {
+					const document = doc.data() as Document;
+					// Only count documents for students in this class
+					if (students.some((student) => student.id === document.studentId)) {
+						newCounts[document.studentId] = (newCounts[document.studentId] || 0) + 1;
+					}
+				});
+				documentCounts = newCounts;
+			},
+			handleError
+		);
+
+		return () => {
+			unsubscribeStudents();
+			unsubscribeDocuments();
+		};
 	});
 
-	// Update student click handler
+	function handleError(err: Error) {
+		console.error('Error fetching data:', err);
+		error = 'Failed to load data';
+		isLoading = false;
+	}
+
 	function handleStudentClick(student: StudentWithMetadata) {
 		selectedStudentId = student.id;
 		onStudentSelect(student);
@@ -111,7 +134,11 @@
 							onkeydown={(e) => handleKeyDown(e, student)}
 						>
 							<span class="student-name">{student.name}</span>
-							<span class="document-count">{student.notes.length} documents</span>
+							<span class="document-count">
+								{documentCounts[student.id] || 0} document{documentCounts[student.id] !== 1
+									? 's'
+									: ''}
+							</span>
 						</button>
 					</li>
 				{/each}

@@ -73,7 +73,7 @@
 		<div class="print-container">
 			<div class="a4-content" role="complementary" aria-label="Preview">
 				{#each paragraphsList as paragraph (paragraph.id)}
-					<div class="paragraph-row">
+					<div class="paragraph">
 						{#each paragraph.corrections as node (node.id)}
 							<TextNode {node} isActive={node.id === activeNodeId} />
 						{/each}
@@ -101,13 +101,10 @@
 		background-color: var(--background-secondary);
 	}
 
-	.paragraph-row {
+	.paragraph {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: end;
-		min-height: var(--spacing-8); /* Ensures consistent height for empty rows */
-		margin-bottom: var(--spacing-4); /* Space between paragraphs */
-		gap: 0;
 	}
 
 	/* Preview section */
@@ -121,6 +118,5 @@
 		margin: var(--spacing-8) auto;
 		color: var(--text-normal);
 		font-size: var(--font-size-base);
-		line-height: var(--line-height-relaxed);
 	}
 </style>

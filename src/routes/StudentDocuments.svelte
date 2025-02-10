@@ -6,7 +6,6 @@
 	import type { Document } from '$lib/schemas/document';
 	import { editorStore } from '$lib/stores/editorStore';
 	import { modalStore } from '$lib/stores/modalStore';
-	import ConfirmationPopover from '$lib/components/ConfirmationPopover.svelte';
 
 	// Props
 	let { selectedStudent } = $props<{

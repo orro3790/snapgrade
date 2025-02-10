@@ -11,8 +11,7 @@
 </script>
 
 <svg
-	width={size}
-	height={size}
+	style="width: {size}; height: {size};"
 	viewBox="0 0 24 24"
 	fill="none"
 	{stroke}

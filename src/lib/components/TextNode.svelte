@@ -4,6 +4,7 @@
 	import { hoveredNodeTypeStore } from '$lib/stores/statsStore';
 	import type { Node } from '$lib/schemas/textNode';
 	import EditModal from './EditModal.svelte';
+	import Add from '$lib/icons/Add.svelte';
 
 	const { node, isActive = false } = $props<{
 		node: Node;
@@ -162,11 +163,16 @@
 		transition: var(--transition-all);
 		min-width: var(--font-size-base);
 	}
+	/* Add top margin except for corrections, this way, we can essentially have a consistent line-height */
+	.text-node:not(.correction) {
+		margin-top: var(--spacing-4);
+	}
 
-	.text-node.correction {
-		border-bottom: var(--border-width-medium) dotted var(--text-error-hover);
-		/* Shift down by border width to maintain alignment */
-		transform: translateY(var(--border-width-medium));
+	.correction-wrapper .text-content {
+		text-decoration: underline;
+		text-decoration-style: solid;
+		text-decoration-color: var(--text-error-hover);
+		text-decoration-thickness: var(--border-width-medium);
 	}
 
 	/* Punctuation nodes */
@@ -232,16 +238,17 @@
 
 	/* Added text */
 	.addition {
-		color: var(--background-modifier-success);
+		color: var(--text-success);
 	}
 
 	/* Empty node */
 	.empty {
-		width: 2em;
-		border: var(--border-width-medium) dotted var(--interactive-success);
 		display: flex;
-		align-items: center;
 		justify-content: center;
 		color: var(--interactive-success);
+		border: var(--border-width-thin) solid var(--text-success);
+		background-color: var(--background-primary);
+		width: var(--spacing-6);
+		font-weight: var(--font-weight-bold);
 	}
 </style>
