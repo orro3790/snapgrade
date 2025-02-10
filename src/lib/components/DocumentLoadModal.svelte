@@ -4,12 +4,13 @@
 	import { editorStore } from '$lib/stores/editorStore';
 
 	// Props
-	let { documentToLoad } = $props<{
+	let { documentToLoad, documentName } = $props<{
 		documentToLoad: string;
+		documentName: string;
 	}>();
 
 	function handleConfirm() {
-		editorStore.parseContent(documentToLoad);
+		editorStore.setDocument(documentToLoad, documentName);
 		modalStore.close();
 	}
 

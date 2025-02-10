@@ -7,6 +7,9 @@ const { subscribe: activeNodeSubscribe, set: setActiveNode } = writable<string |
 const { subscribe: undoStackSubscribe, update: updateUndoStack } = writable<Node[][]>([]);
 const { subscribe: redoStackSubscribe, update: updateRedoStack } = writable<Node[][]>([]);
 
+// Document name store
+const { subscribe: documentNameSubscribe, set: setDocumentName } = writable<string>("");
+
 // Derived state for paragraphs
 /**
  * A derived store that groups nodes into paragraphs based on newline spacer nodes.
@@ -62,6 +65,16 @@ function groupNodesByParagraph(nodes: Node[]) {
     }
 
     return paragraphs;
+}
+
+/**
+ * Sets both the document content and name.
+ * @param {string} content - The document content to parse.
+ * @param {string} name - The name of the document.
+ */
+function setDocument(content: string, name: string) {
+    parseContent(content);
+    setDocumentName(name);
 }
 
 /**
@@ -343,6 +356,12 @@ export const editorStore = {
         set: setActiveNode
     },
     /**
+     * Store for managing the document name.
+     */
+    documentName: {
+        subscribe: documentNameSubscribe
+    },
+    /**
      * A derived store that groups nodes into paragraphs.
      */
     paragraphs,
@@ -400,7 +419,14 @@ export const editorStore = {
      * @param {string} serialized - The serialized JSON string.
      */
     loadSerializedContent,
-    toggleDeletion
+    /**
+     * Toggles the deletion state of a node.
+     */
+    toggleDeletion,
+    /**
+     * Sets both the document content and name.
+     */
+    setDocument
 };
 
 /**

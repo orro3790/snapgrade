@@ -59,7 +59,10 @@
 		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
 		></button>
 		<div class="modal-content">
-			<DocumentLoadModal documentToLoad={$modalStore.data?.documentToLoad ?? ''} />
+			<DocumentLoadModal
+				documentToLoad={$modalStore.data?.documentToLoad ?? ''}
+				documentName={$modalStore.data?.documentName ?? ''}
+			/>
 		</div>
 	</div>
 {/if}

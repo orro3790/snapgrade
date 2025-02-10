@@ -6,6 +6,7 @@
 	import { settingsStore } from '$lib/stores/settingsStore';
 	import { modalStore } from '$lib/stores/modalStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { editorStore } from '$lib/stores/editorStore';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
 	import StagingArea from './StagingArea.svelte';
@@ -17,6 +18,14 @@
 	// Initialize state and stores
 	let user = $state(data?.user ?? null);
 	let settings = $state(data?.settings ?? null);
+	let documentName = $state('');
+
+	// Subscribe to document name changes
+	$effect(() => {
+		editorStore.documentName.subscribe((value) => {
+			documentName = value;
+		});
+	});
 
 	// Initialize stores with data
 	$effect(() => {
@@ -40,7 +49,7 @@
 					<SidebarToggle size="var(--icon-sm)" />
 				</button>
 				<div class="header-content">
-					<h1>No Document Loaded</h1>
+					<h1>{documentName || 'No Document Loaded'}</h1>
 				</div>
 			</header>
 			<div class="editor-container">

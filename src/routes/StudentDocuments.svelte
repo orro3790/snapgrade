@@ -53,16 +53,17 @@
 	/**
 	 * Handles document selection and loading
 	 */
-	function handleDocumentClick(documentBody: string) {
+	function handleDocumentClick(document: Document) {
 		const currentContent = editorStore.getContent();
 
 		if (!currentContent.trim()) {
 			// If editor is empty, load directly
-			editorStore.parseContent(documentBody);
+			editorStore.setDocument(document.documentBody, document.documentName);
 		} else {
 			// If editor has content, show confirmation
 			modalStore.open('documentLoad', {
-				documentToLoad: documentBody,
+				documentToLoad: document.documentBody,
+				documentName: document.documentName,
 				showConfirmation: true,
 				confirmationMessage:
 					'Loading a new document will replace the current content. Do you want to continue?'
@@ -103,7 +104,7 @@
 						<button
 							type="button"
 							class="document-item"
-							onclick={() => handleDocumentClick(document.documentBody)}
+							onclick={() => handleDocumentClick(document)}
 						>
 							<div class="document-header">
 								<h3 class="document-title">{document.documentName}</h3>

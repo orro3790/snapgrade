@@ -21,6 +21,7 @@ export const modalTypeSchema = z.enum([
  */
 export const modalDataSchema = z.object({
     documentToLoad: z.string().optional(),
+    documentName: z.string().optional(),
     showConfirmation: z.boolean().optional(),
     confirmationMessage: z.string().optional()
 }).optional();
