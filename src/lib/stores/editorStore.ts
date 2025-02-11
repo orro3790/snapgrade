@@ -2,6 +2,18 @@ import { writable, derived } from 'svelte/store';
 import { type Node, type NodeType, type CorrectionData } from '$lib/schemas/textNode';
 
 // Core state
+const { subscribe: dragSelectSubscribe, set: setDragSelect, update: updateDragSelect } = writable<{
+    isDragging: boolean;
+    isSelected: boolean;
+    startNodeId: string | null;
+    endNodeId: string | null;
+}>({
+    isDragging: false,
+    isSelected: false,
+    startNodeId: null,
+    endNodeId: null
+});
+
 const { subscribe: nodesSubscribe, set: setNodes, update: updateNodes } = writable<Node[]>([]);
 const { subscribe: activeNodeSubscribe, set: setActiveNode } = writable<string | null>(null);
 const { subscribe: undoStackSubscribe, update: updateUndoStack } = writable<Node[][]>([]);
@@ -97,7 +109,6 @@ function parseContent(content: string) {
     tokens.forEach(token => {
         // Handle text or punctuation
         const isPunctuation = /^[.,!?;:]/.test(token);
-        console.log(`Token: '${token}', isPunctuation: ${isPunctuation}`);
         newNodes.push({
             id: crypto.randomUUID(),
             text: token,
@@ -109,7 +120,6 @@ function parseContent(content: string) {
                 isWhitespace: false,
                 startIndex: 0,
                 endIndex: 0,
-                isGroup: false
             }
         });
     });
@@ -242,7 +252,6 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
                 isWhitespace: /^\s+$/.test(text),
                 startIndex: 0,
                 endIndex: 0,
-                isGroup: false
             }
         };
         
@@ -333,6 +342,173 @@ function getContent(): string {
         content = $nodes.reduce((acc, node) => acc + node.text, '');
     })();
     return content;
+}
+
+// Derived store for selected nodes based on drag selection
+export const selectedNodes = derived(
+    [{ subscribe: nodesSubscribe }, { subscribe: dragSelectSubscribe }],
+    ([$nodes, $dragSelect]) => {
+        if (!$dragSelect.startNodeId || (!$dragSelect.isDragging && !$dragSelect.isSelected)) {
+            console.log('No selection: dragging=', $dragSelect.isDragging, 'selected=', $dragSelect.isSelected);
+            return [];
+        }
+        
+        const startIndex = $nodes.findIndex(n => n.id === $dragSelect.startNodeId);
+        const endIndex = $dragSelect.endNodeId 
+            ? $nodes.findIndex(n => n.id === $dragSelect.endNodeId)
+            : startIndex;
+            
+        if (startIndex === -1) {
+            console.log('Start node not found:', $dragSelect.startNodeId);
+            return [];
+        }
+        
+        const start = Math.min(startIndex, endIndex);
+        const end = Math.max(startIndex, endIndex);
+        
+        const selectedNodes = $nodes.slice(start, end + 1);
+        return selectedNodes;
+    }
+);
+
+/**
+ * Starts a drag selection operation.
+ * @param {string} nodeId - The ID of the node where selection started.
+ */
+function startDragSelection(nodeId: string) {
+    setDragSelect({
+        isDragging: true,
+        isSelected: false,
+        startNodeId: nodeId,
+        endNodeId: nodeId
+    });
+}
+
+/**
+ * Updates the current drag selection.
+ * @param {string} nodeId - The ID of the current node in the selection.
+ */
+function updateDragSelection(nodeId: string) {
+    updateDragSelect(state => ({
+        ...state,
+        endNodeId: nodeId
+    }));
+}
+
+/**
+ * Ends the current drag selection operation.
+ */
+function endDragSelection() {
+    updateDragSelect(state => ({
+        ...state,
+        isDragging: false,
+        isSelected: true
+    }));
+}
+
+/**
+ * Clears the current selection.
+ */
+function clearSelection() {
+    console.log('Clearing selection');
+    setDragSelect({
+        isDragging: false,
+        isSelected: false,
+        startNodeId: null,
+        endNodeId: null
+    });
+}
+
+/**
+ * Creates a correction from multiple selected nodes.
+ * @param {string[]} nodeIds - Array of node IDs to combine into a correction.
+ * @param {string} correctedText - The correction to apply to the combined text.
+ * @param {string} pattern - The correction pattern.
+ * @param {string} [explanation] - Optional explanation for the correction.
+ */
+function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pattern: string, explanation?: string) {
+    console.log('Creating multi-node correction:', { nodeIds, correctedText, pattern });
+    updateNodes($nodes => {
+        const selectedNodes = nodeIds.map(id => $nodes.find(n => n.id === id)).filter(Boolean) as Node[];
+        if (selectedNodes.length === 0) return $nodes;
+
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+
+        const firstNode = selectedNodes[0];
+        const lastNode = selectedNodes[selectedNodes.length - 1];
+        const combinedText = selectedNodes.map(n => n.text).join(' ');
+
+        const newNode: Node = {
+            id: crypto.randomUUID(),
+            text: combinedText,
+            type: 'correction',
+            metadata: {
+                position: firstNode.metadata.position,
+                lineNumber: firstNode.metadata.lineNumber,
+                isPunctuation: false,
+                isWhitespace: false,
+                startIndex: firstNode.metadata.startIndex,
+                endIndex: lastNode.metadata.endIndex
+            },
+            correctionData: {
+                originalText: combinedText,
+                correctedText,
+                pattern,
+                explanation
+            }
+        };
+
+        // Remove all selected nodes and insert the new correction node
+        const newNodes = $nodes.filter(n => !nodeIds.includes(n.id));
+        const insertIndex = newNodes.findIndex(n => n.metadata.position > firstNode.metadata.position);
+        if (insertIndex === -1) {
+            newNodes.push(newNode);
+        } else {
+            newNodes.splice(insertIndex, 0, newNode);
+        }
+
+        return newNodes;
+    });
+}
+
+/**
+ * Toggles deletion state for multiple nodes.
+ * @param {string[]} nodeIds - Array of node IDs to toggle deletion for.
+ */
+function toggleMultiNodeDeletion(nodeIds: string[]) {
+    console.log('Toggling deletion for nodes:', nodeIds);
+    updateNodes($nodes => {
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+
+        return $nodes.map(node => {
+            if (nodeIds.includes(node.id) && node.type !== 'empty' && node.type !== 'spacer') {
+                return {
+                    ...node,
+                    type: node.type === 'deletion' ? 'normal' : 'deletion'
+                };
+            }
+            return node;
+        });
+    });
+}
+
+/**
+ * Removes multiple nodes from the editor.
+ * @param {string[]} nodeIds - Array of node IDs to remove.
+ */
+function removeNodes(nodeIds: string[]) {
+    console.log('Removing nodes:', nodeIds);
+    updateNodes($nodes => {
+        // Save current state for undo
+        updateUndoStack($undoStack => [...$undoStack, $nodes]);
+        updateRedoStack(() => []);
+
+        return $nodes.filter(node => !nodeIds.includes(node.id));
+    });
 }
 
 /**
@@ -428,7 +604,22 @@ export const editorStore = {
     /**
      * Sets both the document content and name.
      */
-    setDocument
+    setDocument,
+    // Selection management
+    dragSelect: {
+        subscribe: dragSelectSubscribe
+    },
+    selectedNodes: {
+        subscribe: selectedNodes.subscribe
+    },
+    startDragSelection,
+    updateDragSelection,
+    endDragSelection,
+    clearSelection,
+    // Multi-node operations
+    createMultiNodeCorrection,
+    toggleMultiNodeDeletion,
+    removeNodes
 };
 
 /**

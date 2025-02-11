@@ -1,6 +1,11 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import { editorStore, activeCorrection, paragraphs } from '$lib/stores/editorStore';
+	import {
+		editorStore,
+		activeCorrection,
+		paragraphs,
+		selectedNodes
+	} from '$lib/stores/editorStore';
 	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import TextNode from './TextNode.svelte';
 
@@ -14,29 +19,6 @@
 	let paragraphsList = $derived($paragraphs);
 	let activeNodeId = $derived($activeCorrection);
 	let editorContent = $derived(editorStore.getContent());
-
-	// Add inspections for key store values
-	$inspect(editorContent).with((type, content) => {
-		console.group('Editor Content Update');
-		console.log(`Type: ${type}`);
-		console.log('Content:', content);
-		console.groupEnd();
-	});
-
-	$inspect(paragraphsList).with((type, paragraphs) => {
-		console.group('Paragraphs Update');
-		console.log(`Type: ${type}`);
-		console.log('Paragraphs:', paragraphs);
-		console.groupEnd();
-	});
-
-	// Add trace to effects to debug reactivity
-	$effect(() => {
-		$inspect.trace('Content Change Effect');
-		if (editorContent !== initialContent) {
-			onContentChange(editorContent);
-		}
-	});
 
 	// Initialize content
 	$effect(() => {
@@ -63,6 +45,18 @@
 <div
 	class="editor-wrapper"
 	onkeydown={handleKeyDown}
+	onclick={(event) => {
+		// Only clear selection if clicking directly on the editor wrapper or a4-content
+		const target = event.target as HTMLElement;
+		if (
+			target.classList.contains('editor-wrapper') ||
+			target.classList.contains('a4-content') ||
+			target.classList.contains('main-content')
+		) {
+			console.log('Clearing selection from click on:', target.className);
+			editorStore.clearSelection();
+		}
+	}}
 	tabindex="-1"
 	aria-multiline="true"
 	aria-label="Text editor content"

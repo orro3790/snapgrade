@@ -1,6 +1,6 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore, selectedNodes } from '$lib/stores/editorStore';
 	import type { Node } from '$lib/schemas/textNode';
 	import Add from '$lib/icons/Add.svelte';
 	import Correction from '$lib/icons/Correction.svelte';
@@ -15,8 +15,26 @@
 
 	let modalElement: HTMLDivElement;
 	let inputElement: HTMLTextAreaElement;
+	// Get selected nodes for multi-node correction
+	let selectedNodesList = $derived($selectedNodes);
+	let isMultiNodeCorrection = $derived(selectedNodesList.length > 1);
+
+	// For multi-node correction, combine texts with spaces
+	let originalText = $derived(
+		isMultiNodeCorrection
+			? selectedNodesList.map((n) => n.text).join(' ')
+			: node.type === 'correction'
+				? node.correctionData?.originalText || node.text
+				: node.text
+	);
+
 	let inputValue = $state(
-		node.type === 'correction' ? node.correctionData?.correctedText || node.text : node.text
+		(() => {
+			if (node.type === 'correction') {
+				return node.correctionData?.correctedText || originalText;
+			}
+			return originalText;
+		})()
 	);
 	let isProcessingEdit = $state(false);
 
@@ -81,18 +99,22 @@
 		if (isProcessingEdit) return;
 
 		const trimmedValue = inputValue.trim();
-		if (!trimmedValue || trimmedValue === node.text) {
+		if (!trimmedValue || trimmedValue === originalText) {
 			onClose();
 			return;
 		}
 
 		isProcessingEdit = true;
 
-		// Handle empty nodes differently - convert to addition
-		if (node.type === 'empty') {
+		if (isMultiNodeCorrection) {
+			// Handle multi-node correction
+			const nodeIds = selectedNodesList.map((n) => n.id);
+			editorStore.createMultiNodeCorrection(nodeIds, trimmedValue, '', '');
+		} else if (node.type === 'empty') {
+			// Handle empty nodes differently - convert to addition
 			editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
 		} else {
-			// Handle other nodes as corrections
+			// Handle single node correction
 			editorStore.updateNode(
 				node.id,
 				node.text,
@@ -111,7 +133,13 @@
 	function handleRemove() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
-		editorStore.removeNode(node.id);
+
+		if (isMultiNodeCorrection) {
+			const nodeIds = selectedNodesList.map((n) => n.id);
+			editorStore.removeNodes(nodeIds);
+		} else {
+			editorStore.removeNode(node.id);
+		}
 		onClose();
 	}
 
@@ -120,13 +148,15 @@
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
 
-		// Don't allow empty nodes to be marked as deletion
-		if (node.type === 'empty') {
+		if (isMultiNodeCorrection) {
+			const nodeIds = selectedNodesList.map((n) => n.id);
+			editorStore.toggleMultiNodeDeletion(nodeIds);
+		} else if (node.type !== 'empty') {
+			editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
+		} else {
 			isProcessingEdit = false; // Reset the flag before returning
 			return;
 		}
-
-		editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
 		onClose();
 	}
 

@@ -1,6 +1,6 @@
 <!-- TextNode.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore, selectedNodes } from '$lib/stores/editorStore';
 	import { hoveredNodeTypeStore } from '$lib/stores/statsStore';
 	import type { Node } from '$lib/schemas/textNode';
 	import EditModal from './EditModal.svelte';
@@ -16,11 +16,28 @@
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
-		// Check specifically for right click (button === 2) with ctrl key
-		if (event.ctrlKey && event.button === 2) {
-			// Remove the node and ensure proper cleanup
-			editorStore.removeNode(node.id);
-			// Force a re-render of the parent component
+
+		// Get current selection state
+		let dragState:
+			| { isDragging: boolean; isSelected: boolean; startNodeId: string | null }
+			| undefined;
+		editorStore.dragSelect.subscribe((state) => {
+			dragState = state;
+		})();
+
+		// Handle Ctrl + Right Click
+		if (event.ctrlKey) {
+			if (dragState?.isSelected) {
+				// Remove all selected nodes
+				let selectedNodeIds: string[] = [];
+				selectedNodes.subscribe((nodes) => {
+					selectedNodeIds = nodes.map((n) => n.id);
+				})();
+				editorStore.removeNodes(selectedNodeIds);
+			} else {
+				// Remove single node
+				editorStore.removeNode(node.id);
+			}
 			return false;
 		}
 	}
@@ -29,13 +46,41 @@
 		// Guard clause for non-left clicks
 		if (event.button !== 0) return;
 
-		// Handle Ctrl + Left Click: Insert empty node
+		// Get current selection state
+		let dragState:
+			| { isDragging: boolean; isSelected: boolean; startNodeId: string | null }
+			| undefined;
+		editorStore.dragSelect.subscribe((state) => {
+			dragState = state;
+		})();
+
+		// If we have selected nodes, handle multi-node operations
+		if (dragState?.isSelected) {
+			if (event.altKey) {
+				// Handle Alt + Left Click: Toggle deletion for selected nodes
+				let selectedNodeIds: string[] = [];
+				selectedNodes.subscribe((nodes) => {
+					selectedNodeIds = nodes.map((n) => n.id);
+				})();
+				editorStore.toggleMultiNodeDeletion(selectedNodeIds);
+				return;
+			} else {
+				// Regular click on a selected node: Open edit modal
+				modalPosition = {
+					x: event.clientX,
+					y: event.clientY
+				};
+				isEditing = true;
+				return;
+			}
+		}
+
+		// Handle single node operations
 		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
 			return;
 		}
 
-		// Handle Alt + Left Click: Toggle deletion state
 		if (event.altKey) {
 			if (node.type === 'empty' || node.type === 'spacer') return;
 			editorStore.toggleDeletion(node.id);
@@ -78,6 +123,9 @@
 		editorStore.setActiveNode(null);
 	}
 
+	// Track if this node is currently selected
+	let isSelected = $derived($selectedNodes.some((n) => n.id === node.id));
+
 	let classList = $derived(
 		[
 			'text-node',
@@ -86,11 +134,57 @@
 			node.hasNextCorrection ? 'has-next-correction' : '',
 			isEditing ? 'highlighted' : '',
 			node.metadata.isPunctuation ? 'punctuation' : '',
-			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : ''
+			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : '',
+			isSelected ? 'selected' : ''
 		]
 			.filter(Boolean)
 			.join(' ')
 	);
+
+	function handleMouseDown(event: MouseEvent) {
+		if (event.button !== 0) return; // Only handle left mouse button
+		editorStore.startDragSelection(node.id);
+	}
+
+	type DragState = {
+		isDragging: boolean;
+		isSelected: boolean;
+		startNodeId: string | null;
+		endNodeId: string | null;
+	};
+
+	function handleMouseMove(event: MouseEvent) {
+		// Update selection if we're dragging
+		let dragState: DragState | undefined;
+		editorStore.dragSelect.subscribe((state: DragState) => {
+			dragState = state;
+		})();
+
+		if (dragState?.isDragging) {
+			editorStore.updateDragSelection(node.id);
+		}
+	}
+
+	function handleMouseUp(event: MouseEvent) {
+		let dragState: DragState | undefined;
+		editorStore.dragSelect.subscribe((state: DragState) => {
+			dragState = state;
+		})();
+
+		if (!dragState?.isDragging) return;
+
+		editorStore.endDragSelection();
+
+		// Handle Alt + Click for deletion
+		if (event.altKey) {
+			// Get selected node IDs
+			let selectedNodeIds: string[] = [];
+			selectedNodes.subscribe((nodes) => {
+				selectedNodeIds = nodes.map((n) => n.id);
+			})();
+			editorStore.toggleMultiNodeDeletion(selectedNodeIds);
+		}
+	}
 </script>
 
 <div
@@ -98,6 +192,9 @@
 	onclick={handleClick}
 	oncontextmenu={handleContextMenu}
 	onkeydown={handleKeydown}
+	onmousedown={handleMouseDown}
+	onmousemove={handleMouseMove}
+	onmouseup={handleMouseUp}
 	role="button"
 	tabindex="0"
 	data-subtype={node.type === 'spacer' ? node.spacerData?.subtype : undefined}
@@ -123,6 +220,12 @@
 {/if}
 
 <style>
+	/* Selection styling */
+	.selected {
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+	}
+
 	/* Spacer node styles */
 	.text-node[data-subtype='tab'] {
 		width: 2vw;
@@ -158,6 +261,7 @@
 		display: flex;
 		position: relative;
 		cursor: pointer;
+		user-select: none;
 		margin-right: var(--spacing-1);
 		border-radius: var(--radius-sm);
 		transition: var(--transition-all);
