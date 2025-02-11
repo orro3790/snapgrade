@@ -4,7 +4,7 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Student } from '$lib/schemas/student';
 	import type { Document } from '$lib/schemas/document';
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
 
 	// Props

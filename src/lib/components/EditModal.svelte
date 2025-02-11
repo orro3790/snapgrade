@@ -1,6 +1,6 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
-	import { editorStore, selectedNodes } from '$lib/stores/editorStore';
+	import { editorStore, selectedNodes } from '$lib/stores/editorStore.svelte';
 	import type { Node } from '$lib/schemas/textNode';
 	import Add from '$lib/icons/Add.svelte';
 	import Correction from '$lib/icons/Correction.svelte';

@@ -5,7 +5,7 @@
 		activeCorrection,
 		paragraphs,
 		selectedNodes
-	} from '$lib/stores/editorStore';
+	} from '$lib/stores/editorStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
 

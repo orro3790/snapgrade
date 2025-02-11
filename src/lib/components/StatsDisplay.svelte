@@ -1,6 +1,6 @@
 <!-- StatsDisplay.svelte -->
 <script lang="ts">
-	import { statsStore, hoveredNodeTypeStore } from '$lib/stores/statsStore';
+	import { statsStore, hoveredNodeTypeStore } from '$lib/stores/statsStore.svelte';
 	import type { NodeType } from '$lib/schemas/textNode';
 
 	interface StatGroup {

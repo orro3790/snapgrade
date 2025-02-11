@@ -1,7 +1,7 @@
 <!-- TextNode.svelte -->
 <script lang="ts">
-	import { editorStore, selectedNodes } from '$lib/stores/editorStore';
-	import { hoveredNodeTypeStore } from '$lib/stores/statsStore';
+	import { editorStore, selectedNodes } from '$lib/stores/editorStore.svelte';
+	import { hoveredNodeTypeStore } from '$lib/stores/statsStore.svelte';
 	import type { Node } from '$lib/schemas/textNode';
 	import EditModal from './EditModal.svelte';
 	import Add from '$lib/icons/Add.svelte';

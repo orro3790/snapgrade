@@ -6,7 +6,7 @@
 	import { settingsStore } from '$lib/stores/settingsStore.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
 	import StagingArea from './StagingArea.svelte';
