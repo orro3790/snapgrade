@@ -21,6 +21,7 @@ export const nodeMetadataSchema = z.object({
     position: z.number(),
     lineNumber: z.number(),
     isPunctuation: z.boolean(),
+    isGroup: z.boolean().default(false),
     isWhitespace: z.boolean(),
     startIndex: z.number(),
     endIndex: z.number()
@@ -32,7 +33,7 @@ export const correctionDataSchema = z.object({
     pattern: z.string(),
     explanation: z.string().optional(),
     teacherNotes: z.string().optional(),
-    relatedCorrections: z.array(z.string()).optional()
+    groupMembers: z.array(z.string()).optional()
 });
 
 export const nodeSchema = z.object({
@@ -63,5 +64,6 @@ export type CompressedNode = {
         f: string;  // fixed text
         p: string;  // pattern
         e?: string; // explanation
+        g?: string[]; // group members
     };
 };

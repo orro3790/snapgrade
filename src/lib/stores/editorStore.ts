@@ -108,7 +108,8 @@ function parseContent(content: string) {
                 isPunctuation,
                 isWhitespace: false,
                 startIndex: 0,
-                endIndex: 0
+                endIndex: 0,
+                isGroup: false
             }
         });
     });
@@ -240,7 +241,8 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
                 isPunctuation: /^[.,!?;:]$/.test(text),
                 isWhitespace: /^\s+$/.test(text),
                 startIndex: 0,
-                endIndex: 0
+                endIndex: 0,
+                isGroup: false
             }
         };
         

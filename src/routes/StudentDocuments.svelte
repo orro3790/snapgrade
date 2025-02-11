@@ -54,11 +54,16 @@
 	 * Handles document selection and loading
 	 */
 	function handleDocumentClick(document: Document) {
-		const currentContent = editorStore.getContent();
+		// Get current nodes directly from the store
+		let hasContent = false;
+		editorStore.subscribe(($nodes) => {
+			hasContent = $nodes.length > 0;
+		})();
 
-		if (!currentContent.trim()) {
+		if (!hasContent) {
 			// If editor is empty, load directly
 			editorStore.setDocument(document.documentBody, document.documentName);
+			modalStore.close();
 		} else {
 			// If editor has content, show confirmation
 			modalStore.open('documentLoad', {

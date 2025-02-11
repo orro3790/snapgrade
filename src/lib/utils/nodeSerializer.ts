@@ -25,7 +25,8 @@ export function serializeNodes(nodes: Node[]): string {
                 o: node.correctionData.originalText,
                 f: node.correctionData.correctedText,
                 p: node.correctionData.pattern,
-                ...(node.correctionData.explanation && { e: node.correctionData.explanation })
+                ...(node.correctionData.explanation && { e: node.correctionData.explanation }),
+                ...(node.correctionData.groupMembers && { g: node.correctionData.groupMembers })
             }
         })
     }));
@@ -47,13 +48,15 @@ export function deserializeNodes(documentBody: string): Node[] {
                 originalText: c.c.o,
                 correctedText: c.c.f,
                 pattern: c.c.p,
-                ...(c.c.e && { explanation: c.c.e })
+                ...(c.c.e && { explanation: c.c.e }),
+                ...(c.c.g && { groupMembers: c.c.g })
             }
         }),
         metadata: {
             position: 0,  // Will be calculated on load
             lineNumber: 1,
             isPunctuation: false,
+            isGroup: c.c?.g !== undefined,
             isWhitespace: c.t === 'spacer',
             startIndex: 0,
             endIndex: 0
