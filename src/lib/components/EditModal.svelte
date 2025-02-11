@@ -1,14 +1,14 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
-	import { editorStore, selectedNodes } from '$lib/stores/editorStore.svelte';
-	import type { Node } from '$lib/schemas/textNode';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import type { Node as TextNodeType } from '$lib/schemas/textNode';
 	import Add from '$lib/icons/Add.svelte';
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
 	import Eraser from '$lib/icons/Eraser.svelte';
 
 	let { node, position, onClose } = $props<{
-		node: Node;
+		node: TextNodeType;
 		position: { x: number; y: number };
 		onClose: () => void;
 	}>();
@@ -16,13 +16,13 @@
 	let modalElement: HTMLDivElement;
 	let inputElement: HTMLTextAreaElement;
 	// Get selected nodes for multi-node correction
-	let selectedNodesList = $derived($selectedNodes);
+	let selectedNodesList = $derived(editorStore.selectedNodes);
 	let isMultiNodeCorrection = $derived(selectedNodesList.length > 1);
 
 	// For multi-node correction, combine texts with spaces
 	let originalText = $derived(
 		isMultiNodeCorrection
-			? selectedNodesList.map((n) => n.text).join(' ')
+			? selectedNodesList.map((n: TextNodeType) => n.text).join(' ')
 			: node.type === 'correction'
 				? node.correctionData?.originalText || node.text
 				: node.text
@@ -108,7 +108,7 @@
 
 		if (isMultiNodeCorrection) {
 			// Handle multi-node correction
-			const nodeIds = selectedNodesList.map((n) => n.id);
+			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
 			editorStore.createMultiNodeCorrection(nodeIds, trimmedValue, '', '');
 		} else if (node.type === 'empty') {
 			// Handle empty nodes differently - convert to addition
@@ -135,7 +135,7 @@
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			const nodeIds = selectedNodesList.map((n) => n.id);
+			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
 			editorStore.removeNodes(nodeIds);
 		} else {
 			editorStore.removeNode(node.id);
@@ -149,7 +149,7 @@
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			const nodeIds = selectedNodesList.map((n) => n.id);
+			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
 			editorStore.toggleMultiNodeDeletion(nodeIds);
 		} else if (node.type !== 'empty') {
 			editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');

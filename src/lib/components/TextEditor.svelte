@@ -1,11 +1,6 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import {
-		editorStore,
-		activeCorrection,
-		paragraphs,
-		selectedNodes
-	} from '$lib/stores/editorStore.svelte';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
 
@@ -15,9 +10,9 @@
 		onContentChange?: (content: string) => void;
 	}>();
 
-	// Subscribe to stores
-	let paragraphsList = $derived($paragraphs);
-	let activeNodeId = $derived($activeCorrection);
+	// Derive state from store
+	let paragraphsList = $derived(editorStore.paragraphs);
+	let activeNodeId = $derived(editorStore.activeNode);
 	let editorContent = $derived(editorStore.getContent());
 
 	// Initialize content

@@ -55,10 +55,7 @@
 	 */
 	function handleDocumentClick(document: Document) {
 		// Get current nodes directly from the store
-		let hasContent = false;
-		editorStore.subscribe(($nodes) => {
-			hasContent = $nodes.length > 0;
-		})();
+		const hasContent = editorStore.nodes.length > 0;
 
 		if (!hasContent) {
 			// If editor is empty, load directly

@@ -18,14 +18,7 @@
 	// Initialize state and stores
 	let user = $state(data?.user ?? null);
 	let settings = $state(data?.settings ?? null);
-	let documentName = $state('');
-
-	// Subscribe to document name changes
-	$effect(() => {
-		editorStore.documentName.subscribe((value) => {
-			documentName = value;
-		});
-	});
+	let documentName = $derived(editorStore.documentName);
 
 	// Initialize stores with data
 	$effect(() => {

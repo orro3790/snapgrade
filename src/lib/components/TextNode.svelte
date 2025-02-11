@@ -1,13 +1,12 @@
 <!-- TextNode.svelte -->
 <script lang="ts">
-	import { editorStore, selectedNodes } from '$lib/stores/editorStore.svelte';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import type { Node as TextNodeType } from '$lib/schemas/textNode';
 	import { hoveredNodeTypeStore } from '$lib/stores/statsStore.svelte';
-	import type { Node } from '$lib/schemas/textNode';
 	import EditModal from './EditModal.svelte';
-	import Add from '$lib/icons/Add.svelte';
 
 	const { node, isActive = false } = $props<{
-		node: Node;
+		node: TextNodeType;
 		isActive?: boolean;
 	}>();
 
@@ -17,22 +16,11 @@
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
 
-		// Get current selection state
-		let dragState:
-			| { isDragging: boolean; isSelected: boolean; startNodeId: string | null }
-			| undefined;
-		editorStore.dragSelect.subscribe((state) => {
-			dragState = state;
-		})();
-
 		// Handle Ctrl + Right Click
 		if (event.ctrlKey) {
-			if (dragState?.isSelected) {
+			if (editorStore.dragSelect.isSelected) {
 				// Remove all selected nodes
-				let selectedNodeIds: string[] = [];
-				selectedNodes.subscribe((nodes) => {
-					selectedNodeIds = nodes.map((n) => n.id);
-				})();
+				const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
 				editorStore.removeNodes(selectedNodeIds);
 			} else {
 				// Remove single node
@@ -46,22 +34,11 @@
 		// Guard clause for non-left clicks
 		if (event.button !== 0) return;
 
-		// Get current selection state
-		let dragState:
-			| { isDragging: boolean; isSelected: boolean; startNodeId: string | null }
-			| undefined;
-		editorStore.dragSelect.subscribe((state) => {
-			dragState = state;
-		})();
-
 		// If we have selected nodes, handle multi-node operations
-		if (dragState?.isSelected) {
+		if (editorStore.dragSelect.isSelected) {
 			if (event.altKey) {
 				// Handle Alt + Left Click: Toggle deletion for selected nodes
-				let selectedNodeIds: string[] = [];
-				selectedNodes.subscribe((nodes) => {
-					selectedNodeIds = nodes.map((n) => n.id);
-				})();
+				const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
 				editorStore.toggleMultiNodeDeletion(selectedNodeIds);
 				return;
 			} else {
@@ -88,7 +65,7 @@
 		}
 
 		// Handle active node clicks: Enable editing
-		editorStore.setActiveNode(node.id);
+		editorStore.activeNode = node.id;
 		if (isActive) {
 			modalPosition = {
 				x: event.clientX,
@@ -120,11 +97,11 @@
 
 	function handleEditClose() {
 		isEditing = false;
-		editorStore.setActiveNode(null);
+		editorStore.activeNode = null;
 	}
 
 	// Track if this node is currently selected
-	let isSelected = $derived($selectedNodes.some((n) => n.id === node.id));
+	let isSelected = $derived(editorStore.selectedNodes.some((n: TextNodeType) => n.id === node.id));
 
 	let classList = $derived(
 		[
@@ -146,42 +123,21 @@
 		editorStore.startDragSelection(node.id);
 	}
 
-	type DragState = {
-		isDragging: boolean;
-		isSelected: boolean;
-		startNodeId: string | null;
-		endNodeId: string | null;
-	};
-
 	function handleMouseMove(event: MouseEvent) {
 		// Update selection if we're dragging
-		let dragState: DragState | undefined;
-		editorStore.dragSelect.subscribe((state: DragState) => {
-			dragState = state;
-		})();
-
-		if (dragState?.isDragging) {
+		if (editorStore.dragSelect.isDragging) {
 			editorStore.updateDragSelection(node.id);
 		}
 	}
 
 	function handleMouseUp(event: MouseEvent) {
-		let dragState: DragState | undefined;
-		editorStore.dragSelect.subscribe((state: DragState) => {
-			dragState = state;
-		})();
-
-		if (!dragState?.isDragging) return;
+		if (!editorStore.dragSelect.isDragging) return;
 
 		editorStore.endDragSelection();
 
 		// Handle Alt + Click for deletion
 		if (event.altKey) {
-			// Get selected node IDs
-			let selectedNodeIds: string[] = [];
-			selectedNodes.subscribe((nodes) => {
-				selectedNodeIds = nodes.map((n) => n.id);
-			})();
+			const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
 			editorStore.toggleMultiNodeDeletion(selectedNodeIds);
 		}
 	}

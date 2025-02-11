@@ -24,14 +24,8 @@ const editorState = $state({
     documentName: ""
 });
 
-// Derived state for paragraphs
 /**
- * Groups nodes into paragraphs based on newline spacer nodes.
- */
-export const paragraphs = $derived(groupNodesByParagraph(editorState.nodes));
-
-/**
- * Groups an array of nodes into paragraphs.  Paragraphs are delimited by 'newline' spacer nodes.
+ * Groups an array of nodes into paragraphs. Paragraphs are delimited by 'newline' spacer nodes.
  * @param {Node[]} nodes - The array of nodes to group.
  * @returns {{ id: string; corrections: Node[] }[]} An array of paragraph objects, where each object contains a unique ID and an array of nodes belonging to that paragraph.
  */
@@ -298,10 +292,12 @@ function getContent(): string {
     return editorState.nodes.reduce((acc: string, node: Node) => acc + node.text, '');
 }
 
-// Derived state for selected nodes based on drag selection
-export const selectedNodesList = $derived(() => {
+/**
+ * Gets the currently selected nodes based on drag selection state.
+ * @returns {Node[]} Array of selected nodes.
+ */
+function getSelectedNodes(): Node[] {
     if (!dragSelectState.startNodeId || (!dragSelectState.isDragging && !dragSelectState.isSelected)) {
-        console.log('No selection: dragging=', dragSelectState.isDragging, 'selected=', dragSelectState.isSelected);
         return [];
     }
     
@@ -311,7 +307,6 @@ export const selectedNodesList = $derived(() => {
         : startIndex;
         
     if (startIndex === -1) {
-        console.log('Start node not found:', dragSelectState.startNodeId);
         return [];
     }
     
@@ -319,7 +314,7 @@ export const selectedNodesList = $derived(() => {
     const end = Math.max(startIndex, endIndex);
     
     return editorState.nodes.slice(start, end + 1);
-});
+}
 
 /**
  * Starts a drag selection operation.
@@ -352,7 +347,6 @@ function endDragSelection() {
  * Clears the current selection.
  */
 function clearSelection() {
-    console.log('Clearing selection');
     dragSelectState.isDragging = false;
     dragSelectState.isSelected = false;
     dragSelectState.startNodeId = null;
@@ -367,8 +361,6 @@ function clearSelection() {
  * @param {string} [explanation] - Optional explanation for the correction.
  */
 function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pattern: string, explanation?: string) {
-    console.log('Creating multi-node correction:', { nodeIds, correctedText, pattern });
-    
     const selectedNodes = nodeIds
         .map(id => editorState.nodes.find((n: Node) => n.id === id))
         .filter(Boolean) as Node[];
@@ -420,8 +412,6 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
  * @param {string[]} nodeIds - Array of node IDs to toggle deletion for.
  */
 function toggleMultiNodeDeletion(nodeIds: string[]) {
-    console.log('Toggling deletion for nodes:', nodeIds);
-    
     // Save current state for undo
     editorState.undoStack = [...editorState.undoStack, editorState.nodes];
     editorState.redoStack = [];
@@ -444,8 +434,6 @@ function toggleMultiNodeDeletion(nodeIds: string[]) {
  * @param {string[]} nodeIds - Array of node IDs to remove.
  */
 function removeNodes(nodeIds: string[]) {
-    console.log('Removing nodes:', nodeIds);
-    
     // Save current state for undo
     editorState.undoStack = [...editorState.undoStack, editorState.nodes];
     editorState.redoStack = [];
@@ -481,33 +469,35 @@ export const editorStore = {
     /**
      * Get the current paragraphs.
      */
-    get currentParagraphs() {
-        return paragraphs;
+    get paragraphs() {
+        return groupNodesByParagraph(editorState.nodes);
+    },
+    /**
+     * Get the currently selected nodes.
+     */
+    get selectedNodes() {
+        return getSelectedNodes();
+    },
+    /**
+     * Get the current drag select state.
+     */
+    get dragSelect() {
+        return dragSelectState;
     },
     /**
      * Parses the input text content and creates nodes.
-     * @param {string} content - The input text content.
      */
     parseContent,
     /**
      * Updates the properties of an existing node.
-     * @param {string} nodeId - The ID of the node to update.
-     * @param {string} text - The new text content.
-     * @param {CorrectionData} [correctionData] - Optional correction data.
-     * @param {object} [spacerData] - Optional spacerData (subtype).
-     * @param {NodeType} [type='normal'] - The node type.
      */
     updateNode,
     /**
      * Inserts a new node after the specified node.
-     * @param {string} nodeId - The ID of the node after which to insert.
-     * @param {string} text - The text content of the new node.
-     * @param {NodeType} [type='normal'] - The type of the new node.
      */
     insertNodeAfter,
     /**
      * Removes a node from the editor.
-     * @param {string} nodeId - The ID of the node to remove.
      */
     removeNode,
     /**
@@ -520,17 +510,14 @@ export const editorStore = {
     redo,
     /**
      * Gets the current text content of the editor.
-     * @returns {string} The current text content.
      */
     getContent,
     /**
      * Serializes the current nodes array into a JSON string.
-     * @returns {string} The serialized JSON string.
      */
     getSerializedContent,
     /**
      * Loads and deserializes nodes from a JSON string.
-     * @param {string} serialized - The serialized JSON string.
      */
     loadSerializedContent,
     /**
@@ -542,12 +529,6 @@ export const editorStore = {
      */
     setDocument,
     // Selection management
-    get dragSelect() {
-        return dragSelectState;
-    },
-    get selectedNodes() {
-        return selectedNodesList;
-    },
     startDragSelection,
     updateDragSelection,
     endDragSelection,
