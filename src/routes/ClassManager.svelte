@@ -1,6 +1,6 @@
 <!-- File: src/routes/ClassManager.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import type { Class } from '$lib/schemas/class';
 	import type { Student } from '$lib/schemas/student';
 	import type { SuperValidated } from 'sveltekit-superforms';

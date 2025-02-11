@@ -5,7 +5,7 @@
 	import type { Student } from '$lib/schemas/student';
 	import type { Document } from '$lib/schemas/document';
 	import { editorStore } from '$lib/stores/editorStore';
-	import { modalStore } from '$lib/stores/modalStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 
 	// Props
 	let { selectedStudent } = $props<{

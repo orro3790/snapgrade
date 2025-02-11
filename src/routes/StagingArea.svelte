@@ -1,7 +1,7 @@
 <!-- File: src/routes/StagingArea.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
-	import { toastStore } from '$lib/stores/toastStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
+	import { toastStore } from '$lib/stores/toastStore.svelte';
 	import { onMount } from 'svelte';
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { SuperValidated } from 'sveltekit-superforms';

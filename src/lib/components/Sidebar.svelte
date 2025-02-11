@@ -1,8 +1,8 @@
 <!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
-	import { userStore } from '$lib/stores/userStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 
 	// Import icons
 	import Home from '$lib/icons/Home.svelte';
@@ -25,7 +25,7 @@
 	};
 
 	// Get user from store
-	let user = $derived($userStore);
+	let user = $derived(userStore.user);
 	let activeItem = $state('home');
 
 	// Define all nav items with their groups
@@ -65,14 +65,14 @@
 
 	// Add effect to collapse sidebar on logout
 	$effect(() => {
-		if (!$userStore) {
+		if (!userStore.user) {
 			sidebarStore.collapse();
 		}
 	});
 
 	function handleNavClick(itemId: string) {
 		activeItem = itemId;
-		if ($sidebarStore.isMobile) {
+		if (sidebarStore.state.isMobile) {
 			sidebarStore.toggle();
 		}
 		if (itemId === 'how-to-use') {
@@ -96,8 +96,8 @@
 
 <nav
 	class="sidebar"
-	class:expanded={$sidebarStore.state === 'expanded'}
-	class:mobile={$sidebarStore.isMobile}
+	class:expanded={sidebarStore.state.state === 'expanded'}
+	class:mobile={sidebarStore.state.isMobile}
 	aria-label="Main navigation"
 >
 	<!-- Navigation Items -->
@@ -121,7 +121,7 @@
 								size="var(--icon-sm)"
 							/>
 						</span>
-						{#if $sidebarStore.state === 'expanded'}
+						{#if sidebarStore.state.state === 'expanded'}
 							<span class="nav-label">{label}</span>
 						{/if}
 					</button>
@@ -148,7 +148,7 @@
 								size="var(--icon-sm)"
 							/>
 						</span>
-						{#if $sidebarStore.state === 'expanded'}
+						{#if sidebarStore.state.state === 'expanded'}
 							<span class="nav-label">{label}</span>
 						{/if}
 					</button>
@@ -160,13 +160,13 @@
 	<!-- Footer Actions -->
 	<div class="sidebar-footer">
 		{#if user}
-			<UserMenu collapsed={$sidebarStore.state !== 'expanded'} />
+			<UserMenu collapsed={sidebarStore.state.state !== 'expanded'} />
 		{:else}
 			<a href="/login" class="nav-item" role="button" tabindex="0">
 				<span class="nav-item-icon">
 					<Login size="var(--icon-sm)" />
 				</span>
-				{#if $sidebarStore.state === 'expanded'}
+				{#if sidebarStore.state.state === 'expanded'}
 					<span class="nav-label">Login</span>
 				{/if}
 			</a>

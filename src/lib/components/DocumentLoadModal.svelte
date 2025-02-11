@@ -1,6 +1,6 @@
 <!-- src/lib/components/DocumentLoadModal.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { editorStore } from '$lib/stores/editorStore';
 
 	// Props

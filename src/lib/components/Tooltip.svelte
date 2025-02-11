@@ -1,10 +1,20 @@
 <!-- File: src/lib/components/Tooltip.svelte -->
 <script lang="ts">
-	export let tooltip: string | boolean = false;
-	export let position: 'top' | 'bottom' | 'left' | 'right' = 'top';
-	export let delay: number = 0; // Default delay in milliseconds
+	interface Props {
+		tooltip?: string | boolean;
+		position?: 'top' | 'bottom' | 'left' | 'right';
+		delay?: number; // Default delay in milliseconds
+		children?: import('svelte').Snippet;
+	}
 
-	let showTooltip = true;
+	let {
+		tooltip = false,
+		position = 'top',
+		delay = 0,
+		children
+	}: Props = $props();
+
+	let showTooltip = $state(true);
 	let timeoutId: ReturnType<typeof setTimeout>;
 
 	function handleMouseEnter() {
@@ -34,7 +44,7 @@
 		}
 	}}
 >
-	<slot />
+	{@render children?.()}
 	{#if tooltip && showTooltip}
 		<div class="tooltip" role="tooltip">
 			<div class="tooltip-content">{tooltip}</div>

@@ -6,7 +6,7 @@
 		paragraphs,
 		selectedNodes
 	} from '$lib/stores/editorStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
 
 	// Props and state
@@ -62,7 +62,7 @@
 	aria-label="Text editor content"
 	role="textbox"
 >
-	<div class="main-content" class:sidebar-expanded={$sidebarStore.state === 'expanded'}>
+	<div class="main-content" class:sidebar-expanded={sidebarStore.state.state === 'expanded'}>
 		<!-- Wrap the a4-content in a print-only container -->
 		<div class="print-container">
 			<div class="a4-content" role="complementary" aria-label="Preview">

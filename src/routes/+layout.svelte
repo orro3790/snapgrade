@@ -1,13 +1,13 @@
 <!-- +layout.svelte -->
 <script lang="ts">
 	import '../app.css';
-	import { modalStore } from '$lib/stores/modalStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import KeyboardControls from '$lib/components/KeyboardControls.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
+	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 
 	let {
 		data,
