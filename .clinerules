@@ -1,6 +1,14 @@
 # START HERE
 
-This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and project-documentation.md @/documentation/project-documentation.md and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
+This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number.
+
+- If you are unsure about svelte syntax or coding patterns, refer to the official documentation @/documentation/official-svelte-documentation/index.md.
+- To ensure youunderstand the project, refer to @/documentation/project-documentation.md.
+- To ensure you are using svelte 5 syntax, refer to @/documentation/svelte-5-syntax-rules.md.
+
+## Important!
+
+Make sure you have read @/documentation/project-documentation.md, @/documentation/official-svelte-documentation/v5-migration-guide.md, and @documentation/official-svelte-documentation/index.md, pledge to follow everything listed in these files exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
 
 ### 1.0 YOUR PERSONALITY AND BEHAVIOR
 
@@ -54,56 +62,7 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ### 3.2 Coding Patterns
 
-#### 3.2.1 Rendering Components
-
-- **Forbidden**: `<slot>` for parent content
-- **Use Instead**: `{@render ...}` tags
-- **Example Implementation**:
-
-```svelte
-<!-- Card.svelte -->
-<script lang="ts">
-	import type { Snippet } from 'svelte';
-	let { content }: { content: Snippet } = $props();
-</script>
-
-<!-- Parent Component -->
-<Card>
-	{#snippet content()}
-		<h2>Title</h2>
-	{/snippet}
-</Card>
-<div>{@render content()}</div>
-```
-
-```svelte
-- For Default Content: Use the `children` snippet
-For Default Content: Use the children snippet
-svelteCopylet { children }: { children: Snippet } = $props();
-{@render children()}
-```
-
-#### 3.2.2 Declaring Props
-
-- **Forbidden**: `export let`
-- **Use instead**: `use $props()`
-- **Example Implementation**: `let { data } = $props<{ data: PageData }>();`
-
-#### 3.2.3 Event Handling
-
-- **Forbidden**: colons in event handlers
-- **Example Implementation**: `onmouseleave` instead of `on:mouseleave`
-
-#### 3.2.4 Self-closing Tags for Non-Void Elements
-
-- **Forbidden**: `<div ... />`
-- **Use instead**: `<div ...></div>`
-
-#### 3.2.5 createEventDispatcher
-
-- **Forbidden**: `createEventDispatcher()`
-- **Use instead**: `Use callback props and/or the $host() rune instead`
-- **Example Implementation**: `Components should accept callback props - which means you then pass functions as properties to these components: @https://svelte.dev/docs/svelte/v5-migration-guide#Event-changes-Component-events`
+- **Forbidden**: Legacy svelte 4 syntax. Make sure you have read and complied with the @/documentation/svelte-5-syntax-rules.md file for migration rules.
 
 ## 4. Code Style and Structure
 

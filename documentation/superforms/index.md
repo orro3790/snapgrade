@@ -1,0 +1,40 @@
+# Documentation Index
+
+This index was automatically generated from the crawled documentation pages.
+The structure reflects the original URL paths, with nested pages indented accordingly.
+
+# Documentation Index
+
+- [Superforms 💥](index.md)
+- [Get started[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#get-started>)](get-started.md)
+- [Help & Support[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#help--support>)](support.md)
+- [Super Sponsors[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#super-sponsors>)](sponsors.md)
+- [Playground[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#playground>)](examples.md)
+- [API reference[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#api-reference>)](api.md)
+- [Version 2 - What’s new?[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#version-2---whats-new>)](whats-new-v2.md)
+- [Superforms v2 - Migration guide[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#superforms-v2---migration-guide>)](migration-v2.md)
+  - [404](_https_/superforms-v1_vercel_app.md)
+  - [Client-side validation[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#client-side-validation>)](concepts/client-validation.md)
+  - [Error handling[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#error-handling>)](concepts/error-handling.md)
+  - [Events[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#events>)](concepts/events.md)
+  - [File uploads[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#file-uploads>)](concepts/files.md)
+  - [Loading timers[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#loading-timers>)](concepts/timers.md)
+  - [Multiple forms on the same page[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#multiple-forms-on-the-same-page>)](concepts/multiple-forms.md)
+  - [Nested data[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#nested-data>)](concepts/nested-data.md)
+  - [Proxy objects[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#proxy-objects>)](concepts/proxy-objects.md)
+  - [Single-page applications (SPA)[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#single-page-applications-spa>)](concepts/spa.md)
+  - [Snapshots[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#snapshots>)](concepts/snapshots.md)
+  - [Status messages[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#status-messages>)](concepts/messages.md)
+  - [Strict mode[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#strict-mode>)](concepts/strict-mode.md)
+  - [Submit behavior[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#submit-behavior>)](concepts/submit-behavior.md)
+  - [Tainted fields[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#tainted-fields>)](concepts/tainted.md)
+  - [Progressive enhancement[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#progressive-enhancement>)](concepts/enhance.md)
+- [Forms and fields in components[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#forms-and-fields-in-components>)](components.md)
+- [Designing a CRUD interface[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#designing-a-crud-interface>)](crud.md)
+- [Default values[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#default-values>)](default-values.md)
+- [SuperDebug[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#superdebug>)](super-debug.md)
+- [Contributing[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#contributing>)](contributing.md)
+- [FAQ[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#faq>)](faq.md)
+- [Flash messages[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#flash-messages>)](flash-messages.md)
+- [Formsnap](formsnap.md)
+- [Rate limiting[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#rate-limiting>)](rate-limiting.md)

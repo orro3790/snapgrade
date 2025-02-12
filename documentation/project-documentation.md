@@ -55,106 +55,6 @@ Component for reviewing and correcting OCR output from LLMWHisperer:
 - Provides UI for identifying title, subtitle, and headings.
 - Prepares the document for LLM correction (if used) or direct import.
 
-## Schema Definitions
-
-### Document Schema (Existing)
-
-```typescript
-// schemas/document.ts
-export const documentSchema = z.object({
-	studentId: z.string(),
-	studentName: z.string(),
-	className: z.string().optional(),
-	documentName: z.string(),
-	documentBody: z.string(),
-	userId: z.string(),
-	status: z.enum(['staged', 'editing', 'completed']),
-	sourceType: z.enum(['telegram', 'manual']),
-	id: z.string(),
-	createdAt: z.date().optional(),
-	updatedAt: z.date().optional(),
-	sourceMetadata: z
-		.object({
-			telegramMessageId: z.string().optional(),
-			telegramChatId: z.string().optional(),
-			telegramFileId: z.string().optional()
-		})
-		.optional()
-});
-
-type Document = z.infer<typeof documentSchema>;
-```
-
-### Node Schema
-
-```typescript
-// schemas/node.ts
-export const nodeTypeEnum = z.enum([
-	'normal',
-	'correction',
-	'addition',
-	'deletion',
-	'empty',
-	'spacing'
-]);
-
-export const nodeMetadataSchema = z.object({
-	position: z.number(),
-	lineNumber: z.number(),
-	isPunctuation: z.boolean(),
-	isWhitespace: z.boolean(),
-	startIndex: z.number(),
-	endIndex: z.number()
-});
-
-export const correctionDataSchema = z.object({
-	originalText: z.string(),
-	correctedText: z.string(),
-	pattern: z.string(),
-	explanation: z.string().optional(),
-	teacherNotes: z.string().optional()
-});
-
-export const nodeSchema = z.object({
-	id: z.string(),
-	text: z.string(),
-	type: nodeTypeEnum,
-	correctionData: correctionDataSchema.optional(),
-	metadata: nodeMetadataSchema,
-	hasNextCorrection: z.boolean().optional()
-});
-
-type Node = z.infer<typeof nodeSchema>;
-type NodeType = z.infer<typeof nodeTypeEnum>;
-```
-
-Note: The `isWhitespace` property within `metadata` will be `true` only for nodes of type `spacer`. For `normal` nodes, it will always be `false`, as whitespace is not included in the text content of regular nodes.
-
-#### Example Node
-
-```typescript
-const correctionNode = {
-	id: 'node_uuid_here',
-	text: 'misstake', // Original text is preserved in the node
-	type: 'correction', // Indicates this is a correction node
-	correctionData: {
-		originalText: 'misstake',
-		correctedText: 'mistake',
-		pattern: 'form.modify', // Based on your pattern system in documentation
-		explanation: "Common spelling error: 'mistake' has one 's'",
-		teacherNotes: 'Review basic spelling patterns' // Optional
-	},
-	metadata: {
-		position: 42, // Example position in document
-		lineNumber: 3, // Example line number
-		isPunctuation: false,
-		isWhitespace: false,
-		startIndex: 156, // Character index in original text
-		endIndex: 164 // End index in original text
-	}
-};
-```
-
 ### Pattern Schema
 
 ```typescript
@@ -405,7 +305,7 @@ The application incorporates a "staging area" or "loading bay" to handle the ini
 
 The text editor handles whitespace in a specific way, optimized for its node-based structure and correction-focused workflow:
 
-- **Parsing:** During the initial text parsing (in `editorStore.ts`, `parseContent` function), whitespace characters (spaces, tabs, newlines) are _ignored_. The input text is split into tokens based on words and punctuation only. Whitespace is _not_ used to create nodes automatically.
+- **Parsing:** During the initial text parsing (in `editorStore.svelte.ts`, `parseContent` function), whitespace characters (spaces, tabs, newlines) are _ignored_. The input text is split into tokens based on words and punctuation only. Whitespace is _not_ used to create nodes automatically.
 - **Spacer Nodes:** Tabs and newlines are represented by explicit "spacer" nodes. These nodes are _not_ created during the initial parsing of the input text. Instead, they are created _explicitly_ by user actions:
   - Users can insert a "tab" spacer node using a designated hotkey (e.g., the Tab key) or a UI button.
   - Users can insert a "newline" spacer node using a designated hotkey (e.g., Ctrl+Enter, or a dedicated "new line" button) or a UI button.
@@ -493,8 +393,6 @@ Since the editor is node-based and designed for correcting existing text, users 
 
 ### Document Management
 
-1.  **Auto-saving**
-
     ```typescript
     // Example auto-save implementation
     function setupAutoSave(interval: number = 30000) {
@@ -567,45 +465,6 @@ Since the editor is node-based and designed for correcting existing text, users 
 3.  **Seed Script Updates**:
     - Update the seed script to reflect schema changes (title, subtitle, headings).
 
-### Phase 3: Enhanced Features (Previously Phase 2)
-
-1.  Advanced corrections
-
-    - Pattern system
-    - Explanation templates
-    - Multi-node operations
-
-2.  User experience
-    - Keyboard shortcuts
-    - Context menus
-    - Visual feedback
-    - Help system
-
-### Phase 4: Integration (Previously Phase 3)
-
-1.  Document management
-
-    - Auto-save
-    - Version control
-    - Export options
-
-2.  Analytics
-    - Error patterns
-    - Progress tracking
-    - Usage statistics
-
-### Phase 5: Optimization (Previously Phase 4)
-
-1.  Performance
-
-    - Large document handling
-    - Lazy loading
-    - Batch operations
-
-2.  Advanced features
-    - AI integration
-    - Template system
-
 ## Testing Architecture
 
 ### Testing Stack
@@ -625,19 +484,6 @@ The project uses a comprehensive testing setup with the following tools:
     - Enables component rendering in tests
     - Provides DOM querying and interaction methods
     - Encourages testing from a user's perspective
-    - Example usage:
-
-      ```typescript
-      import { render, fireEvent } from '@testing-library/svelte';
-      import TextNode from '$lib/components/TextNode.svelte';
-
-      test('node enters edit mode on click', async () => {
-      	const { getByText } = render(TextNode, { props: { text: 'Hello' } });
-      	const node = getByText('Hello');
-      	await fireEvent.click(node);
-      	// Assert edit mode is active
-      });
-      ```
 
 3.  **@testing-library/jest-dom**
 
