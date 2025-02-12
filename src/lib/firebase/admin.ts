@@ -2,25 +2,30 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY } from '$env/static/private';
 
-function initializeAdminApp(): App {
+const base64EncodedServiceAccount = process.env.BASE64_ENCODED_SERVICE_ACCOUNT;
+
+export function initializeAdminApp(): App {
     // Check for existing apps first
     if (getApps().length > 0) {
         return getApps()[0];
     }
 
-    if (!FIREBASE_ADMIN_PROJECT_ID || !FIREBASE_ADMIN_CLIENT_EMAIL || !FIREBASE_ADMIN_PRIVATE_KEY) {
-        throw new Error('Missing Firebase Admin SDK environment variables');
+    if (!base64EncodedServiceAccount) {
+        throw new Error('Missing Firebase base64 encoded service account');
     }
 
     try {
+        // Decode and parse the base64 service account
+        const decodedServiceAccount = Buffer.from(
+            base64EncodedServiceAccount, 
+            'base64'
+        ).toString('utf-8');
+        
+        const credentials = JSON.parse(decodedServiceAccount);
+
         return initializeApp({
-            credential: cert({
-                projectId: FIREBASE_ADMIN_PROJECT_ID,
-                clientEmail: FIREBASE_ADMIN_CLIENT_EMAIL,
-                privateKey: FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
-            })
+            credential: cert(credentials)
         });
     } catch (error) {
         console.error('Firebase admin initialization error:', error);

@@ -21,7 +21,6 @@
 				"supermaven.supermaven"
 			],
 			"settings": {
-				"workbench.iconTheme": "material-icon-theme",
 				"editor.formatOnSave": true,
 				"editor.fontLigatures": true,
 				"editor.fontFamily": "Fira Code",
@@ -31,24 +30,11 @@
 				"typescript.updateImportsOnFileMove.enabled": "always",
 				"editor.stickyScroll.enabled": false,
 				"svelte.enable-ts-plugin": true,
-				"[svelte]": {
-					"editor.defaultFormatter": "esbenp.prettier-vscode"
-				},
-				"[javascript]": {
-					"editor.defaultFormatter": "esbenp.prettier-vscode"
-				},
-				"[json]": {
-					"editor.defaultFormatter": "esbenp.prettier-vscode"
-				},
-				"[jsonc]": {
-					"editor.defaultFormatter": "esbenp.prettier-vscode"
-				},
 				"editor.hover.enabled": true,
 				"editor.hover.sticky": true,
 				"editor.parameterHints.enabled": false,
 				"terminal.integrated.defaultProfile.windows": "PowerShell",
 				"diffEditor.ignoreTrimWhitespace": false,
-				"workbench.colorTheme": "Default Dark Modern",
 				"typescript.surveys.enabled": false,
 				"typescript.tsserver.watchOptions": {
 					"watchDirectory": "useFsEvents",
@@ -62,7 +48,7 @@
 
 	"postCreateCommand": "npm install && sudo apt-get update && sudo apt-get install -y fonts-firacode",
 
-	"remoteUser": "node",
+	"remoteUser": "root",
 
 	"remoteEnv": {
 		"VITE_SNAPGRADE_FIREBASE_API_KEY": "${localEnv:VITE_SNAPGRADE_FIREBASE_API_KEY}",
@@ -74,10 +60,8 @@
 		"VITE_SNAPGRADE_FIREBASE_MEASUREMENT_ID": "${localEnv:VITE_SNAPGRADE_FIREBASE_MEASUREMENT_ID}",
 		"VITE_API_URL": "${localEnv:VITE_API_URL}",
 		"FIREBASE_ADMIN_PROJECT_ID": "${localEnv:FIREBASE_ADMIN_PROJECT_ID}",
-		"FIREBASE_ADMIN_PRIVATE_KEY_ID": "${localEnv:FIREBASE_ADMIN_PRIVATE_KEY_ID}",
 		"FIREBASE_ADMIN_PRIVATE_KEY": "${localEnv:FIREBASE_ADMIN_PRIVATE_KEY}",
 		"FIREBASE_ADMIN_CLIENT_EMAIL": "${localEnv:FIREBASE_ADMIN_CLIENT_EMAIL}",
-		"FIREBASE_ADMIN_CLIENT_ID": "${localEnv:FIREBASE_ADMIN_CLIENT_ID}",
 		"NODE_ENV": "development"
 	},
 
@@ -86,7 +70,8 @@
 	],
 
 	"containerEnv": {
-		"SHELL": "/bin/bash"
+		"SHELL": "/bin/bash",
+		"NODE_OPTIONS": "--openssl-legacy-provider"
 	},
 
 	"shutdownAction": "stopContainer",
