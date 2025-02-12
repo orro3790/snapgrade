@@ -319,19 +319,48 @@ This approach simplifies the parsing logic and gives users precise control over 
 
 The text editor supports several ways to manipulate nodes:
 
+#### Selection System
+
+The editor supports both single and multi-node selection:
+
+1. **Single Node Selection**
+
+   - Click on a node to select it
+   - Selected node becomes active for editing
+   - Single selection clears any existing group selection
+
+2. **Group Selection**
+
+   - Click and drag to select multiple nodes
+   - Selected nodes are visually highlighted with underline
+   - Group selection persists until explicitly cleared
+   - Click outside selection to clear it
+
+3. **Group Operations**
+   When nodes are group-selected:
+   - Alt + Click: Toggle deletion for all selected nodes
+   - Click any selected node: Open edit modal for group
+   - Ctrl + Right Click: Remove all selected nodes
+
 #### Mouse Controls
 
-1.  **Basic Selection**
+1. **Selection**
 
-    - Single Click: start editing a node
+   - Click: Select single node
+   - Click and Drag: Select multiple nodes
+   - Click in selection: Operate on group
+   - Click outside selection: Clear group
 
-2.  **Correction Actions**
-    - Ctrl + Left Click: Insert empty node after selection
-    - Alt + Left Click: Toggle deletion state
-    - Ctrl + Right Click: Remove node
-3.  **Correction Flow**
-    When editing a node:
-    - Type new text and press Enter or click outside the modal to create correction
+2. **Correction Actions**
+
+   - Ctrl + Left Click: Insert empty node after selection
+   - Alt + Left Click: Toggle deletion state (single or group)
+   - Ctrl + Right Click: Remove node(s) (single or group)
+
+3. **Correction Flow**
+   When editing a node or group:
+   - Type new text and press Enter or click outside the modal to create correction
+   - For group corrections, the text is combined with spaces
 
 #### Keyboard Navigation
 

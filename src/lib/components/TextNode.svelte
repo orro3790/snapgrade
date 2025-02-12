@@ -13,46 +13,52 @@
 	let isEditing = $state(false);
 	let modalPosition = $state({ x: 0, y: 0 });
 
+	/**
+	 * Handles the context menu event (right click) on a text node.
+	 * - Ctrl + Right Click: Removes selected node(s)
+	 * @param {MouseEvent} event - The context menu event
+	 * @returns {boolean} False to prevent default context menu
+	 */
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
 
-		// Handle Ctrl + Right Click
 		if (event.ctrlKey) {
-			if (editorStore.dragSelect.isSelected) {
-				// Remove all selected nodes
-				const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
-				editorStore.removeNodes(selectedNodeIds);
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
 			} else {
-				// Remove single node
 				editorStore.removeNode(node.id);
 			}
 			return false;
 		}
 	}
 
+	/**
+	 * Handles click events on the text node.
+	 * - Left Click: Activates node or opens edit modal
+	 * - Alt + Left Click: Toggles deletion state
+	 * - Ctrl + Left Click: Inserts empty node
+	 * @param {MouseEvent} event - The click event
+	 */
 	function handleClick(event: MouseEvent) {
-		// Guard clause for non-left clicks
 		if (event.button !== 0) return;
 
-		// If we have selected nodes, handle multi-node operations
-		if (editorStore.dragSelect.isSelected) {
+		if (editorStore.isNodeInGroupSelection(node.id)) {
 			if (event.altKey) {
-				// Handle Alt + Left Click: Toggle deletion for selected nodes
-				const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
-				editorStore.toggleMultiNodeDeletion(selectedNodeIds);
-				return;
+				editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
 			} else {
-				// Regular click on a selected node: Open edit modal
 				modalPosition = {
 					x: event.clientX,
 					y: event.clientY
 				};
 				isEditing = true;
-				return;
 			}
+			return;
 		}
 
-		// Handle single node operations
+		editorStore.clearGroupSelection();
+		editorStore.clearSelection();
+		editorStore.activeNode = node.id;
+
 		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
 			return;
@@ -64,8 +70,6 @@
 			return;
 		}
 
-		// Handle active node clicks: Enable editing
-		editorStore.activeNode = node.id;
 		if (isActive) {
 			modalPosition = {
 				x: event.clientX,
@@ -75,10 +79,24 @@
 		}
 	}
 
+	/**
+	 * Handles keyboard events on the text node.
+	 * - ` (backtick): Updates node(s) text
+	 * - Enter: Opens edit modal
+	 * - Ctrl + Enter: Inserts empty node
+	 * - Ctrl + Delete: Removes node(s)
+	 * @param {KeyboardEvent} event - The keyboard event
+	 */
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === '`' && !isEditing) {
 			event.preventDefault();
-			editorStore.updateNode(node.id, node.text);
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.groupSelect.selectedNodeIds.forEach((id) => {
+					editorStore.updateNode(id, editorStore.nodes.find((n) => n.id === id)?.text || '');
+				});
+			} else {
+				editorStore.updateNode(node.id, node.text);
+			}
 			return;
 		}
 
@@ -91,17 +109,23 @@
 		}
 
 		if (event.key === 'Delete' && event.ctrlKey) {
-			editorStore.removeNode(node.id);
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
+			} else {
+				editorStore.removeNode(node.id);
+			}
 		}
 	}
 
+	/**
+	 * Closes the edit modal and clears the active node state
+	 */
 	function handleEditClose() {
 		isEditing = false;
 		editorStore.activeNode = null;
 	}
 
-	// Track if this node is currently selected
-	let isSelected = $derived(editorStore.selectedNodes.some((n: TextNodeType) => n.id === node.id));
+	let isGroupSelected = $derived(editorStore.isNodeInGroupSelection(node.id));
 
 	let classList = $derived(
 		[
@@ -112,33 +136,43 @@
 			isEditing ? 'highlighted' : '',
 			node.metadata.isPunctuation ? 'punctuation' : '',
 			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : '',
-			isSelected ? 'selected' : ''
+			isGroupSelected ? 'group-selected' : ''
 		]
 			.filter(Boolean)
 			.join(' ')
 	);
 
+	/**
+	 * Initiates drag selection on mouse down.
+	 * @param {MouseEvent} event - The mouse down event
+	 */
 	function handleMouseDown(event: MouseEvent) {
-		if (event.button !== 0) return; // Only handle left mouse button
+		if (event.button !== 0) return;
 		editorStore.startDragSelection(node.id);
 	}
 
+	/**
+	 * Updates drag selection as mouse moves over nodes.
+	 * @param {MouseEvent} event - The mouse move event
+	 */
 	function handleMouseMove(event: MouseEvent) {
-		// Update selection if we're dragging
 		if (editorStore.dragSelect.isDragging) {
 			editorStore.updateDragSelection(node.id);
 		}
 	}
 
+	/**
+	 * Finalizes drag selection on mouse up.
+	 * - Alt + Mouse Up: Toggles deletion for selected nodes
+	 * @param {MouseEvent} event - The mouse up event
+	 */
 	function handleMouseUp(event: MouseEvent) {
 		if (!editorStore.dragSelect.isDragging) return;
 
 		editorStore.endDragSelection();
 
-		// Handle Alt + Click for deletion
 		if (event.altKey) {
-			const selectedNodeIds = editorStore.selectedNodes.map((n: TextNodeType) => n.id);
-			editorStore.toggleMultiNodeDeletion(selectedNodeIds);
+			editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
 		}
 	}
 </script>
@@ -177,7 +211,7 @@
 
 <style>
 	/* Selection styling */
-	.selected {
+	.group-selected {
 		text-decoration: underline;
 		text-decoration-thickness: 2px;
 	}

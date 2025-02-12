@@ -8,7 +8,17 @@ interface DragSelectState {
     endNodeId: string | null;
 }
 
+interface GroupSelectState {
+    selectedNodeIds: Set<string>;
+    isGroupMode: boolean;
+}
+
 // Core state
+const groupSelectState = $state<GroupSelectState>({
+    selectedNodeIds: new Set<string>(),
+    isGroupMode: false
+});
+
 const dragSelectState = $state<DragSelectState>({
     isDragging: false,
     isSelected: false,
@@ -108,7 +118,6 @@ function parseContent(content: string) {
             type: 'normal' as const,
             metadata: {
                 position: position++,
-                lineNumber: 1,
                 isPunctuation,
                 isWhitespace: false,
                 startIndex: 0,
@@ -228,7 +237,6 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
         type,
         metadata: {
             position: editorState.nodes[nodeIndex].metadata.position + 1,
-            lineNumber: editorState.nodes[nodeIndex].metadata.lineNumber,
             isPunctuation: /^[.,!?;:]$/.test(text),
             isWhitespace: /^\s+$/.test(text),
             startIndex: 0,
@@ -297,14 +305,15 @@ function getContent(): string {
  * @returns {Node[]} Array of selected nodes.
  */
 function getSelectedNodes(): Node[] {
-    if (!dragSelectState.startNodeId || (!dragSelectState.isDragging && !dragSelectState.isSelected)) {
+    // Only return nodes if we're actually in a multi-select state
+    if (!dragSelectState.startNodeId || !dragSelectState.endNodeId || 
+        (!dragSelectState.isDragging && !dragSelectState.isSelected) ||
+        dragSelectState.startNodeId === dragSelectState.endNodeId) {
         return [];
     }
     
     const startIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.startNodeId);
-    const endIndex = dragSelectState.endNodeId 
-        ? editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.endNodeId)
-        : startIndex;
+    const endIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.endNodeId);
         
     if (startIndex === -1) {
         return [];
@@ -336,11 +345,12 @@ function updateDragSelection(nodeId: string) {
 }
 
 /**
- * Ends the current drag selection operation.
+ * Ends the current drag selection operation and updates group selection.
  */
 function endDragSelection() {
     dragSelectState.isDragging = false;
     dragSelectState.isSelected = true;
+    updateGroupSelection();
 }
 
 /**
@@ -351,14 +361,46 @@ function clearSelection() {
     dragSelectState.isSelected = false;
     dragSelectState.startNodeId = null;
     dragSelectState.endNodeId = null;
+    clearGroupSelection();
+}
+
+/**
+ * Clears the group selection state.
+ */
+function clearGroupSelection() {
+    groupSelectState.selectedNodeIds.clear();
+    groupSelectState.isGroupMode = false;
+}
+
+/**
+ * Checks if a node is part of the current group selection.
+ * @param {string} nodeId - The ID of the node to check.
+ * @returns {boolean} True if the node is part of the group selection.
+ */
+function isNodeInGroupSelection(nodeId: string): boolean {
+    return groupSelectState.isGroupMode && groupSelectState.selectedNodeIds.has(nodeId);
+}
+
+/**
+ * Updates the group selection with the currently selected nodes.
+ * Only creates a group selection if multiple nodes are selected.
+ */
+function updateGroupSelection() {
+    const selectedNodes = getSelectedNodes();
+    if (selectedNodes.length > 1) {
+        groupSelectState.selectedNodeIds = new Set(selectedNodes.map(node => node.id));
+        groupSelectState.isGroupMode = true;
+    }
 }
 
 /**
  * Creates a correction from multiple selected nodes.
- * @param {string[]} nodeIds - Array of node IDs to combine into a correction.
- * @param {string} correctedText - The correction to apply to the combined text.
- * @param {string} pattern - The correction pattern.
- * @param {string} [explanation] - Optional explanation for the correction.
+ * Combines the text of selected nodes and applies a correction to the combined text.
+ * 
+ * @param {string[]} nodeIds - Array of node IDs to combine into a correction
+ * @param {string} correctedText - The correction to apply to the combined text
+ * @param {string} pattern - The correction pattern to apply
+ * @param {string} [explanation] - Optional explanation for the correction
  */
 function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pattern: string, explanation?: string) {
     const selectedNodes = nodeIds
@@ -381,14 +423,12 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
         type: 'correction' as const,
         metadata: {
             position: firstNode.metadata.position,
-            lineNumber: firstNode.metadata.lineNumber,
             isPunctuation: false,
             isWhitespace: false,
             startIndex: firstNode.metadata.startIndex,
             endIndex: lastNode.metadata.endIndex
         },
         correctionData: {
-            originalText: combinedText,
             correctedText,
             pattern,
             explanation
@@ -409,7 +449,9 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
 
 /**
  * Toggles deletion state for multiple nodes.
- * @param {string[]} nodeIds - Array of node IDs to toggle deletion for.
+ * Skips empty and spacer nodes.
+ * 
+ * @param {string[]} nodeIds - Array of node IDs to toggle deletion for
  */
 function toggleMultiNodeDeletion(nodeIds: string[]) {
     // Save current state for undo
@@ -431,7 +473,9 @@ function toggleMultiNodeDeletion(nodeIds: string[]) {
 
 /**
  * Removes multiple nodes from the editor.
- * @param {string[]} nodeIds - Array of node IDs to remove.
+ * Adds the current state to the undo stack before removing nodes.
+ * 
+ * @param {string[]} nodeIds - Array of node IDs to remove
  */
 function removeNodes(nodeIds: string[]) {
     // Save current state for undo
@@ -485,6 +529,16 @@ export const editorStore = {
         return dragSelectState;
     },
     /**
+     * Get the current group selection state.
+     */
+    get groupSelect() {
+        return {
+            isGroupMode: groupSelectState.isGroupMode,
+            selectedNodeIds: Array.from(groupSelectState.selectedNodeIds),
+            isNodeSelected: (nodeId: string) => isNodeInGroupSelection(nodeId)
+        };
+    },
+    /**
      * Parses the input text content and creates nodes.
      */
     parseContent,
@@ -533,6 +587,8 @@ export const editorStore = {
     updateDragSelection,
     endDragSelection,
     clearSelection,
+    clearGroupSelection,
+    isNodeInGroupSelection,
     // Multi-node operations
     createMultiNodeCorrection,
     toggleMultiNodeDeletion,

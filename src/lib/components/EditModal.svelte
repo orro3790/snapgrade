@@ -16,15 +16,19 @@
 	let modalElement: HTMLDivElement;
 	let inputElement: HTMLTextAreaElement;
 	// Get selected nodes for multi-node correction
-	let selectedNodesList = $derived(editorStore.selectedNodes);
-	let isMultiNodeCorrection = $derived(selectedNodesList.length > 1);
+	let isMultiNodeCorrection = $derived(editorStore.groupSelect.isGroupMode);
+	let selectedNodesList = $derived(
+		isMultiNodeCorrection
+			? editorStore.nodes.filter((n) => editorStore.isNodeInGroupSelection(n.id))
+			: [node]
+	);
 
 	// For multi-node correction, combine texts with spaces
 	let originalText = $derived(
 		isMultiNodeCorrection
-			? selectedNodesList.map((n: TextNodeType) => n.text).join(' ')
+			? selectedNodesList.map((n) => n.text).join(' ')
 			: node.type === 'correction'
-				? node.correctionData?.originalText || node.text
+				? node.text
 				: node.text
 	);
 
@@ -108,8 +112,12 @@
 
 		if (isMultiNodeCorrection) {
 			// Handle multi-node correction
-			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
-			editorStore.createMultiNodeCorrection(nodeIds, trimmedValue, '', '');
+			editorStore.createMultiNodeCorrection(
+				editorStore.groupSelect.selectedNodeIds,
+				trimmedValue,
+				'',
+				''
+			);
 		} else if (node.type === 'empty') {
 			// Handle empty nodes differently - convert to addition
 			editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
@@ -119,9 +127,9 @@
 				node.id,
 				node.text,
 				{
-					originalText: node.text,
 					correctedText: trimmedValue,
-					pattern: ''
+					pattern: '',
+					explanation: ''
 				},
 				undefined,
 				'correction'
@@ -135,8 +143,7 @@
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
-			editorStore.removeNodes(nodeIds);
+			editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
 		} else {
 			editorStore.removeNode(node.id);
 		}
@@ -149,8 +156,7 @@
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			const nodeIds = selectedNodesList.map((n: TextNodeType) => n.id);
-			editorStore.toggleMultiNodeDeletion(nodeIds);
+			editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
 		} else if (node.type !== 'empty') {
 			editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
 		} else {

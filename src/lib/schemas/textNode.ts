@@ -19,7 +19,6 @@ export const spacerSubtypeEnum = z.enum([
 
 export const nodeMetadataSchema = z.object({
     position: z.number(),
-    lineNumber: z.number(),
     isPunctuation: z.boolean(),
     isWhitespace: z.boolean(),
     startIndex: z.number(),
@@ -27,7 +26,6 @@ export const nodeMetadataSchema = z.object({
 });
 
 export const correctionDataSchema = z.object({
-    originalText: z.string(),
     correctedText: z.string(),
     pattern: z.string(),
     explanation: z.string().optional(),
