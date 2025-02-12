@@ -422,35 +422,6 @@ Since the editor is node-based and designed for correcting existing text, users 
 
 ### Document Management
 
-    ```typescript
-    // Example auto-save implementation
-    function setupAutoSave(interval: number = 30000) {
-    	let saveTimeout: number;
-
-    	return function triggerAutoSave() {
-    		clearTimeout(saveTimeout);
-    		saveTimeout = setTimeout(async () => {
-    			const content = editorStore.getContent();
-    			if (content !== editorStore.lastSavedContent) {
-    				try {
-    					await saveDocument({
-    						...currentDocument,
-    						documentBody: content,
-    						updatedAt: new Date()
-    					});
-    					editorStore.update((state) => ({
-    						...state,
-    						lastSavedContent: content
-    					}));
-    				} catch (error) {
-    					console.error('Auto-save failed:', error);
-    				}
-    			}
-    		}, interval);
-    	};
-    }
-    ```
-
 2.  **Version History**
 
     - All changes tracked in undo/redo stack

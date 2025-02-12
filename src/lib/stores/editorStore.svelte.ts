@@ -302,25 +302,31 @@ function getContent(): string {
 
 /**
  * Gets the currently selected nodes based on drag selection state.
+ * Handles selection in both forward and backward directions.
  * @returns {Node[]} Array of selected nodes.
  */
 function getSelectedNodes(): Node[] {
     // Only return nodes if we're actually in a multi-select state
     if (!dragSelectState.startNodeId || !dragSelectState.endNodeId || 
-        (!dragSelectState.isDragging && !dragSelectState.isSelected) ||
-        dragSelectState.startNodeId === dragSelectState.endNodeId) {
+        (!dragSelectState.isDragging && !dragSelectState.isSelected)) {
         return [];
     }
     
     const startIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.startNodeId);
     const endIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.endNodeId);
         
-    if (startIndex === -1) {
+    if (startIndex === -1 || endIndex === -1) {
         return [];
     }
-    
+
+    // Handle selection in both directions
     const start = Math.min(startIndex, endIndex);
     const end = Math.max(startIndex, endIndex);
+    
+    // Return empty array if selection is invalid
+    if (start === end && dragSelectState.startNodeId === dragSelectState.endNodeId) {
+        return [];
+    }
     
     return editorState.nodes.slice(start, end + 1);
 }
@@ -337,11 +343,18 @@ function startDragSelection(nodeId: string) {
 }
 
 /**
- * Updates the current drag selection.
+ * Updates the current drag selection and group selection in real-time.
  * @param {string} nodeId - The ID of the current node in the selection.
  */
 function updateDragSelection(nodeId: string) {
     dragSelectState.endNodeId = nodeId;
+    
+    // Update group selection in real-time
+    const selectedNodes = getSelectedNodes();
+    if (selectedNodes.length > 1) {
+        groupSelectState.selectedNodeIds = new Set(selectedNodes.map(node => node.id));
+        groupSelectState.isGroupMode = true;
+    }
 }
 
 /**
@@ -394,8 +407,77 @@ function updateGroupSelection() {
 }
 
 /**
+ * Restores a group of nodes back to their original state.
+ * @param {Node} groupNode - The node containing grouped nodes in its metadata
+ * @param {number} position - The position to insert the restored nodes
+ * @returns {Node[]} Array of nodes with the group expanded
+ */
+function restoreGroupedNodes(groupNode: Node, position: number): Node[] {
+    if (!groupNode.metadata.groupedNodes || groupNode.metadata.groupedNodes.length === 0) {
+        return [groupNode];
+    }
+
+    return groupNode.metadata.groupedNodes.map((node: Node, index: number) => ({
+        ...node,
+        metadata: {
+            ...node.metadata,
+            position: position + index
+        }
+    }));
+}
+
+/**
+ * Creates a deletion node from multiple selected nodes.
+ * Combines the text of selected nodes into a single deletion node.
+ * Stores original nodes in metadata for restoration.
+ * 
+ * @param {string[]} nodeIds - Array of node IDs to combine into a deletion
+ */
+function createMultiNodeDeletion(nodeIds: string[]) {
+    const selectedNodes = nodeIds
+        .map(id => editorState.nodes.find((n: Node) => n.id === id))
+        .filter(Boolean) as Node[];
+    
+    if (selectedNodes.length === 0) return;
+
+    // Save current state for undo
+    editorState.undoStack = [...editorState.undoStack, editorState.nodes];
+    editorState.redoStack = [];
+
+    const firstNode = selectedNodes[0];
+    const lastNode = selectedNodes[selectedNodes.length - 1];
+    const combinedText = selectedNodes.map((n: Node) => n.text).join(' ');
+
+    const newNode: Node = {
+        id: crypto.randomUUID(),
+        text: combinedText,
+        type: 'deletion' as const,
+        metadata: {
+            position: firstNode.metadata.position,
+            isPunctuation: false,
+            isWhitespace: false,
+            startIndex: firstNode.metadata.startIndex,
+            endIndex: lastNode.metadata.endIndex,
+            groupedNodes: selectedNodes
+        }
+    };
+
+    // Remove all selected nodes and insert the new deletion node
+    const newNodes = editorState.nodes.filter((n: Node) => !nodeIds.includes(n.id));
+    const insertIndex = newNodes.findIndex((n: Node) => n.metadata.position > firstNode.metadata.position);
+    if (insertIndex === -1) {
+        newNodes.push(newNode);
+    } else {
+        newNodes.splice(insertIndex, 0, newNode);
+    }
+
+    editorState.nodes = newNodes;
+}
+
+/**
  * Creates a correction from multiple selected nodes.
  * Combines the text of selected nodes and applies a correction to the combined text.
+ * Stores original nodes in metadata for restoration.
  * 
  * @param {string[]} nodeIds - Array of node IDs to combine into a correction
  * @param {string} correctedText - The correction to apply to the combined text
@@ -426,7 +508,8 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
             isPunctuation: false,
             isWhitespace: false,
             startIndex: firstNode.metadata.startIndex,
-            endIndex: lastNode.metadata.endIndex
+            endIndex: lastNode.metadata.endIndex,
+            groupedNodes: selectedNodes
         },
         correctionData: {
             correctedText,
@@ -449,26 +532,47 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
 
 /**
  * Toggles deletion state for multiple nodes.
- * Skips empty and spacer nodes.
+ * Creates a single deletion node from multiple selected nodes or restores original nodes.
  * 
  * @param {string[]} nodeIds - Array of node IDs to toggle deletion for
  */
 function toggleMultiNodeDeletion(nodeIds: string[]) {
+    // Filter out empty and spacer nodes
+    const validNodeIds = nodeIds.filter(id => {
+        const node = editorState.nodes.find(n => n.id === id);
+        return node && node.type !== 'empty' && node.type !== 'spacer';
+    });
+
+    if (validNodeIds.length === 0) return;
+
     // Save current state for undo
     editorState.undoStack = [...editorState.undoStack, editorState.nodes];
     editorState.redoStack = [];
 
-    const newNodes = editorState.nodes.map((node: Node) => {
-        if (nodeIds.includes(node.id) && node.type !== 'empty' && node.type !== 'spacer') {
-            return {
-                ...node,
-                type: node.type === 'deletion' ? ('normal' as const) : ('deletion' as const)
-            };
-        }
-        return node;
-    });
+    // Check if any of the nodes are already deletion nodes
+    const deletionNode = editorState.nodes.find(n => 
+        validNodeIds.includes(n.id) && 
+        n.type === 'deletion' && 
+        n.metadata.groupedNodes
+    );
 
-    editorState.nodes = newNodes;
+    if (deletionNode) {
+        // Restore the original nodes
+        const restoredNodes = restoreGroupedNodes(deletionNode, deletionNode.metadata.position);
+        const newNodes = editorState.nodes.filter(n => !validNodeIds.includes(n.id));
+        const insertIndex = newNodes.findIndex(n => n.metadata.position > deletionNode.metadata.position);
+        
+        if (insertIndex === -1) {
+            newNodes.push(...restoredNodes);
+        } else {
+            newNodes.splice(insertIndex, 0, ...restoredNodes);
+        }
+        
+        editorState.nodes = newNodes;
+    } else {
+        // Create a single deletion node from the selected nodes
+        createMultiNodeDeletion(validNodeIds);
+    }
 }
 
 /**
