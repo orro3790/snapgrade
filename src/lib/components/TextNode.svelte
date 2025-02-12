@@ -2,7 +2,7 @@
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import type { Node as TextNodeType } from '$lib/schemas/textNode';
-	import { hoveredNodeTypeStore } from '$lib/stores/statsStore.svelte';
+	import { hoveredNodeTypeStore, statsStore } from '$lib/stores/statsStore.svelte';
 	import EditModal from './EditModal.svelte';
 
 	const { node, isActive = false } = $props<{

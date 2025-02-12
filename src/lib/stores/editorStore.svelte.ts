@@ -1,37 +1,46 @@
 import type { Node, NodeType, CorrectionData } from '$lib/schemas/textNode';
 import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
+import { z } from 'zod';
 
-interface DragSelectState {
-    isDragging: boolean;
-    isSelected: boolean;
-    startNodeId: string | null;
-    endNodeId: string | null;
-}
 
-interface GroupSelectState {
-    selectedNodeIds: Set<string>;
-    isGroupMode: boolean;
-}
 
 // Core state
-const groupSelectState = $state<GroupSelectState>({
-    selectedNodeIds: new Set<string>(),
-    isGroupMode: false
-});
-
-const dragSelectState = $state<DragSelectState>({
-    isDragging: false,
-    isSelected: false,
-    startNodeId: null,
-    endNodeId: null
-});
-
 const editorState = $state({
     nodes: [] as Node[],
     activeNode: null as string | null,
     undoStack: [] as Node[][],
     redoStack: [] as Node[][],
     documentName: ""
+});
+
+// Group selection state
+
+export const dragSelectStateSchema = z.object({
+    isDragging: z.boolean(),
+    isSelected: z.boolean(), 
+    startNodeId: z.string().nullable(),
+    endNodeId: z.string().nullable()
+});
+
+export const groupSelectStateSchema = z.object({
+    selectedNodeIds: z.set(z.string()),
+    isGroupMode: z.boolean()
+});
+
+const groupSelectState = $state<GroupSelectState>({
+    selectedNodeIds: new Set<string>(),
+    isGroupMode: false
+});
+
+type GroupSelectState = z.infer<typeof groupSelectStateSchema>;
+
+type DragSelectState = z.infer<typeof dragSelectStateSchema>;
+
+const dragSelectState = $state<DragSelectState>({
+    isDragging: false,
+    isSelected: false,
+    startNodeId: null,
+    endNodeId: null
 });
 
 /**
@@ -319,14 +328,14 @@ function getSelectedNodes(): Node[] {
         return [];
     }
 
+    // Return empty array if selection is back to start
+    if (startIndex === endIndex) {
+        return [];
+    }
+    
     // Handle selection in both directions
     const start = Math.min(startIndex, endIndex);
     const end = Math.max(startIndex, endIndex);
-    
-    // Return empty array if selection is invalid
-    if (start === end && dragSelectState.startNodeId === dragSelectState.endNodeId) {
-        return [];
-    }
     
     return editorState.nodes.slice(start, end + 1);
 }
@@ -347,13 +356,24 @@ function startDragSelection(nodeId: string) {
  * @param {string} nodeId - The ID of the current node in the selection.
  */
 function updateDragSelection(nodeId: string) {
+    // Clear selection if dragging back to start
+    if (nodeId === dragSelectState.startNodeId) {
+        dragSelectState.endNodeId = null;
+        groupSelectState.selectedNodeIds.clear();
+        groupSelectState.isGroupMode = false;
+        return;
+    }
+
     dragSelectState.endNodeId = nodeId;
     
     // Update group selection in real-time
     const selectedNodes = getSelectedNodes();
-    if (selectedNodes.length > 1) {
+    if (selectedNodes.length > 0) {
         groupSelectState.selectedNodeIds = new Set(selectedNodes.map(node => node.id));
         groupSelectState.isGroupMode = true;
+    } else {
+        groupSelectState.selectedNodeIds.clear();
+        groupSelectState.isGroupMode = false;
     }
 }
 

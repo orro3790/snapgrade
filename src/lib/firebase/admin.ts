@@ -1,9 +1,11 @@
-// file: src/lib/firebase/admin.ts
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { BASE64_ENCODED_SERVICE_ACCOUNT } from '$env/static/private';
 
-const base64EncodedServiceAccount = process.env.BASE64_ENCODED_SERVICE_ACCOUNT;
+
+// process.env for codespaces, env. for local development
+const base64EncodedServiceAccount = process.env.BASE64_ENCODED_SERVICE_ACCOUNT || BASE64_ENCODED_SERVICE_ACCOUNT;
 
 export function initializeAdminApp(): App {
     // Check for existing apps first
@@ -12,7 +14,7 @@ export function initializeAdminApp(): App {
     }
 
     if (!base64EncodedServiceAccount) {
-        throw new Error('Missing Firebase base64 encoded service account');
+        throw new Error('Missing Firebase base64 encoded service account in both process.env and $env/dynamic/private');
     }
 
     try {
