@@ -3,7 +3,6 @@ import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 import { z } from 'zod';
 
 
-
 // Core state
 const editorState = $state({
     nodes: [] as Node[],
@@ -13,35 +12,62 @@ const editorState = $state({
     documentName: ""
 });
 
-// Group selection state
+// Cache state type
+type NodeCache = {
+    indices: Map<string, number>;
+    version: number;
+};
 
+// Cache version tracking
+let cacheVersion = $state(0);
+
+// Cache for node positions using derived state
+const nodeCache = $derived<NodeCache>({
+    indices: new Map(editorState.nodes.map((node, index) => [node.id, index])),
+    version: cacheVersion++
+});
+
+function getValidPosition(nodeId: string): number {
+    return nodeCache.indices.get(nodeId) ?? -1;
+}
+
+// Helper to update nodes
+function updateNodes(newNodes: Node[]) {
+    editorState.nodes = newNodes;
+}
+
+// Selection state schemas
 export const dragSelectStateSchema = z.object({
     isDragging: z.boolean(),
     isSelected: z.boolean(), 
     startNodeId: z.string().nullable(),
-    endNodeId: z.string().nullable()
+    endNodeId: z.string().nullable(),
+    generation: z.number()
 });
 
 export const groupSelectStateSchema = z.object({
     selectedNodeIds: z.set(z.string()),
-    isGroupMode: z.boolean()
-});
-
-const groupSelectState = $state<GroupSelectState>({
-    selectedNodeIds: new Set<string>(),
-    isGroupMode: false
+    isGroupMode: z.boolean(),
+    generation: z.number()
 });
 
 type GroupSelectState = z.infer<typeof groupSelectStateSchema>;
-
 type DragSelectState = z.infer<typeof dragSelectStateSchema>;
+
+const groupSelectState = $state<GroupSelectState>({
+    selectedNodeIds: new Set<string>(),
+    isGroupMode: false,
+    generation: 0
+});
 
 const dragSelectState = $state<DragSelectState>({
     isDragging: false,
     isSelected: false,
     startNodeId: null,
-    endNodeId: null
+    endNodeId: null,
+    generation: 0
 });
+
 
 /**
  * Groups an array of nodes into paragraphs. Paragraphs are delimited by 'newline' spacer nodes.
@@ -135,7 +161,7 @@ function parseContent(content: string) {
         });
     });
 
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
     editorState.undoStack = [];
     editorState.redoStack = [];
 }
@@ -197,7 +223,7 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
         ...(spacerData && { spacerData })
     };
 
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -223,7 +249,7 @@ function toggleDeletion(nodeId: string) {
         type: node.type === 'deletion' ? ('normal' as const) : ('deletion' as const)
     };
 
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -256,7 +282,7 @@ function insertNodeAfter(nodeId: string, text: string, type: NodeType = 'normal'
     // More efficient array manipulation
     const newNodes = [...editorState.nodes];
     newNodes.splice(nodeIndex + 1, 0, newNode);
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -274,7 +300,7 @@ function removeNode(nodeId: string) {
     // More efficient array manipulation
     const newNodes = [...editorState.nodes];
     newNodes.splice(nodeIndex, 1);
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -311,37 +337,38 @@ function getContent(): string {
 
 /**
  * Gets the currently selected nodes based on drag selection state.
- * Handles selection in both forward and backward directions.
+ * Uses cached positions for better performance.
  * @returns {Node[]} Array of selected nodes.
  */
 function getSelectedNodes(): Node[] {
-    // Only return nodes if we're actually in a multi-select state
+    // Only return nodes if we're in a valid selection state
     if (!dragSelectState.startNodeId || !dragSelectState.endNodeId || 
         (!dragSelectState.isDragging && !dragSelectState.isSelected)) {
         return [];
     }
     
-    const startIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.startNodeId);
-    const endIndex = editorState.nodes.findIndex((n: Node) => n.id === dragSelectState.endNodeId);
-        
-    if (startIndex === -1 || endIndex === -1) {
+    const startPos = getValidPosition(dragSelectState.startNodeId);
+    const endPos = getValidPosition(dragSelectState.endNodeId);
+    
+    if (startPos === -1 || endPos === -1) {
         return [];
     }
 
     // Return empty array if selection is back to start
-    if (startIndex === endIndex) {
+    if (startPos === endPos) {
         return [];
     }
     
     // Handle selection in both directions
-    const start = Math.min(startIndex, endIndex);
-    const end = Math.max(startIndex, endIndex);
+    const start = Math.min(startPos, endPos);
+    const end = Math.max(startPos, endPos);
     
     return editorState.nodes.slice(start, end + 1);
 }
 
 /**
  * Starts a drag selection operation.
+ * Updates selection generation to match current node positions.
  * @param {string} nodeId - The ID of the node where selection started.
  */
 function startDragSelection(nodeId: string) {
@@ -349,13 +376,24 @@ function startDragSelection(nodeId: string) {
     dragSelectState.isSelected = false;
     dragSelectState.startNodeId = nodeId;
     dragSelectState.endNodeId = nodeId;
+    dragSelectState.generation = nodeCache.version;
 }
 
 /**
  * Updates the current drag selection and group selection in real-time.
+ * Uses cached positions for efficient updates.
  * @param {string} nodeId - The ID of the current node in the selection.
  */
 function updateDragSelection(nodeId: string) {
+    // Validate positions are from current generation
+    const startPos = getValidPosition(dragSelectState.startNodeId!);
+    const currentPos = getValidPosition(nodeId);
+    
+    if (startPos === -1 || currentPos === -1) {
+        clearSelection();
+        return;
+    }
+
     // Clear selection if dragging back to start
     if (nodeId === dragSelectState.startNodeId) {
         dragSelectState.endNodeId = null;
@@ -365,12 +403,14 @@ function updateDragSelection(nodeId: string) {
     }
 
     dragSelectState.endNodeId = nodeId;
+    dragSelectState.generation = nodeCache.version;
     
     // Update group selection in real-time
     const selectedNodes = getSelectedNodes();
     if (selectedNodes.length > 0) {
         groupSelectState.selectedNodeIds = new Set(selectedNodes.map(node => node.id));
         groupSelectState.isGroupMode = true;
+        groupSelectState.generation = nodeCache.version;
     } else {
         groupSelectState.selectedNodeIds.clear();
         groupSelectState.isGroupMode = false;
@@ -407,11 +447,14 @@ function clearGroupSelection() {
 
 /**
  * Checks if a node is part of the current group selection.
+ * Validates selection generation before checking.
  * @param {string} nodeId - The ID of the node to check.
  * @returns {boolean} True if the node is part of the group selection.
  */
 function isNodeInGroupSelection(nodeId: string): boolean {
-    return groupSelectState.isGroupMode && groupSelectState.selectedNodeIds.has(nodeId);
+    return groupSelectState.isGroupMode && 
+           groupSelectState.generation === nodeCache.version &&
+           groupSelectState.selectedNodeIds.has(nodeId);
 }
 
 /**
@@ -491,7 +534,7 @@ function createMultiNodeDeletion(nodeIds: string[]) {
         newNodes.splice(insertIndex, 0, newNode);
     }
 
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -547,7 +590,7 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
         newNodes.splice(insertIndex, 0, newNode);
     }
 
-    editorState.nodes = newNodes;
+    updateNodes(newNodes);
 }
 
 /**
@@ -588,7 +631,7 @@ function toggleMultiNodeDeletion(nodeIds: string[]) {
             newNodes.splice(insertIndex, 0, ...restoredNodes);
         }
         
-        editorState.nodes = newNodes;
+        updateNodes(newNodes);
     } else {
         // Create a single deletion node from the selected nodes
         createMultiNodeDeletion(validNodeIds);
@@ -606,7 +649,7 @@ function removeNodes(nodeIds: string[]) {
     editorState.undoStack = [...editorState.undoStack, editorState.nodes];
     editorState.redoStack = [];
 
-    editorState.nodes = editorState.nodes.filter((node: Node) => !nodeIds.includes(node.id));
+    updateNodes(editorState.nodes.filter((node: Node) => !nodeIds.includes(node.id)));
 }
 
 /**
