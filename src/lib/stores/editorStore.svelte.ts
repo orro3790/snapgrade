@@ -1,9 +1,24 @@
-import type { Node, NodeType, CorrectionData } from '$lib/schemas/textNode';
+/**
+ * @module editorStore
+ * @description Core state management for the text editor implementation.
+ * Handles document state, node management, selection, and undo/redo operations.
+ * Uses Svelte 5 runes ($state, $derived) for reactive state management.
+ */
+
+import type { Node, NodeType, CorrectionData, SpacerSubtype } from '$lib/schemas/textNode';
 import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 import { z } from 'zod';
 
-
-// Core state
+/**
+ * Core editor state containing all document and editing state.
+ * Uses Svelte 5's $state rune for reactivity.
+ * 
+ * @property {Node[]} nodes - Array of text nodes representing the document content
+ * @property {string | null} activeNode - ID of currently active node, if any
+ * @property {Node[][]} undoStack - Stack of previous document states for undo
+ * @property {Node[][]} redoStack - Stack of undone states for redo
+ * @property {string} documentName - Name of the current document
+ */
 const editorState = $state({
     nodes: [] as Node[],
     activeNode: null as string | null,
@@ -12,28 +27,70 @@ const editorState = $state({
     documentName: ""
 });
 
-// Cache state type
+/**
+ * Type definition for node position cache.
+ * Used to efficiently track node positions and handle selection operations.
+ * 
+ * @property {Map<string, number>} indices - Maps node IDs to their positions
+ * @property {number} version - Cache version for tracking updates
+ */
 type NodeCache = {
     indices: Map<string, number>;
     version: number;
 };
 
-// Cache version tracking
+/**
+ * Version counter for cache invalidation.
+ * Increments whenever the node cache is updated.
+ */
 let cacheVersion = $state(0);
 
-// Cache for node positions using derived state
+/**
+ * Derived cache for efficient node position lookups.
+ * Automatically updates when nodes change.
+ * Used by selection and drag operations.
+ */
 const nodeCache = $derived<NodeCache>({
     indices: new Map(editorState.nodes.map((node, index) => [node.id, index])),
     version: cacheVersion++
 });
 
+/**
+ * Gets the valid position of a node in the current document.
+ * Uses the node cache for efficient lookups.
+ * 
+ * @param {string} nodeId - ID of the node to find
+ * @returns {number} Position of the node, or -1 if not found
+ */
 function getValidPosition(nodeId: string): number {
     return nodeCache.indices.get(nodeId) ?? -1;
 }
 
-// Helper to update nodes
+/**
+ * Updates the editor's node array and triggers reactivity.
+ * This is the primary method for modifying document content.
+ *
+ * @param {Node[]} newNodes - New array of nodes to set
+ */
 function updateNodes(newNodes: Node[]) {
     editorState.nodes = newNodes;
+}
+
+/**
+ * Performs a batch update of nodes with position recalculation.
+ * Updates all nodes in a single operation to prevent multiple rerenders.
+ *
+ * @param {Node[]} nodes - Array of nodes to update
+ */
+function batchUpdateNodes(nodes: Node[]) {
+    // Update positions for all nodes
+    const updatedNodes = nodes.map((node, index) => ({
+        ...node,
+        metadata: { ...node.metadata, position: index }
+    }));
+    
+    // Single atomic update
+    updateNodes(updatedNodes);
 }
 
 // Selection state schemas
@@ -189,14 +246,29 @@ function loadSerializedContent(serialized: string) {
  * @param {string} nodeId - The ID of the node to update.
  * @param {string} text - The new text content of the node.
  * @param {CorrectionData} [correctionData] - Optional correction data.
- * @param {{ subtype: 'newline' | 'tab' }} [spacerData] - Optional spacer data (for spacer nodes).
+ * @param {{ subtype: SpacerSubtype }} [spacerData] - Optional spacer data (for spacer nodes).
  * @param {NodeType} [type='normal'] - The node type. Defaults to 'normal'.
  */
-function updateNode(nodeId: string, text: string, correctionData?: CorrectionData, spacerData?: { subtype: 'newline' | 'tab' }, type: NodeType = 'normal') {
+function updateNode(
+    nodeId: string, 
+    text: string, 
+    correctionData?: CorrectionData, 
+    spacerData?: { subtype: SpacerSubtype }, 
+    type: NodeType = 'normal'
+) {
     const nodeIndex = editorState.nodes.findIndex((n: Node) => n.id === nodeId);
     if (nodeIndex === -1) return;
 
     const oldNode = editorState.nodes[nodeIndex];
+    
+    // Handle deletion toggle when type is 'deletion'
+    if (type === 'deletion') {
+        // If node is already deletion, revert to normal
+        if (oldNode.type === 'deletion') {
+            type = 'normal';
+        }
+        // Otherwise it will remain deletion
+    }
     
     // Determine the new type based on current node type
     let newType = type;
@@ -224,6 +296,9 @@ function updateNode(nodeId: string, text: string, correctionData?: CorrectionDat
     };
 
     updateNodes(newNodes);
+    
+    // Clear active node after update to ensure proper re-rendering
+    editorState.activeNode = null;
 }
 
 /**
@@ -250,6 +325,9 @@ function toggleDeletion(nodeId: string) {
     };
 
     updateNodes(newNodes);
+    
+    // Clear active node after toggle to ensure proper re-rendering
+    editorState.activeNode = null;
 }
 
 /**
@@ -470,21 +548,23 @@ function updateGroupSelection() {
 }
 
 /**
- * Restores a group of nodes back to their original state.
+ * Unpacks a group node back into its original constituent nodes.
+ * Handles both deletion and correction group nodes.
  * @param {Node} groupNode - The node containing grouped nodes in its metadata
- * @param {number} position - The position to insert the restored nodes
- * @returns {Node[]} Array of nodes with the group expanded
+ * @returns {Node[]} Array of the original nodes with updated positions
  */
-function restoreGroupedNodes(groupNode: Node, position: number): Node[] {
+function unpackGroupNode(groupNode: Node): Node[] {
+    // Return the node itself if it has no grouped nodes
     if (!groupNode.metadata.groupedNodes || groupNode.metadata.groupedNodes.length === 0) {
         return [groupNode];
     }
 
+    // Map the grouped nodes, preserving their original data but updating positions
     return groupNode.metadata.groupedNodes.map((node: Node, index: number) => ({
         ...node,
         metadata: {
             ...node.metadata,
-            position: position + index
+            position: groupNode.metadata.position + index
         }
     }));
 }
@@ -595,9 +675,6 @@ function createMultiNodeCorrection(nodeIds: string[], correctedText: string, pat
 
 /**
  * Toggles deletion state for multiple nodes.
- * Creates a single deletion node from multiple selected nodes or restores original nodes.
- * 
- * @param {string[]} nodeIds - Array of node IDs to toggle deletion for
  */
 function toggleMultiNodeDeletion(nodeIds: string[]) {
     // Filter out empty and spacer nodes
@@ -612,18 +689,35 @@ function toggleMultiNodeDeletion(nodeIds: string[]) {
     editorState.undoStack = [...editorState.undoStack, editorState.nodes];
     editorState.redoStack = [];
 
-    // Check if any of the nodes are already deletion nodes
-    const deletionNode = editorState.nodes.find(n => 
+    // Handle single node case
+    if (validNodeIds.length === 1) {
+        const nodeId = validNodeIds[0];
+        const node = editorState.nodes.find(n => n.id === nodeId);
+        if (node) {
+            updateNode(nodeId, node.text, node.correctionData, node.spacerData, 
+                node.type === 'deletion' ? 'normal' : 'deletion');
+        }
+        return;
+    }
+
+    // Check if any of the nodes are already group nodes (deletion or correction)
+    const groupNode = editorState.nodes.find(n => 
         validNodeIds.includes(n.id) && 
-        n.type === 'deletion' && 
+        (n.type === 'deletion' || n.type === 'correction') && 
         n.metadata.groupedNodes
     );
 
-    if (deletionNode) {
-        // Restore the original nodes
-        const restoredNodes = restoreGroupedNodes(deletionNode, deletionNode.metadata.position);
+    if (groupNode) {
+        // Get all nodes that aren't being restored
         const newNodes = editorState.nodes.filter(n => !validNodeIds.includes(n.id));
-        const insertIndex = newNodes.findIndex(n => n.metadata.position > deletionNode.metadata.position);
+        
+        // Unpack the group node back to original nodes
+        const restoredNodes = unpackGroupNode(groupNode);
+
+        // Find where to insert the restored nodes
+        const insertIndex = newNodes.findIndex(n => 
+            n.metadata.position > groupNode.metadata.position
+        );
         
         if (insertIndex === -1) {
             newNodes.push(...restoredNodes);
@@ -636,6 +730,10 @@ function toggleMultiNodeDeletion(nodeIds: string[]) {
         // Create a single deletion node from the selected nodes
         createMultiNodeDeletion(validNodeIds);
     }
+
+    // Clear active node and selection after operation
+    editorState.activeNode = null;
+    clearSelection();
 }
 
 /**
@@ -662,6 +760,10 @@ export const editorStore = {
     get nodes() {
         return editorState.nodes;
     },
+    /**
+     * Performs a batch update of nodes with position recalculation.
+     */
+    batchUpdateNodes,
     /**
      * Get/set the active node ID.
      */
@@ -759,7 +861,8 @@ export const editorStore = {
     // Multi-node operations
     createMultiNodeCorrection,
     toggleMultiNodeDeletion,
-    removeNodes
+    removeNodes,
+    unpackGroupNode
 };
 
 /**

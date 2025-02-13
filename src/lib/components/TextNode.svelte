@@ -4,6 +4,7 @@
 	import type { Node as TextNodeType } from '$lib/schemas/textNode';
 	import { hoveredNodeTypeStore, statsStore } from '$lib/stores/statsStore.svelte';
 	import EditModal from './EditModal.svelte';
+	import { EditorCommands } from '$lib/commands/editorCommands.svelte';
 
 	const { node, isActive = false } = $props<{
 		node: TextNodeType;
@@ -42,16 +43,21 @@
 	function handleClick(event: MouseEvent) {
 		if (event.button !== 0) return;
 
-		if (editorStore.isNodeInGroupSelection(node.id)) {
-			if (event.altKey) {
-				editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
-			} else {
-				modalPosition = {
-					x: event.clientX,
-					y: event.clientY
-				};
-				isEditing = true;
+		if (event.altKey) {
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				EditorCommands.GROUP_DELETE.execute(editorStore.groupSelect.selectedNodeIds);
+			} else if (EditorCommands.DELETE.canExecute(node.id)) {
+				EditorCommands.DELETE.execute(node.id);
 			}
+			return;
+		}
+
+		if (editorStore.isNodeInGroupSelection(node.id)) {
+			modalPosition = {
+				x: event.clientX,
+				y: event.clientY
+			};
+			isEditing = true;
 			return;
 		}
 
@@ -61,12 +67,6 @@
 
 		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
-			return;
-		}
-
-		if (event.altKey) {
-			if (node.type === 'empty' || node.type === 'spacer') return;
-			editorStore.toggleDeletion(node.id);
 			return;
 		}
 
@@ -163,17 +163,11 @@
 
 	/**
 	 * Finalizes drag selection on mouse up.
-	 * - Alt + Mouse Up: Toggles deletion for selected nodes
 	 * @param {MouseEvent} event - The mouse up event
 	 */
 	function handleMouseUp(event: MouseEvent) {
 		if (!editorStore.dragSelect.isDragging) return;
-
 		editorStore.endDragSelection();
-
-		if (event.altKey) {
-			editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
-		}
 	}
 </script>
 

@@ -15,6 +15,8 @@
 	let activeNodeId = $derived(editorStore.activeNode);
 	let editorContent = $derived(editorStore.getContent());
 
+	$inspect(paragraphsList[0]?.corrections);
+
 	// Initialize content
 	$effect(() => {
 		if (initialContent && !editorContent) {

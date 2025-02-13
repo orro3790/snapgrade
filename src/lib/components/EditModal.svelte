@@ -42,6 +42,9 @@
 	);
 	let isProcessingEdit = $state(false);
 
+	// Add a derived value to check if correction is possible
+	let canCorrect = $derived(inputValue.trim() !== originalText);
+
 	// Add this function to adjust textarea height
 	function adjustTextareaHeight(textarea: HTMLTextAreaElement) {
 		textarea.style.height = 'auto';
@@ -223,7 +226,13 @@
 			<button onclick={handleAddAfter} type="button" title="Add after">
 				<Add />
 			</button>
-			<button onclick={handleSubmit} type="button" title="Correct">
+			<button
+				onclick={handleSubmit}
+				type="button"
+				title="Correct"
+				disabled={!canCorrect}
+				class:disabled={!canCorrect}
+			>
 				<Correction />
 			</button>
 			<button onclick={handleRemove} type="button" title="Remove node">
@@ -316,5 +325,15 @@
 
 	button:last-child:hover {
 		color: var(--text-error-hover);
+	}
+
+	button.disabled {
+		opacity: 0.5;
+		pointer-events: none; /* This prevents the cursor change and click events */
+	}
+
+	button.disabled:hover {
+		background: none;
+		color: var(--text-muted);
 	}
 </style>
