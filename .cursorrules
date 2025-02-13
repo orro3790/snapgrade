@@ -1,6 +1,20 @@
 # START HERE
 
-This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number. If you have read this file and project-documentation.md @/documentation/project-documentation.md and pledge to follow it exactly, before you answer my request, begin by saying "Instructions understood!" so that I know you have read and complied.
+This file serves as your instructions. Every time you choose to apply a rule(s), explicitly state the rule(s) in the output by referencing its section number.
+
+## MUST READ REFERENCES BEFORE YOU CARRY OUT A TASK
+
+1. Make sure you have read documentation\official-svelte-documentation\index.md so that you know where to find the official documentation for svelte 5 for the task you are working on.
+
+2. For the latest svelte 5 syntax, coding patterns, and best practices, refer to @/documentation/v5-migration-guide.md.
+
+3. Whenever you are implementing superforms, refer to @/documentation/superforms\index.md for the latest syntax, coding patterns and guide to using superforms.
+
+4. Whenever you are designing components, refer to @/documentation/design-system.md for the design system guidelines.
+
+- Whenever you access index.md files or documentation, notify me so I am aware you have read the documentation.
+
+If understand and comply with the statements above, begin by saying "Instructions understood!".
 
 ### 1.0 YOUR PERSONALITY AND BEHAVIOR
 
@@ -43,8 +57,7 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 #### 2.5 Design System
 
-- Read the design system documentation @/documentation/design-system.md before you start coding.
-- Use design tokens and follow the design system guidelines.
+- Use design tokens from @/src/app.css and follow the design system guidelines.
 
 ## 3. Forbidden To Use
 
@@ -54,56 +67,7 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ### 3.2 Coding Patterns
 
-#### 3.2.1 Rendering Components
-
-- **Forbidden**: `<slot>` for parent content
-- **Use Instead**: `{@render ...}` tags
-- **Example Implementation**:
-
-```svelte
-<!-- Card.svelte -->
-<script lang="ts">
-	import type { Snippet } from 'svelte';
-	let { content }: { content: Snippet } = $props();
-</script>
-
-<!-- Parent Component -->
-<Card>
-	{#snippet content()}
-		<h2>Title</h2>
-	{/snippet}
-</Card>
-<div>{@render content()}</div>
-```
-
-```svelte
-- For Default Content: Use the `children` snippet
-For Default Content: Use the children snippet
-svelteCopylet { children }: { children: Snippet } = $props();
-{@render children()}
-```
-
-#### 3.2.2 Declaring Props
-
-- **Forbidden**: `export let`
-- **Use instead**: `use $props()`
-- **Example Implementation**: `let { data } = $props<{ data: PageData }>();`
-
-#### 3.2.3 Event Handling
-
-- **Forbidden**: colons in event handlers
-- **Example Implementation**: `onmouseleave` instead of `on:mouseleave`
-
-#### 3.2.4 Self-closing Tags for Non-Void Elements
-
-- **Forbidden**: `<div ... />`
-- **Use instead**: `<div ...></div>`
-
-#### 3.2.5 createEventDispatcher
-
-- **Forbidden**: `createEventDispatcher()`
-- **Use instead**: `Use callback props and/or the $host() rune instead`
-- **Example Implementation**: `Components should accept callback props - which means you then pass functions as properties to these components: @https://svelte.dev/docs/svelte/v5-migration-guide#Event-changes-Component-events`
+- **Forbidden**: Legacy svelte 4 syntax.
 
 ## 4. Code Style and Structure
 
@@ -115,15 +79,19 @@ leap/
 ├── src/
 │   ├── lib/
 │   │   ├── components/      # Reusable Svelte components
-│   │   ├── icons/           # Tabler.io SVG components
-│   │   ├── schemas/         # Zod validation schemas and types
-│   │   ├── firebase/        # Firebase services
-│   │   └── utils/           # Shared utility functions
+│   │   ├── icons/          # Tabler.io SVG components
+│   │   ├── schemas/        # Zod validation schemas and types
+│   │   ├── firebase/       # Firebase services
+│   │   ├── stores/         # State management stores
+│   │   ├── commands/       # Editor commands
+│   │   └── utils/          # Shared utility functions
 │   ├── routes/
-│   │   ├── api/             # API endpoints
+│   │   ├── api/            # API endpoints
 ├── static/
-│   ├── fonts/               # Geist font files
-│   ├── icons/               # Brand/assets
+│   ├── fonts/              # Geist font files
+│   ├── icons/             # Brand/assets
+├── documentation/          # Project documentation
+└── tests/                 # Unit and integration tests
 ```
 
 ## 5. UI Components
@@ -208,8 +176,6 @@ In order of preference:
   - aria-controls when controlling other elements
   - aria-describedby for additional descriptions
 
-[Rest of the file remains the same]
-
 ### 5.3 HTML Elements
 
 - **Div Requirements**:
@@ -226,9 +192,7 @@ In order of preference:
 ## 6. Documentation
 
 - Maintain clear README with setup instructions
-- Document API interactions and data flows
-- Keep manifest.json well-documented
-- Don't include comments unless it's for complex logic
+- Always double read documentation\official-svelte-documentation\index.md to find the correct documentation for the task you are working on.
 - Always supply JSDOC comments for all functions
 
 ## 7. Git Usage

@@ -1,0 +1,333 @@
+# Designing a CRUD interface[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#designing-a-crud-interface>)
+
+An excellent use case for Superforms is a backend interface, commonly used as in the acronym **CRUD** (Create, Read, Update, Delete):
+
+1. Display an empty form
+2. POST the form, validate the data
+3. Create a new entity with the data **(Create)**
+4. Fetch the entity **(Read)**
+5. Display it in a form
+6. POST the form, validate the data
+7. Update the entity with the data **(Update)**
+8. Delete the entity **(Delete)**
+9. ???
+10. Profit!
+
+Because you can send the data model to the `superValidate` function and have the form directly populated, it becomes quite easy to implement the above steps.
+
+## Getting started[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#getting-started>)
+
+To follow along, there are three ways:
+
+### Video tutorial[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#video-tutorial>)
+
+Instead of the text version below, here’s the video version. It’s using version 1 of Superforms, but the differences are small; use an adapter and add `resetForm: false` to the options.
+
+### SvelteLab[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#sveltelab>)
+
+The code is available [on SvelteLab](https://superforms.rocks/<https:/sveltelab.dev/github.com/ciscoheat/superforms-examples/tree/crud-zod>). Just click the link, and you’re up and running in the browser in less than 30 seconds!
+
+### New SvelteKit project[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#new-sveltekit-project>)
+
+Start from scratch in a new SvelteKit project by executing one of the following commands in your project directory:
+
+```
+npx sv create sf-crud
+```
+
+```
+pnpx sv create sf-crud
+```
+
+Select **Skeleton project** and **Typescript syntax** at the prompts, the rest is up to you. Then add this to `<head>` in **src/app.html** for a much nicer visual experience:
+
+```
+<link rel="stylesheet" href="https://unpkg.com/normalize.css@8.0.1/normalize.css" />
+<link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" />
+```
+
+## Start - Creating a test database[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#start---creating-a-test-database>)
+
+When you have the code up and running, we need a user schema, and a mock database for testing. We will use Zod as a validation library, but its schema can easily be converted to others.
+**src/lib/users.ts**
+
+```
+import { z } from 'zod';
+// See https://zod.dev/?id=primitives for schema syntax
+export const userSchema = z.object({
+ id: z.string().regex(/^\d+$/),
+ name: z.string().min(2),
+ email: z.string().email()
+});
+type UserDB = z.infer<typeof userSchema>[];
+// Let's worry about id collisions later
+export const userId = () => String(Math.random()).slice(2);
+// A simple user "database"
+export const users: UserDB = [
+ {
+  id: userId(),
+  name: 'Important Customer',
+  email: 'important@example.com'
+ },
+ {
+  id: userId(),
+  name: 'Super Customer',
+  email: 'super@example.com'
+ }
+];
+```
+
+## Form vs. database schemas[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#form-vs-database-schemas>)
+
+When starting on the server page, we’ll encounter a thing about validation schemas. Our `userSchema` is for **database integrity** , so an `id` **must** exist there. But we want to create an entity, and must therefore allow `id` not to exist when creating users.
+Fortunately, Zod makes it quite easy to append a modifier to a field without duplicating the whole schema by extending it:
+**src/routes/users/[[id]]/+page.server.ts**
+
+```
+import { userSchema } from '$lib/users';
+const crudSchema = userSchema.extend({
+ id: userSchema.shape.id.optional()
+});
+```
+
+(Of course, the original `userSchema` is kept intact.)
+With this, **Create** and **Update** can now use the same schema, which means that they can share the same user interface. This is a fundamental idea in Superforms: you can pass either empty data or an entity partially matching the schema to `superValidate`, and it will generate default values for any non-specified fields, ensuring type safety.
+
+## Reading a user from the database[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#reading-a-user-from-the-database>)
+
+Let’s add a load function to the page, using the SvelteKit route parameters to look up the requested user:
+**src/routes/users/[[id]]/+page.server.ts**
+
+```
+import { superValidate, message } from 'sveltekit-superforms';
+import { zod } from 'sveltekit-superforms/adapters';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { users, userId } from '$lib/users';
+export const load = async ({ url, params }) => {
+ // READ user
+ const user = users.find((u) => u.id == params.id);
+ if (params.id && !user) throw error(404, 'User not found.');
+ // If user is null, default values for the schema will be returned.
+ const form = await superValidate(user, zod(crudSchema));
+ return { form, users };
+};
+```
+
+Some simple logic is used to find the user, and then detect if a 404 should be displayed. At the end, we’re returning `form` as usual, but also `users`, so they can be displayed as a list.
+(Sometimes, CRUDL is used as an acronym, since listing is also fundamental to data management.)
+Now that we have loaded the data, let’s display it:
+**src/routes/users/[[id]]/+page.svelte**
+
+```
+<script lang="ts">
+ import { page } from '$app/state';
+ import { superForm } from 'sveltekit-superforms';
+ let { data } = $props();
+ const { form, errors, constraints, enhance, delayed, message } = superForm(
+  data.form, {
+   resetForm: false
+  }
+ );
+</script>
+{#if $message}
+ <h3 class:invalid={page.status >= 400}>{$message}</h3>
+{/if}
+<h2>{!$form.id ? 'Create' : 'Update'} user</h2>
+```
+
+There are plenty of variables extracted from `superForm`; refer to the [API reference](https://superforms.rocks/</api#superform-return-type>) for a complete list. We’ve also setting the `resetForm` to `false`, since the data should be kept after editing.
+We’ve also prepared a status message, using `page.status` to test for success or failure, and we’re using `$form.id` to display a “Create user” or “Update user” title. Now let’s add the form itself:
+**src/routes/users/[[id]]/+page.svelte** (continued)
+
+```
+<form method="POST" use:enhance>
+ <input type="hidden" name="id" bind:value={$form.id} />
+ <label>
+  Name<br />
+  <input
+   name="name"
+   aria-invalid={$errors.name ? 'true' : undefined}
+   bind:value={$form.name}
+   {...$constraints.name} />
+  {#if $errors.name}<span class="invalid">{$errors.name}</span>{/if}
+ </label>
+ <label>
+  E-mail<br />
+  <input
+   name="email"
+   type="email"
+   aria-invalid={$errors.email ? 'true' : undefined}
+   bind:value={$form.email}
+   {...$constraints.email} />
+  {#if $errors.email}<span class="invalid">{$errors.email}</span>{/if}
+ </label>
+ <button>Submit</button> {#if $delayed}Working...{/if}
+</form>
+<style>
+ .invalid {
+  color: red;
+ }
+</style>
+```
+
+Remember to use [SuperDebug](https://superforms.rocks/</super-debug>) if you want to see your form data live!
+
+```
+<script>
+ import SuperDebug from 'sveltekit-superforms';
+</script>
+<SuperDebug data={$form} />
+```
+
+## Creating and Updating a user[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#creating-and-updating-a-user>)
+
+With this, the form should be ready for creating a user. Let’s add the form action for that:
+**src/routes/users/[[id]]/+page.server.ts**
+
+```
+export const actions = {
+ default: async ({ request }) => {
+  const form = await superValidate(request, zod(crudSchema));
+  if (!form.valid) return fail(400, { form });
+  if (!form.data.id) {
+   // CREATE user
+   const user = { ...form.data, id: userId() };
+   users.push(user);
+   return message(form, 'User created!');
+  } else {
+   // UPDATE user
+   const index = users.findIndex((u) => u.id == form.data.id);
+   if (index == -1) throw error(404, 'User not found.');
+   users[index] = { ...form.data, id: form.data.id };
+   return message(form, 'User updated!');
+  }
+  return { form };
+ }
+};
+```
+
+This is where you should access your database API. In our case, we’re only doing some array manipulations.
+With this, we have 3 out of 4 letters of CRUD in about 150 lines of code, half of it HTML!
+
+## Deleting a user[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#deleting-a-user>)
+
+To delete a user, we can make use of the HTML `button` element, which can have a name and a value that will be passed only if that specific button was used to post the form. Add this at the end of the form:
+**src/routes/users/[[id]]/+page.svelte**
+
+```
+{#if $form.id}
+ <button
+  name="delete"
+  on:click={(e) => !confirm('Are you sure?') && e.preventDefault()}
+  class="danger">Delete user</button>
+{/if}
+```
+
+In the form action, we now use the `FormData` from the request to check if the delete button was pressed.
+We can also add a delayed button in the form to mimick the behavior of a slow network call:
+
+```
+<button name="delay" class="delay">Submit delayed</button>
+```
+
+We shouldn’t use the schema since `delete` and `delayed` are not a part of the user, but it’s not a big change:
+**src/routes/users/[[id]]/+page.server.ts**
+
+```
+export const actions: Actions = {
+ default: async ({ request }) => {
+  const formData = await request.formData();
+  const form = await superValidate(formData, zod(crudSchema));
+  if (formData.has('delay')) {
+   await new Promise((r) => setTimeout(r, 2000));
+  }
+  if (!form.valid) return fail(400, { form });
+  if (!form.data.id) {
+   // CREATE user
+   const user = { ...form.data, id: userId() };
+   users.push(user);
+   return message(form, 'User created!');
+  } else {
+   const index = users.findIndex((u) => u.id == form.data.id);
+   if (index == -1) throw error(404, 'User not found.');
+   if (formData.has('delete')) {
+    // DELETE user
+    users.splice(index, 1);
+    throw redirect(303, '/users');
+   } else {
+    // UPDATE user
+    users[index] = { ...form.data, id: form.data.id };
+    return message(form, 'User updated!');
+   }
+  }
+ }
+};
+```
+
+Now all four CRUD operations are complete! An issue, however, is that we have to redirect after deleting to avoid a 404, so we cannot use `form.message` to show “User deleted”, since the validation data won’t exist after redirecting.
+Redirecting with a message is a general problem; for example, maybe we’d like to redirect to the newly created user after it’s been created. Fortunately, there is a solution; the sister library to Superforms handles this. [Read more about it here](https://superforms.rocks/</flash-messages>).
+
+## Listing the users[![](https://superforms.rocks/link.svg)](https://superforms.rocks/<#listing-the-users>)
+
+The last loose thread is to display a list of the users. It’ll be quite trivial; add this to the top of `+page.svelte`:
+**src/routes/+page.svelte**
+
+```
+<h3>Users</h3>
+<div class="users">
+ {#each data.users as user}
+  <a href="/users/{user.id}">{user.name}</a>
+ {/each}
+</div>
+```
+
+And some styling for everything at the end:
+
+```
+<style>
+ .invalid {
+  color: red;
+ }
+ .danger {
+  background-color: brown;
+ }
+ .delay {
+  background-color: lightblue;
+ }
+ form {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  align-items: flex-start;
+  margin-bottom: 2em;
+ }
+ hr {
+  width: 100%;
+  margin-block: 2em;
+ }
+ .users {
+  columns: 3 150px;
+ }
+ .users > * {
+  display: block;
+  white-space: nowrap;
+  overflow-x: hidden;
+ }
+</style>
+```
+
+That’s it! Thank you for following along, the code is [available here](https://superforms.rocks/<https:/sveltelab.dev/github.com/ciscoheat/superforms-examples/tree/crud-zod>) on SvelteLab.
+If you have any questions, see the [help & support](https://superforms.rocks/</support>) page.
+Found a typo or an inconsistency? Make a quick correction [here](https://superforms.rocks/<https:/github.com/ciscoheat/superforms-web/tree/main/src/routes/crud/+page.md>)!
+Table of Contents
+
+- [Getting started](https://superforms.rocks/<#getting-started>)
+- [Video tutorial](https://superforms.rocks/<#video-tutorial>)
+- [SvelteLab](https://superforms.rocks/<#sveltelab>)
+- [New SvelteKit project](https://superforms.rocks/<#new-sveltekit-project>)
+- [Start - Creating a test database](https://superforms.rocks/<#start---creating-a-test-database>)
+- [Form vs. database schemas](https://superforms.rocks/<#form-vs-database-schemas>)
+- [Reading a user from the database](https://superforms.rocks/<#reading-a-user-from-the-database>)
+- [Creating and Updating a user](https://superforms.rocks/<#creating-and-updating-a-user>)
+- [Deleting a user](https://superforms.rocks/<#deleting-a-user>)
+- [Listing the users](https://superforms.rocks/<#listing-the-users>)

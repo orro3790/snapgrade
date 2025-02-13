@@ -1,24 +1,50 @@
 <!-- file: src/lib/components/EditModal.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
-	import type { Node } from '$lib/schemas/textNode';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import { EditorCommands } from '$lib/commands/editorCommands.svelte';
+	import type { Node as TextNodeType } from '$lib/schemas/textNode';
 	import Add from '$lib/icons/Add.svelte';
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
 	import Eraser from '$lib/icons/Eraser.svelte';
 
 	let { node, position, onClose } = $props<{
-		node: Node;
+		node: TextNodeType;
 		position: { x: number; y: number };
 		onClose: () => void;
 	}>();
 
 	let modalElement: HTMLDivElement;
 	let inputElement: HTMLTextAreaElement;
+	// Get selected nodes for multi-node correction
+	let isMultiNodeCorrection = $derived(editorStore.groupSelect.isGroupMode);
+	let selectedNodesList = $derived(
+		isMultiNodeCorrection
+			? editorStore.nodes.filter((n) => editorStore.isNodeInGroupSelection(n.id))
+			: [node]
+	);
+
+	// For multi-node correction, combine texts with spaces
+	let originalText = $derived(
+		isMultiNodeCorrection
+			? selectedNodesList.map((n) => n.text).join(' ')
+			: node.type === 'correction'
+				? node.text
+				: node.text
+	);
+
 	let inputValue = $state(
-		node.type === 'correction' ? node.correctionData?.correctedText || node.text : node.text
+		(() => {
+			if (node.type === 'correction') {
+				return node.correctionData?.correctedText || originalText;
+			}
+			return originalText;
+		})()
 	);
 	let isProcessingEdit = $state(false);
+
+	// Add a derived value to check if correction is possible
+	let canCorrect = $derived(inputValue.trim() !== originalText);
 
 	// Add this function to adjust textarea height
 	function adjustTextareaHeight(textarea: HTMLTextAreaElement) {
@@ -79,39 +105,63 @@
 
 	function handleSubmit() {
 		if (isProcessingEdit) return;
-
-		const trimmedValue = inputValue.trim();
-		if (!trimmedValue || trimmedValue === node.text) {
-			onClose();
-			return;
-		}
-
 		isProcessingEdit = true;
 
-		// Handle empty nodes differently - convert to addition
-		if (node.type === 'empty') {
-			editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
-		} else {
-			// Handle other nodes as corrections
-			editorStore.updateNode(
-				node.id,
-				node.text,
-				{
-					originalText: node.text,
-					correctedText: trimmedValue,
-					pattern: ''
-				},
-				undefined,
-				'correction'
+		const trimmedValue = inputValue.trim();
+
+		if (isMultiNodeCorrection) {
+			// Handle multi-node correction
+			const groupNode = selectedNodesList.find(
+				(n) => n.type === 'correction' && n.metadata.groupedNodes
 			);
+
+			if (!trimmedValue && groupNode) {
+				// For empty submission on group correction, unpack the nodes
+				EditorCommands.CORRECTION.execute([groupNode.id, '']);
+			} else if (trimmedValue && trimmedValue !== originalText) {
+				// Only create new correction if text actually changed
+				editorStore.createMultiNodeCorrection(
+					editorStore.groupSelect.selectedNodeIds,
+					trimmedValue,
+					'',
+					''
+				);
+			}
+		} else {
+			if (!trimmedValue && node.type === 'correction') {
+				// For empty submission on single correction, revert to normal
+				EditorCommands.CORRECTION.execute([node.id, '']);
+			} else if (node.type === 'empty') {
+				// Handle empty nodes differently - convert to addition
+				editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
+			} else if (trimmedValue && trimmedValue !== originalText) {
+				// Only create correction if text actually changed
+				editorStore.updateNode(
+					node.id,
+					node.text,
+					{
+						correctedText: trimmedValue,
+						pattern: '',
+						explanation: ''
+					},
+					undefined,
+					'correction'
+				);
+			}
 		}
+
 		onClose();
 	}
 
 	function handleRemove() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
-		editorStore.removeNode(node.id);
+
+		if (isMultiNodeCorrection) {
+			editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
+		} else {
+			editorStore.removeNode(node.id);
+		}
 		onClose();
 	}
 
@@ -120,13 +170,14 @@
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
 
-		// Don't allow empty nodes to be marked as deletion
-		if (node.type === 'empty') {
+		if (isMultiNodeCorrection) {
+			editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
+		} else if (node.type !== 'empty') {
+			editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
+		} else {
 			isProcessingEdit = false; // Reset the flag before returning
 			return;
 		}
-
-		editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
 		onClose();
 	}
 
@@ -164,7 +215,7 @@
 		aria-label="Modal container"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
+			if (e.key === 'Enter') {
 				e.preventDefault();
 				e.stopPropagation();
 			}
@@ -187,7 +238,13 @@
 			<button onclick={handleAddAfter} type="button" title="Add after">
 				<Add />
 			</button>
-			<button onclick={handleSubmit} type="button" title="Correct">
+			<button
+				onclick={handleSubmit}
+				type="button"
+				title="Correct"
+				disabled={!canCorrect}
+				class:disabled={!canCorrect}
+			>
 				<Correction />
 			</button>
 			<button onclick={handleRemove} type="button" title="Remove node">
@@ -280,5 +337,15 @@
 
 	button:last-child:hover {
 		color: var(--text-error-hover);
+	}
+
+	button.disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	button.disabled:hover {
+		background: none;
+		color: var(--text-muted);
 	}
 </style>

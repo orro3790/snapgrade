@@ -2,11 +2,11 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import TextEditor from '$lib/components/TextEditor.svelte';
-	import { userStore } from '$lib/stores/userStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
-	import { modalStore } from '$lib/stores/modalStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
-	import { editorStore } from '$lib/stores/editorStore';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { settingsStore } from '$lib/stores/settingsStore.svelte';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
+	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
 	import StagingArea from './StagingArea.svelte';
@@ -18,18 +18,11 @@
 	// Initialize state and stores
 	let user = $state(data?.user ?? null);
 	let settings = $state(data?.settings ?? null);
-	let documentName = $state('');
-
-	// Subscribe to document name changes
-	$effect(() => {
-		editorStore.documentName.subscribe((value) => {
-			documentName = value;
-		});
-	});
+	let documentName = $derived(editorStore.documentName);
 
 	// Initialize stores with data
 	$effect(() => {
-		userStore.set(user);
+		userStore.setUser(user);
 		settingsStore.set(settings);
 	});
 </script>
@@ -43,8 +36,8 @@
 					type="button"
 					class="toggle-button"
 					onclick={() => sidebarStore.toggle()}
-					aria-label={$sidebarStore.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
-					aria-expanded={$sidebarStore.state === 'expanded'}
+					aria-label={sidebarStore.state.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
+					aria-expanded={sidebarStore.state.state === 'expanded'}
 				>
 					<SidebarToggle size="var(--icon-sm)" />
 				</button>

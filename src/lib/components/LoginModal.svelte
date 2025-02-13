@@ -3,10 +3,10 @@
 <script lang="ts">
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { LoginFormData } from '$lib/schemas/auth';
-	import { userStore } from '$lib/stores/userStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { modalStore } from '$lib/stores/modalStore';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { settingsStore } from '$lib/stores/settingsStore.svelte';
+	import { toastStore } from '$lib/stores/toastStore.svelte';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import Button from './Button.svelte';
 
 	let { data } = $props<{ data: LoginFormData }>();
@@ -25,7 +25,7 @@
 		onResult: async ({ result }) => {
 			if (result.type === 'success') {
 				// User account successfully created. Set user and settings state immediately
-				userStore.set(result.data?.user);
+				userStore.setUser(result.data?.user);
 				settingsStore.set(result.data?.settings);
 			} else if (result.type === 'failure' && result.data?.error) {
 				// Handle server-side error messages

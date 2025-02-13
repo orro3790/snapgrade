@@ -2,7 +2,7 @@
 <script lang="ts">
 	import TextEditor from '$lib/components/TextEditor.svelte';
 	import testDoc from '$lib/utils/test-document.json' assert { type: 'json' };
-	import { editorStore } from '$lib/stores/editorStore';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 
 	// Load the test document
 	function loadTestDocument() {

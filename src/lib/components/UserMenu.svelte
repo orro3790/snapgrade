@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/userStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { settingsStore } from '$lib/stores/settingsStore';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { toastStore } from '$lib/stores/toastStore.svelte';
+	import { settingsStore } from '$lib/stores/settingsStore.svelte';
 	import { invalidateAll, goto } from '$app/navigation';
 	import Avatar from '$lib/icons/Avatar.svelte';
 	import Logout from '$lib/icons/Logout.svelte';
@@ -9,7 +9,7 @@
 
 	let isOpen = $state(false);
 	let isLoggingOut = $state(false);
-	let user = $derived($userStore);
+	let user = $derived(userStore.user);
 
 	let { collapsed = false } = $props<{
 		collapsed?: boolean;
@@ -40,7 +40,7 @@
 		});
 
 		if (response.ok) {
-			userStore.set(null);
+			userStore.setUser(null);
 			settingsStore.set(null);
 			invalidateAll();
 

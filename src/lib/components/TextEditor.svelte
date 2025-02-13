@@ -1,7 +1,7 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import { editorStore, activeCorrection, paragraphs } from '$lib/stores/editorStore';
-	import { sidebarStore } from '$lib/stores/sidebarStore';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
 
 	// Props and state
@@ -10,33 +10,12 @@
 		onContentChange?: (content: string) => void;
 	}>();
 
-	// Subscribe to stores
-	let paragraphsList = $derived($paragraphs);
-	let activeNodeId = $derived($activeCorrection);
+	// Derive state from store
+	let paragraphsList = $derived(editorStore.paragraphs);
+	let activeNodeId = $derived(editorStore.activeNode);
 	let editorContent = $derived(editorStore.getContent());
 
-	// Add inspections for key store values
-	$inspect(editorContent).with((type, content) => {
-		console.group('Editor Content Update');
-		console.log(`Type: ${type}`);
-		console.log('Content:', content);
-		console.groupEnd();
-	});
-
-	$inspect(paragraphsList).with((type, paragraphs) => {
-		console.group('Paragraphs Update');
-		console.log(`Type: ${type}`);
-		console.log('Paragraphs:', paragraphs);
-		console.groupEnd();
-	});
-
-	// Add trace to effects to debug reactivity
-	$effect(() => {
-		$inspect.trace('Content Change Effect');
-		if (editorContent !== initialContent) {
-			onContentChange(editorContent);
-		}
-	});
+	$inspect(paragraphsList[0]?.corrections);
 
 	// Initialize content
 	$effect(() => {
@@ -63,12 +42,24 @@
 <div
 	class="editor-wrapper"
 	onkeydown={handleKeyDown}
+	onclick={(event) => {
+		// Only clear selection if clicking directly on the editor wrapper or a4-content
+		const target = event.target as HTMLElement;
+		if (
+			target.classList.contains('editor-wrapper') ||
+			target.classList.contains('a4-content') ||
+			target.classList.contains('main-content')
+		) {
+			console.log('Clearing selection from click on:', target.className);
+			editorStore.clearSelection();
+		}
+	}}
 	tabindex="-1"
 	aria-multiline="true"
 	aria-label="Text editor content"
 	role="textbox"
 >
-	<div class="main-content" class:sidebar-expanded={$sidebarStore.state === 'expanded'}>
+	<div class="main-content" class:sidebar-expanded={sidebarStore.state.state === 'expanded'}>
 		<!-- Wrap the a4-content in a print-only container -->
 		<div class="print-container">
 			<div class="a4-content" role="complementary" aria-label="Preview">

@@ -4,8 +4,8 @@
 	import { collection, query, where, onSnapshot } from 'firebase/firestore';
 	import type { Student } from '$lib/schemas/student';
 	import type { Document } from '$lib/schemas/document';
-	import { editorStore } from '$lib/stores/editorStore';
-	import { modalStore } from '$lib/stores/modalStore';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 
 	// Props
 	let { selectedStudent } = $props<{
@@ -54,11 +54,13 @@
 	 * Handles document selection and loading
 	 */
 	function handleDocumentClick(document: Document) {
-		const currentContent = editorStore.getContent();
+		// Get current nodes directly from the store
+		const hasContent = editorStore.nodes.length > 0;
 
-		if (!currentContent.trim()) {
+		if (!hasContent) {
 			// If editor is empty, load directly
 			editorStore.setDocument(document.documentBody, document.documentName);
+			modalStore.close();
 		} else {
 			// If editor has content, show confirmation
 			modalStore.open('documentLoad', {

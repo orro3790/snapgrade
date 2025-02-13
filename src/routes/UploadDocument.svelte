@@ -2,7 +2,7 @@
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { SuperValidated } from 'sveltekit-superforms';
 	import type { CreateDocument } from '$lib/schemas/document';
-	import { modalStore } from '$lib/stores/modalStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 
 	let { data } = $props<{ data: SuperValidated<CreateDocument> }>();
 	let isSubmitting = $state(false);

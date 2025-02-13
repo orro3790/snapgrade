@@ -1,49 +1,75 @@
 <!-- TextNode.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore';
-	import { hoveredNodeTypeStore } from '$lib/stores/statsStore';
-	import type { Node } from '$lib/schemas/textNode';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import type { Node as TextNodeType } from '$lib/schemas/textNode';
+	import { hoveredNodeTypeStore, statsStore } from '$lib/stores/statsStore.svelte';
 	import EditModal from './EditModal.svelte';
-	import Add from '$lib/icons/Add.svelte';
+	import { EditorCommands } from '$lib/commands/editorCommands.svelte';
 
 	const { node, isActive = false } = $props<{
-		node: Node;
+		node: TextNodeType;
 		isActive?: boolean;
 	}>();
 
 	let isEditing = $state(false);
 	let modalPosition = $state({ x: 0, y: 0 });
 
+	/**
+	 * Handles the context menu event (right click) on a text node.
+	 * - Ctrl + Right Click: Removes selected node(s)
+	 * @param {MouseEvent} event - The context menu event
+	 * @returns {boolean} False to prevent default context menu
+	 */
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
-		// Check specifically for right click (button === 2) with ctrl key
-		if (event.ctrlKey && event.button === 2) {
-			// Remove the node and ensure proper cleanup
-			editorStore.removeNode(node.id);
-			// Force a re-render of the parent component
+
+		if (event.ctrlKey) {
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
+			} else {
+				editorStore.removeNode(node.id);
+			}
 			return false;
 		}
 	}
 
+	/**
+	 * Handles click events on the text node.
+	 * - Left Click: Activates node or opens edit modal
+	 * - Alt + Left Click: Toggles deletion state
+	 * - Ctrl + Left Click: Inserts empty node
+	 * @param {MouseEvent} event - The click event
+	 */
 	function handleClick(event: MouseEvent) {
-		// Guard clause for non-left clicks
 		if (event.button !== 0) return;
 
-		// Handle Ctrl + Left Click: Insert empty node
+		if (event.altKey) {
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				EditorCommands.GROUP_DELETE.execute(editorStore.groupSelect.selectedNodeIds);
+			} else if (EditorCommands.DELETE.canExecute(node.id)) {
+				EditorCommands.DELETE.execute(node.id);
+			}
+			return;
+		}
+
+		if (editorStore.isNodeInGroupSelection(node.id)) {
+			modalPosition = {
+				x: event.clientX,
+				y: event.clientY
+			};
+			isEditing = true;
+			return;
+		}
+
+		editorStore.clearGroupSelection();
+		editorStore.clearSelection();
+		editorStore.activeNode = node.id;
+
 		if (event.ctrlKey) {
 			editorStore.insertNodeAfter(node.id, '', 'empty');
 			return;
 		}
 
-		// Handle Alt + Left Click: Toggle deletion state
-		if (event.altKey) {
-			if (node.type === 'empty' || node.type === 'spacer') return;
-			editorStore.toggleDeletion(node.id);
-			return;
-		}
-
-		// Handle active node clicks: Enable editing
-		editorStore.setActiveNode(node.id);
 		if (isActive) {
 			modalPosition = {
 				x: event.clientX,
@@ -53,10 +79,24 @@
 		}
 	}
 
+	/**
+	 * Handles keyboard events on the text node.
+	 * - ` (backtick): Updates node(s) text
+	 * - Enter: Opens edit modal
+	 * - Ctrl + Enter: Inserts empty node
+	 * - Ctrl + Delete: Removes node(s)
+	 * @param {KeyboardEvent} event - The keyboard event
+	 */
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === '`' && !isEditing) {
 			event.preventDefault();
-			editorStore.updateNode(node.id, node.text);
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.groupSelect.selectedNodeIds.forEach((id) => {
+					editorStore.updateNode(id, editorStore.nodes.find((n) => n.id === id)?.text || '');
+				});
+			} else {
+				editorStore.updateNode(node.id, node.text);
+			}
 			return;
 		}
 
@@ -69,14 +109,23 @@
 		}
 
 		if (event.key === 'Delete' && event.ctrlKey) {
-			editorStore.removeNode(node.id);
+			if (editorStore.isNodeInGroupSelection(node.id)) {
+				editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
+			} else {
+				editorStore.removeNode(node.id);
+			}
 		}
 	}
 
+	/**
+	 * Closes the edit modal and clears the active node state
+	 */
 	function handleEditClose() {
 		isEditing = false;
-		editorStore.setActiveNode(null);
+		editorStore.activeNode = null;
 	}
+
+	let isGroupSelected = $derived(editorStore.isNodeInGroupSelection(node.id));
 
 	let classList = $derived(
 		[
@@ -86,11 +135,40 @@
 			node.hasNextCorrection ? 'has-next-correction' : '',
 			isEditing ? 'highlighted' : '',
 			node.metadata.isPunctuation ? 'punctuation' : '',
-			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : ''
+			$hoveredNodeTypeStore === node.type ? `highlight-${node.type}` : '',
+			isGroupSelected ? 'group-selected' : ''
 		]
 			.filter(Boolean)
 			.join(' ')
 	);
+
+	/**
+	 * Initiates drag selection on mouse down.
+	 * @param {MouseEvent} event - The mouse down event
+	 */
+	function handleMouseDown(event: MouseEvent) {
+		if (event.button !== 0) return;
+		editorStore.startDragSelection(node.id);
+	}
+
+	/**
+	 * Updates drag selection as mouse moves over nodes.
+	 * @param {MouseEvent} event - The mouse move event
+	 */
+	function handleMouseMove(event: MouseEvent) {
+		if (editorStore.dragSelect.isDragging) {
+			editorStore.updateDragSelection(node.id);
+		}
+	}
+
+	/**
+	 * Finalizes drag selection on mouse up.
+	 * @param {MouseEvent} event - The mouse up event
+	 */
+	function handleMouseUp(event: MouseEvent) {
+		if (!editorStore.dragSelect.isDragging) return;
+		editorStore.endDragSelection();
+	}
 </script>
 
 <div
@@ -98,6 +176,9 @@
 	onclick={handleClick}
 	oncontextmenu={handleContextMenu}
 	onkeydown={handleKeydown}
+	onmousedown={handleMouseDown}
+	onmousemove={handleMouseMove}
+	onmouseup={handleMouseUp}
 	role="button"
 	tabindex="0"
 	data-subtype={node.type === 'spacer' ? node.spacerData?.subtype : undefined}
@@ -123,6 +204,12 @@
 {/if}
 
 <style>
+	/* Selection styling */
+	.group-selected {
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+	}
+
 	/* Spacer node styles */
 	.text-node[data-subtype='tab'] {
 		width: 2vw;
@@ -158,6 +245,7 @@
 		display: flex;
 		position: relative;
 		cursor: pointer;
+		user-select: none;
 		margin-right: var(--spacing-1);
 		border-radius: var(--radius-sm);
 		transition: var(--transition-all);

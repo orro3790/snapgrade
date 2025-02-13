@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { editorStore } from '$lib/stores/editorStore';
+import { editorStore } from '$lib/stores/editorStore.svelte';
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
 

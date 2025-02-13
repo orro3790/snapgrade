@@ -1,7 +1,7 @@
 <!-- src/lib/components/DocumentLoadModal.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
-	import { editorStore } from '$lib/stores/editorStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
+	import { editorStore } from '$lib/stores/editorStore.svelte';
 
 	// Props
 	let { documentToLoad, documentName } = $props<{

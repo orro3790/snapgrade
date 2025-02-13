@@ -1,0 +1,78 @@
+# Proxy objects[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#proxy-objects>)
+
+Sometimes you get a `string` value from an input field or third-party library, and want it to be automatically converted and updated with a non-string value in your schema. This is what proxies are for.
+
+```
+import {
+ // The primitives return a Writable<string>:
+ booleanProxy,
+ dateProxy,
+ intProxy,
+ numberProxy,
+ stringProxy,
+ // The type of the other three depends on the field:
+ formFieldProxy,
+ arrayProxy,
+ fieldProxy
+} from 'sveltekit-superforms';
+```
+
+The usage for all of them is practically the same. You can use the form store, or the whole superForm as input, which allows you to set a `tainted` option, in case you don’t want to taint the form when it updates.
+
+```
+import { superForm, intProxy } from 'sveltekit-superforms';
+// Assume the following schema:
+// { id: number }
+const superform = superForm(data.form);
+const { form, errors, enhance } = superform;
+// Returns a Writable<string>
+const idProxy = intProxy(form, 'id');
+// Use the whole superForm object to prevent tainting
+const idProxy2 = intProxy(superform, 'id', { taint: false });
+```
+
+Now if you bind to `$idProxy` instead of `$form.id`, the value will be converted to and from an integer, and `$form.id` will be updated automatically.
+Note that this kind of conversion will usually happen automatically with `bind:value`. `intProxy` and `numberProxy` are rarely needed, as Svelte [handles this automatically](https://superforms.rocks/concepts/<https:/svelte.dev/tutorial/numeric-inputs>). But proxies may still be useful if you want to set the value to `undefined` or `null` when the value is falsy, in which case you can use the `empty` option.
+See [the API](https://superforms.rocks/concepts/</api#proxy-objects>) for more details and options for each kind of proxy.
+
+## Nested proxies[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#nested-proxies>)
+
+You can use a proxy for nested data, like `'user.profile.email'`, in which case parent objects will be created if they don’t exist.
+
+## Date input issues[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#date-input-issues>)
+
+The `date` input type is a bit special. Its underlying data is a string in `yyyy-mm-dd` format, but the `dateProxy` returns an ISO date string as default, so you need to use the `format` option to return the date part only:
+
+```
+const proxyDate = dateProxy(form, 'date', { format: 'date' });
+```
+
+```
+<input
+ name="date"
+ type="date"
+ bind:value={$proxyDate}
+ aria-invalid={$errors.date ? 'true' : undefined}
+ {...$constraints.date}
+ min={$constraints.date?.min?.toString().slice(0, 10)}
+ max={$constraints.date?.max?.toString().slice(0, 10)}
+/>
+```
+
+We’re also taking using the `min` and `max` constraints to limit the date picker selection. The following example limits the date from today and forward, and also uses the [empty option](https://superforms.rocks/concepts/</api#dateproxyform-fieldname-options>) of the proxy, to set an invalid date to `undefined`:
+Toggle SuperDebug
+200
+
+```
+{
+ date: undefined
+}
+```
+
+Date Submit
+[Previous page ← Nested data](https://superforms.rocks/concepts/</concepts/nested-data>) [Next page Single-page apps →](https://superforms.rocks/concepts/</concepts/spa>)
+Found a typo or an inconsistency? Make a quick correction [here](https://superforms.rocks/concepts/<https:/github.com/ciscoheat/superforms-web/tree/main/src/routes/concepts/proxy-objects/+page.md>)!
+Table of Contents
+
+- [Nested proxies](https://superforms.rocks/concepts/<#nested-proxies>)
+- [Date input issues](https://superforms.rocks/concepts/<#date-input-issues>)

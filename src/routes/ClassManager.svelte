@@ -1,6 +1,6 @@
 <!-- File: src/routes/ClassManager.svelte -->
 <script lang="ts">
-	import { modalStore } from '$lib/stores/modalStore';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import type { Class } from '$lib/schemas/class';
 	import type { Student } from '$lib/schemas/student';
 	import type { SuperValidated } from 'sveltekit-superforms';
@@ -18,7 +18,6 @@
 	import ClassDetails from './ClassDetails.svelte';
 	import StudentDocuments from './StudentDocuments.svelte';
 	import ClassForm from './ClassForm.svelte';
-	import StudentForm from './StudentForm.svelte';
 
 	// State
 	let selectedClass = $state<Class | null>(null);
@@ -111,11 +110,7 @@
 		{/if}
 		<!-- Column 3: Student Form or Documents -->
 		{#if isAddingStudent && selectedClass}
-			<StudentForm
-				data={data.studentForm}
-				{selectedClass}
-				onCancel={() => (isAddingStudent = false)}
-			/>
+			<!-- do something -->
 		{:else if selectedStudent}
 			<StudentDocuments {selectedStudent} />
 		{/if}

@@ -1,0 +1,258 @@
+# Events[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#events>)
+
+A number of events give you full control over the submit process. They are triggered every time the form is submitted.
+Events are only available when JavaScript is enabled in the browser and the custom [use:enhance](https://superforms.rocks/concepts/</concepts/enhance>) is added to the form.
+
+## Event flowchart[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#event-flowchart>)
+
+![Event flowchart](https://superforms.rocks/_app/immutable/assets/events.C0HjOx0t.png)
+In a [single-page application](https://superforms.rocks/concepts/</concepts/spa>), or if [client-side validation](https://superforms.rocks/concepts/</concepts/client-validation>) fails, the validation happens entirely on the client, instead of being returned from the server between `onSubmit` and `onResult`.
+
+## Usage[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#usage>)
+
+```
+const { form, enhance } = superForm(data.form, {
+ onSubmit: ({ action, formData, formElement, controller, submitter, cancel }) => void
+ onResult: ({ result, formEl, cancel }) => void
+ onUpdate: ({ form, cancel }) => void
+ onUpdated: ({ form }) => void
+ onError: (({ result, message }) => void) | 'apply'
+})
+```
+
+## onSubmit[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onsubmit>)
+
+```
+onSubmit: ({
+ action, formData, formElement, controller, submitter, cancel,
+ jsonData, validators, customRequest
+}) => void;
+```
+
+The `onSubmit` event is the first one triggered, being essentially the same as SvelteKit’s own `use:enhance` function. It gives you a chance to cancel the submission altogether. See the SvelteKit docs for most of the [SubmitFunction](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/types#public-types-submitfunction>) signature.
+There are also three extra properties in the Superforms `onSubmit` event, for more advanced scenarios:
+
+#### jsonData[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#jsondata>)
+
+If you’re using [nested data](https://superforms.rocks/concepts/</concepts/nested-data>), the `formData` property cannot be used to modify the posted data, since `$form` is serialized and posted instead. If you want to post something else than `$form`, you can do it with the `jsonData` function:
+
+```
+import { superForm, type FormPath } from 'sveltekit-superforms'
+const { form, enhance, isTainted } = superForm(data.form, {
+ dataType: 'json',
+ onSubmit({ jsonData }) {
+  // Only post tainted (top-level) fields
+  const taintedData = Object.fromEntries(
+   Object.entries($form).filter(([key]) => {
+    return isTainted(key as FormPath<typeof $form>)
+   })
+  )
+  // Set data to be posted
+  jsonData(taintedData);
+ }
+});
+```
+
+Note that if [client-side validation](https://superforms.rocks/concepts/</concepts/client-validation>) is enabled, it’s always `$form` that will be validated. Only if it passes validation, the data sent with `jsonData` will be used. It does not work in [SPA mode](https://superforms.rocks/concepts/</concepts/spa>) either, as data transformation can be handled in `onUpdate` in that case.
+
+#### validators[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#validators>)
+
+For advanced validation, you can change client-side validators for the current form submission with this function.
+
+```
+import { superForm } from 'sveltekit-superforms';
+import { zod } from 'sveltekit-superforms/adapters';
+import { customSchema } from './schemas.js';
+let step = $state(1);
+const lastStep = 5;
+const { form, enhance } = superForm(data.form, {
+ onSubmit({ validators }) {
+  if(step == 1) validators(zod(customSchema));
+  else if(step == lastStep) validators(false);
+ }
+});
+```
+
+#### customRequest[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#customrequest>)
+
+You can make a custom request with [fetch](https://superforms.rocks/concepts/<https:/developer.mozilla.org/en-US/docs/Web/API/Fetch_API>) or [XMLHttpRequest](https://superforms.rocks/concepts/<https:/developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest>) when submitting the form. The main use case is to display a progress bar when uploading large files.
+The `customRequest` option takes a function that should return a `Promise<Response | XMLHttpRequest>`. In the case of an `XMLHttpRequest`, the promise must be resolved _after_ the request is complete. The response body should contain an `ActionResult`, as any form action does.
+
+```
+import { superForm } from 'sveltekit-superforms';
+import type { SubmitFunction } from '@sveltejs/kit';
+let progress = $state(0);
+function fileUploadWithProgress(input: Parameters<SubmitFunction>[0]) {
+ return new Promise<XMLHttpRequest>((resolve) => {
+  const xhr = new XMLHttpRequest();
+  xhr.upload.onprogress = function (event) {
+   progress = Math.round((100 * event.loaded) / event.total);
+  };
+  xhr.onload = function () {
+   if (xhr.readyState === xhr.DONE) {
+    progress = 0;
+    resolve(xhr);
+   }
+  };
+  xhr.open('POST', input.action, true);
+  xhr.send(input.formData);
+ });
+}
+const { form, enhance } = superForm(data.form, {
+ onSubmit({ customRequest }) {
+  customRequest(fileUploadWithProgress)
+ }
+});
+```
+
+## onResult[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onresult>)
+
+```
+onResult: ({ result, formElement, cancel }) => void
+```
+
+If the submission isn’t cancelled and [client-side validation](https://superforms.rocks/concepts/</concepts/client-validation>) succeeds, the form is posted to the server. It then responds with a SvelteKit [ActionResult](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/types#public-types-actionresult>), triggering the `onResult` event.
+`result` contains the ActionResult. You can modify it; changes will be applied further down the event chain. `formElement` is the `HTMLFormElement` of the form. `cancel()` is a function which will cancel the rest of the event chain and any form updates.
+In most cases, you don’t have to care about the `ActionResult`. To check if the form validation succeeded, use [onUpdated](https://superforms.rocks/concepts/</concepts/events#onupdated>), or [onUpdate](https://superforms.rocks/concepts/</concepts/events#onupdate>) if you want to modify or cancel the result before it’s displayed.
+
+#### Common usage[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#common-usage>)
+
+`onResult` is useful when you have set `applyAction = false` and still want to redirect, since the form doesn’t do that automatically in that case. Then you can do:
+
+```
+const { form, enhance } = superForm(data.form, {
+ applyAction: false,
+ onResult({ result }) {
+  if (result.type === 'redirect') {
+   goto(result.location);
+  }
+ }
+});
+```
+
+Also, if `applyAction` is `false`, which means that `$page.status` won’t update, you’ll find the status code for the request in `result.status`.
+
+## onUpdate[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onupdate>)
+
+```
+onUpdate: ({ form, formElement, cancel, result }) => void
+```
+
+The `onUpdate` event is triggered right before the form update is being applied, giving you the option to modify the validation result in `form`, or use `cancel()` to negate the update altogether. You also have access to the form’s `HTMLFormElement` with `formElement`.
+If your app is a single-page application, `onUpdate` is the most convenient to process the form data. See the [SPA](https://superforms.rocks/concepts/</concepts/spa>) page for more details.
+The `form` parameter is deliberately named “form”, to avoid using the `$form` store, as changes to the form parameter are applied to `$form` and the other stores, when the event is completed.
+You can also access the `ActionResult` in `result`, which is narrowed to type `'success'` or `'failure'` here. You can use it together with the `FormResult` helper type to more conventiently access any additional form action data:
+
+```
+import { superForm, type FormResult } from 'sveltekit-superforms';
+import type { ActionData, PageData } from './$types.js';
+let { data } : { data: PageData } = $props();
+const { form, errors, message, enhance } = superForm(data.form, {
+ onUpdate({ form, result }) {
+  const action = result.data as FormResult<ActionData>;
+  // If you've returned from the form action:
+  // return { form, extra: 123 }
+  if (form.valid && action.extra) {
+   // Do something with the extra data
+  }
+ }
+});
+```
+
+## onUpdated[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onupdated>)
+
+```
+onUpdated: ({ form }) => void
+```
+
+If you just want to ensure that the form is validated and do something extra afterwards, like showing a toast notification, `onUpdated` is the easiest way.
+The `form` parameter contains the validation result, and should be considered read-only here, since the stores have updated at this point. Unlike the previous events, `$form`, `$errors` and the other stores now contain updated data.
+**Example**
+
+```
+const { form, enhance } = superForm(data.form, {
+ onUpdated({ form }) {
+  if (form.valid) {
+   // Successful post! Do some more client-side stuff,
+   // like showing a toast notification.
+   toast(form.message, { icon: '✅' });
+  }
+ }
+});
+```
+
+## onError[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onerror>)
+
+```
+onError: (({ result }) => void) | 'apply'
+```
+
+When the SvelteKit [error](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/errors#expected-errors>) function is called on the server, you can use the `onError` event to catch it. `result` is the error ActionResult, with its `error` property:
+
+```
+App.Error | Error | { message: string }
+```
+
+Depending on what kind of error occurs, it will have a different shape.
+Error type | Shape  
+---|---  
+[Expected error](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/errors#expected-errors>) | `App.Error`  
+Server exception | `{ message: string }`  
+JSON response | Unexpected JSON responses, such as from a proxy server, should be included in `App.Error` to be type-safe.  
+Other response | If a fetch fails, or HTML is returned for example, result.error will be of type `Error` ([MDN](https://superforms.rocks/concepts/<https:/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error>)), usually with a JSON parse error. It has a `message` property.  
+In this simple example, the message store is set to the error message or a fallback:
+
+```
+const { form, enhance, message } = superForm(data.form, {
+ onError({ result }) {
+  $message = result.error.message || "Unknown error";
+ }
+});
+```
+
+If JSON is returned, the HTTP status code will be taken from its `status` property, instead of the default status `500` for [unexpected errors](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/errors#unexpected-errors>).
+You can also set `onError` to the string value `'apply'`, in which case the default SvelteKit error behaviour will be used, which is to render the nearest [+error](https://superforms.rocks/concepts/<https:/kit.svelte.dev/docs/routing#error>) page, also wiping out the form. To avoid data loss even for non-JavaScript users, returning a [status message](https://superforms.rocks/concepts/</concepts/messages>) instead of throwing an error is recommended.
+
+## Non-submit events[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#non-submit-events>)
+
+## onChange[![](https://superforms.rocks/link.svg)](https://superforms.rocks/concepts/<#onchange>)
+
+The `onChange` event is not triggered when submitting, but every time `$form` is modified, both as a html event (when modified with `bind:value`) and programmatically (direct assignment to `$form`).
+The event is a discriminated union that you can distinguish between using the `target` property:
+
+```
+const { form, errors, enhance } = superForm(data.form, {
+ onChange(event) {
+  if(event.target) {
+   // Form input event
+   console.log(
+    event.path, 'was changed with', event.target,
+    'in form', event.formElement
+   );
+  } else {
+   // Programmatic event
+   console.log('Fields updated:', event.paths)
+  }
+ }
+})
+```
+
+If you want to handle all change events, you can access `event.paths` without distinguishing.
+`onChange` is useful for deep reactivity, as you have the full path to the changes in the event.
+[Previous page ← Error handling](https://superforms.rocks/concepts/</concepts/error-handling>) [Next page File uploads →](https://superforms.rocks/concepts/</concepts/files>)
+Found a typo or an inconsistency? Make a quick correction [here](https://superforms.rocks/concepts/<https:/github.com/ciscoheat/superforms-web/tree/main/src/routes/concepts/events/+page.md>)!
+Table of Contents
+
+- [Event flowchart](https://superforms.rocks/concepts/<#event-flowchart>)
+- [Usage](https://superforms.rocks/concepts/<#usage>)
+- [onSubmit](https://superforms.rocks/concepts/<#onsubmit>)
+- [jsonData](https://superforms.rocks/concepts/<#jsondata>)
+- [validators](https://superforms.rocks/concepts/<#validators>)
+- [customRequest](https://superforms.rocks/concepts/<#customrequest>)
+- [onResult](https://superforms.rocks/concepts/<#onresult>)
+- [Common usage](https://superforms.rocks/concepts/<#common-usage>)
+- [onUpdate](https://superforms.rocks/concepts/<#onupdate>)
+- [onUpdated](https://superforms.rocks/concepts/<#onupdated>)
+- [onError](https://superforms.rocks/concepts/<#onerror>)
+- [Non-submit events](https://superforms.rocks/concepts/<#non-submit-events>)
+- [onChange](https://superforms.rocks/concepts/<#onchange>)
