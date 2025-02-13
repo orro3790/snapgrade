@@ -6,11 +6,13 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 1. Make sure you have read documentation\official-svelte-documentation\index.md so that you know where to find the official documentation for svelte 5 for the task you are working on.
 
-2. For the latest svelte 5 syntax, coding patterns, and best practices, refer to @/documentation/v5-migration-guide.md.
+2. For the latest svelte 5 syntax, coding patterns, and best practices, refer to /documentation/v5-migration-guide.md.
 
-3. Whenever you are implementing superforms, refer to @/documentation/superforms\index.md for the latest syntax, coding patterns and guide to using superforms.
+3. Whenever you are implementing superforms, refer to /documentation/superforms\index.md for the latest syntax, coding patterns and guide to using superforms.
 
-4. Whenever you are designing components, refer to @/documentation/design-system.md for the design system guidelines.
+4. Whenever you are designing components, refer to /documentation/design-system.md for the design system guidelines.
+
+5. Read /documentation/work-diagram.md for a visual understanding of the user's experience using the app.
 
 - Whenever you access index.md files or documentation, notify me so I am aware you have read the documentation.
 
@@ -29,6 +31,54 @@ If understand and comply with the statements above, begin by saying "Instruction
 ### 1.1 PROJECT OVERVIEW
 
 - We are building a lightweight, simple text-editor that allows users to add corrections to their essays. The editor will be used by a teacher to correct their students' essays. The corrections will be displayed in a printable format. Text can be inputed manually by the teacher, or received automatically from an API endpoint. Each word is tokenized and displayed as a TextNode.svelte component. Before storing in the database, the tokens are serialized and stored as a compressed JSON array. When documents are loaded back into the editor, the tokens are deserialized into the TextNode.svelte components.
+
+## 1.2 WORK FLOW
+
+### Process Flow
+
+1. **Initial Input**
+
+   - Teacher (client-side) takes a photo of a student's essay
+   - Photo is sent to our Telegram bot
+
+2. **Text Extraction**
+
+   - Telegram bot confirms auth with Firebase and my user document to ensure user's account is active (subscribed)
+   - Telegram bot forwards photo to LLM Whisperer service
+   - LLM Whisperer performs OCR (Optical Character Recognition)
+   - Raw text is extracted from the photo
+
+3. **Parallel Processing**
+
+   - Raw text is stored in Firestore database
+   - Raw text, image, and user ID is sent to Snapgrade server's API endpoint
+
+4. **Structural Analysis**
+
+   - Server forwards text and image to Structure LLM
+   - Structure LLM identifies:
+     - Headers
+     - Titles
+     - Paragraphs
+     - Lists
+
+5. **Teacher Review**
+
+   - Teacher reviews identified structural elements
+   - Confirms or adjusts structural analysis
+
+6. **Writing Analysis**
+
+   - Text is processed by Writing Analysis LLM
+   - Performs comprehensive checks:
+     - Grammar
+     - Spelling
+     - Style
+
+7. **Final Output**
+   - Analysis results are converted to Text Node array
+   - Nodes conform to TextNode schema
+   - Ready for display in editor
 
 ## 2. TECH STACK
 

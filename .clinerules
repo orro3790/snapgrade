@@ -43,6 +43,7 @@ If understand and comply with the statements above, begin by saying "Instruction
 
 2. **Text Extraction**
 
+   - Telegram bot confirms auth with Firebase and my user document to ensure user's account is active (subscribed)
    - Telegram bot forwards photo to LLM Whisperer service
    - LLM Whisperer performs OCR (Optical Character Recognition)
    - Raw text is extracted from the photo
@@ -50,11 +51,11 @@ If understand and comply with the statements above, begin by saying "Instruction
 3. **Parallel Processing**
 
    - Raw text is stored in Firestore database
-   - Raw text is sent to Snapgrade server's API endpoint
+   - Raw text, image, and user ID is sent to Snapgrade server's API endpoint
 
 4. **Structural Analysis**
 
-   - Server forwards text to Structure LLM
+   - Server forwards text and image to Structure LLM
    - Structure LLM identifies:
      - Headers
      - Titles
