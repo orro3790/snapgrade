@@ -1,0 +1,68 @@
+flowchart TB
+    subgraph Client[Client Side]
+        User((Teacher)) --> Photo[Photo]
+        Review[Teacher Review]
+    end
+
+    subgraph TG[Telegram]
+        TBot[Telegram Bot]
+        Photo --> TBot
+    end
+
+    subgraph LLMWhisperer[LLM Whisperer Service]
+        OCR[OCR Processing]
+        TBot --> OCR
+        OCR --> RawText[Raw Text]
+    end
+
+    subgraph DB[Database]
+        Firestore[(Firestore)]
+        RawText --> Firestore
+    end
+
+    subgraph Server[Snapgrade Server]
+        API[API Endpoint]
+        RawText --> API
+        
+        subgraph DocElements[Document Elements]
+            Headers[Headers]
+            Titles[Titles]
+            Paragraphs[Paragraphs]
+            Lists[Lists]
+        end
+    end
+
+    subgraph LLMs[Language Models]
+        StructLLM[Structure LLM]
+        WritingLLM[Writing Analysis LLM]
+
+        API --> StructLLM
+        StructLLM --> DocElements
+        DocElements --> Review
+        Review --> WritingLLM
+        
+        subgraph Analysis[Writing Analysis]
+            Grammar[Grammar Check]
+            Spelling[Spelling Check]
+            Style[Style Check]
+        end
+        
+        WritingLLM --> Analysis
+    end
+
+    Analysis --> Nodes[Text Node Array]
+    Nodes --> Schema[TextNode Schema]
+
+    classDef llm fill:#7f6df2,color:#fff
+    classDef storage fill:#197300,color:#fff
+    classDef process fill:#303030,color:#fff
+    classDef user fill:#ff3333,color:#fff
+    classDef group fill:#1a1a1a,color:#fff
+    classDef actor fill:#2a2a2a,stroke:#7f6df2,color:#fff
+
+    class StructLLM,WritingLLM llm
+    class Firestore storage
+    class TBot,API,Review process
+    class User user
+    class DocElements,Analysis group
+    class Client,TG,LLMWhisperer,DB,Server,LLMs actor
