@@ -5,9 +5,19 @@
  * Uses Svelte 5 runes ($state, $derived) for reactive state management.
  */
 
-import type { Node, NodeType, CorrectionData, SpacerSubtype } from '$lib/schemas/textNode';
+import type { Node, NodeType, CorrectionData, SpacerSubtype, StructuralRole } from '$lib/schemas/textNode';
 import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
 import { z } from 'zod';
+
+/**
+ * Editor mode enum defining available editing states
+ */
+export const EditorMode = {
+    FORMATTING: 'formatting',
+    EDITING: 'editing'
+} as const;
+
+export type EditorModeType = typeof EditorMode[keyof typeof EditorMode];
 
 /**
  * Core editor state containing all document and editing state.
@@ -24,7 +34,8 @@ const editorState = $state({
     activeNode: null as string | null,
     undoStack: [] as Node[][],
     redoStack: [] as Node[][],
-    documentName: ""
+    documentName: "",
+    mode: EditorMode.FORMATTING as EditorModeType
 });
 
 /**
@@ -248,13 +259,15 @@ function loadSerializedContent(serialized: string) {
  * @param {CorrectionData} [correctionData] - Optional correction data.
  * @param {{ subtype: SpacerSubtype }} [spacerData] - Optional spacer data (for spacer nodes).
  * @param {NodeType} [type='normal'] - The node type. Defaults to 'normal'.
+ * @param {StructuralRole} [structuralRole] - Optional structural role for formatting.
  */
 function updateNode(
-    nodeId: string, 
-    text: string, 
-    correctionData?: CorrectionData, 
-    spacerData?: { subtype: SpacerSubtype }, 
-    type: NodeType = 'normal'
+    nodeId: string,
+    text: string,
+    correctionData?: CorrectionData,
+    spacerData?: { subtype: SpacerSubtype },
+    type: NodeType = 'normal',
+    structuralRole?: StructuralRole
 ) {
     const nodeIndex = editorState.nodes.findIndex((n: Node) => n.id === nodeId);
     if (nodeIndex === -1) return;
@@ -759,6 +772,49 @@ function removeNodes(nodeIds: string[]) {
  * The main editor store object, containing functions and state for managing the editor.
  */
 export const editorStore = {
+    /**
+     * Get/set the current editor mode
+     */
+    get mode() {
+        return editorState.mode;
+    },
+    set mode(value: EditorModeType) {
+        editorState.mode = value;
+    },
+
+    /**
+     * Check if editor is in formatting mode
+     */
+    isFormattingMode() {
+        return editorState.mode === EditorMode.FORMATTING;
+    },
+
+    /**
+     * Check if editor is in editing mode
+     */
+    isEditingMode() {
+        return editorState.mode === EditorMode.EDITING;
+    },
+
+    /**
+     * Toggle between formatting and editing modes
+     */
+    toggleMode() {
+        editorState.mode = editorState.mode === EditorMode.FORMATTING
+            ? EditorMode.EDITING
+            : EditorMode.FORMATTING;
+    },
+
+    /**
+     * Check if an operation is allowed in the current mode
+     */
+    isOperationAllowed(operation: 'delete' | 'correct' | 'format'): boolean {
+        if (editorState.mode === EditorMode.FORMATTING) {
+            return operation === 'format';
+        }
+        return operation === 'delete' || operation === 'correct';
+    },
+
     /**
      * Get the current nodes array.
      */

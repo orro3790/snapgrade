@@ -4,7 +4,8 @@ import { adminAuth, adminDb } from "$lib/firebase/admin";
 
 // Define all routes that require authentication and their specific requirements These routes will redirect to login if no session exists
 const PROTECTED_ROUTES = [
-  '/private'
+  '/private',
+  '/api/documents/create'
 ]
 
 // Define status-specific routes that users are redirected to when their account status changes

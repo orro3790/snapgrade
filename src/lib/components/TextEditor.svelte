@@ -1,8 +1,9 @@
 <!-- file: src/lib/components/TextEditor.svelte -->
 <script lang="ts">
-	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import { editorStore, EditorMode } from '$lib/stores/editorStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
+	import FormattingSidebar from './FormattingSidebar.svelte';
 
 	// Props and state
 	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
@@ -14,6 +15,7 @@
 	let paragraphsList = $derived(editorStore.paragraphs);
 	let activeNodeId = $derived(editorStore.activeNode);
 	let editorContent = $derived(editorStore.getContent());
+	let currentMode = $derived(editorStore.mode);
 
 	$inspect(paragraphsList[0]?.corrections);
 
@@ -35,6 +37,11 @@
 		else if (event.ctrlKey && event.key === 'y') {
 			event.preventDefault();
 			editorStore.redo();
+		}
+		// Toggle Mode: Ctrl+M
+		else if (event.ctrlKey && event.key === 'm') {
+			event.preventDefault();
+			editorStore.toggleMode();
 		}
 	}
 </script>
@@ -60,17 +67,19 @@
 	role="textbox"
 >
 	<div class="main-content" class:sidebar-expanded={sidebarStore.state.state === 'expanded'}>
-		<!-- Wrap the a4-content in a print-only container -->
-		<div class="print-container">
-			<div class="a4-content" role="complementary" aria-label="Preview">
-				{#each paragraphsList as paragraph (paragraph.id)}
-					<div class="paragraph">
-						{#each paragraph.corrections as node (node.id)}
-							<TextNode {node} isActive={node.id === activeNodeId} />
-						{/each}
-					</div>
-				{/each}
-			</div>
+		<!-- Show formatting sidebar only in formatting mode -->
+		{#if currentMode === EditorMode.FORMATTING}
+			<FormattingSidebar />
+		{/if}
+
+		<div class="a4-content" role="complementary" aria-label="Preview">
+			{#each paragraphsList as paragraph (paragraph.id)}
+				<div class="paragraph">
+					{#each paragraph.corrections as node (node.id)}
+						<TextNode {node} isActive={node.id === activeNodeId} />
+					{/each}
+				</div>
+			{/each}
 		</div>
 	</div>
 </div>
@@ -81,7 +90,7 @@
 		width: 100%;
 		min-height: 100vh;
 		display: flex;
-		background-color: var(--background-primary);
+		background-color: var(--background-secondary);
 	}
 
 	.main-content {
@@ -89,7 +98,8 @@
 		display: flex;
 		justify-content: center;
 		align-items: flex-start;
-		background-color: var(--background-secondary);
+		padding: var(--spacing-4);
+		gap: var(--spacing-4);
 	}
 
 	.paragraph {
@@ -106,8 +116,26 @@
 		padding: 20mm; /* A4 margins */
 		box-shadow: var(--shadow-lg);
 		border-radius: var(--radius-lg);
-		margin: var(--spacing-8) auto;
 		color: var(--text-normal);
 		font-size: var(--font-size-base);
+	}
+
+	/* Print styles */
+	@media print {
+		.editor-wrapper {
+			background-color: transparent;
+		}
+
+		.main-content {
+			padding: 0;
+			gap: 0;
+		}
+
+		.a4-content {
+			margin: 0;
+			padding: 20mm;
+			box-shadow: none;
+			border-radius: 0;
+		}
 	}
 </style>

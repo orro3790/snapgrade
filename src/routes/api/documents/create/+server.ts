@@ -1,135 +1,88 @@
-// import { createStagedDocumentSchema, createDocumentSchema, documentResponseSchema  } from '$lib/schemas/document';
-// import { adminAuth, adminDb } from '$lib/firebase/admin';
-// import type { RequestHandler } from '../$types';
-// import { json } from '@sveltejs/kit';
-// import { z } from 'zod';
-// import { FirebaseError } from 'firebase/app';
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { adminDb } from '$lib/firebase/admin';
+import { documentSchema, DocumentStatus, type Document } from '$lib/schemas/document';
+import { z } from 'zod';
 
-// // Create a new document
-// export const POST: RequestHandler = async (event) => {
-//     const { request } = event;
-//     try {
-//         // Get session cookie
-//         const sessionCookie = event.cookies.get('session');
-//         if (!sessionCookie) {
-//             return json(
-//                 { 
-//                     status: 'error' as const, 
-//                     message: 'No session cookie found',
-//                     code: 'auth/no-session'
-//                 },
-//                 { status: 401 }
-//             );
-//         }
+// Define strict request body schema
+const createDocumentRequestSchema = z.object({
+  documentBody: z.string().min(1, "Document content is required"),
+  image: z.object({
+    base64: z.string(),
+    mimeType: z.string()
+  }),
+  sourceMetadata: z.object({
+    rawOcrOutput: z.string().optional(),
+    telegramMessageId: z.string().optional(),
+    telegramChatId: z.string().optional(),
+    telegramFileId: z.string().optional(),
+    llmProcessed: z.boolean().default(false),
+    llmProcessedAt: z.date().optional()
+  }).optional().default({
+    llmProcessed: false
+  })
+}).required();
 
-//         // Verify the session cookie
-//         const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
-        
-//         // Fetch current user status from Firestore
-//         const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
-        
-//         if (!userDoc.exists) {
-//             return json(
-//                 { 
-//                     status: 'error' as const, 
-//                     message: 'User not found',
-//                     code: 'auth/user-not-found'
-//                 },
-//                 { status: 404 }
-//             );
-//         }
+export const POST: RequestHandler = async ({ request, locals }) => {
+  try {
+    // Parse and validate request body
+    const rawBody = await request.json();
+    const { documentBody, sourceMetadata } = createDocumentRequestSchema.parse(rawBody);
 
-//         const userData = userDoc.data();
+    // Generate document ID
+    const docRef = adminDb.collection('documents').doc();
+    const now = new Date();
 
-//         console.log(userData);
-//         if (userData?.metadata.accountStatus !== 'active') {
-//             return json(
-//                 { 
-//                     status: 'error' as const, 
-//                     message: 'Account not active',
-//                     code: 'auth/account-inactive'
-//                 },
-//                 { status: 403 }
-//             );
-//         }
+    // Create document data with all required fields
+    const documentData: Document = {
+      id: docRef.id,
+      userId: locals.uid as string,
+      studentId: 'Unassigned',
+      studentName: 'Unassigned Student',
+      classId: 'Unassigned',
+      className: 'Unassigned',
+      documentName: `Untitled - ${now.toLocaleDateString()}`,
+      documentBody,
+      sourceType: 'llmwhisperer',
+      status: DocumentStatus.EDITING,
+      createdAt: now,
+      updatedAt: now,
+      sourceMetadata
+    };
 
-//         // Parse and validate request data using appropriate schema
-//         const { data } = await request.json();
+    // Validate complete document data
+    const validatedDocument = documentSchema.parse(documentData);
 
-//         // Determine which schema to use based on 'status'
-//         let validatedDoc;
-//         if (data.status === 'staged') {
-//             validatedDoc = createStagedDocumentSchema.parse({
-//                 ...data,
-//                 userId: decodedToken.uid,
-//                 sourceType: data.sourceType || 'llmwhisperer' // Default to 'llmwhisperer' if not provided
-//             });
-//         } else {
-//             validatedDoc = createDocumentSchema.parse({
-//                 ...data,
-//                 userId: decodedToken.uid,
-//                 sourceType: 'manual' // Web submissions are always manual
-//             });
-//         }
+    // Create document in Firestore using generated ID
+    await docRef.set(validatedDocument);
 
-//         // Add metadata
-//         const docWithMetadata = {
-//             ...validatedDoc,
-//             createdAt: new Date().toISOString(),
-//             updatedAt: new Date().toISOString()
-//         };
+    return json({
+      status: 'success',
+      data: validatedDocument
+    });
 
-//         // Store in Firestore
-//         const docRef = await adminDb
-//             .collection('documents')
-//             .add(docWithMetadata);
+  } catch (error) {
+    console.error('Error creating document:', error);
+    
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      return json({
+        status: 'error',
+        error: {
+          message: 'Invalid request data',
+          code: 'VALIDATION_ERROR',
+          errors: error.errors
+        }
+      }, { status: 400 });
+    }
 
-//         // Validate response format
-//         const response = documentResponseSchema.parse({
-//             ...docWithMetadata,
-//             id: docRef.id
-//         });
-
-//         return json({
-//             status: 'success' as const,
-//             data: response
-//         });
-
-//     } catch (error) {
-//         console.error('Error:', error);
-
-//          // Handle validation errors
-//         if (error instanceof z.ZodError) {
-//           return json(
-//               {
-//                   status: 'error' as const,
-//                   message: 'Invalid document format',
-//                   errors: error.errors
-//               },
-//               { status: 400 }
-//           );
-//         }
-
-//         // Handle Firebase errors
-//         if (error instanceof FirebaseError) {
-//             return json(
-//                 {
-//                     status: 'error' as const,
-//                     message: error.message,
-//                     code: error.code
-//                 },
-//                 { status: error.code.includes('auth') ? 401 : 500 }
-//             );
-//         }
-
-//         // Handle unknown errors
-//         return json(
-//             {
-//                 status: 'error' as const,
-//                 message: error instanceof Error ? error.message : 'Unknown error',
-//                 code: 'internal/unknown'
-//             },
-//             { status: 500 }
-//         );
-//     }
-// };
+    // Handle other errors
+    return json({
+      status: 'error',
+      error: {
+        message: 'Failed to create document',
+        code: 'INTERNAL_ERROR'
+      }
+    }, { status: 500 });
+  }
+};

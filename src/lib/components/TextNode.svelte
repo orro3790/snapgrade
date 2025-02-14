@@ -194,6 +194,10 @@
 		<div class="text-content">+</div>
 	{:else if node.type === 'spacer'}
 		<div class="spacer-content"></div>
+	{:else if node.type === 'heading'}
+		<div class="text-content heading">{node.text}</div>
+	{:else if node.type === 'list'}
+		<div class="text-content list-item">• {node.text}</div>
 	{:else}
 		<div class="text-content">{node.text}</div>
 	{/if}
@@ -211,27 +215,15 @@
 	}
 
 	/* Spacer node styles */
-	.text-node[data-subtype='tab'] {
-		width: 2vw;
-		min-width: 2vw;
+	.text-node[data-subtype='indent'] {
+		width: 2em;
+		min-width: 2em;
 		border: none;
 	}
 
 	.text-node[data-subtype='newline'] {
 		width: 100%;
 		height: var(--font-size-base);
-		border: none;
-	}
-
-	.text-node[data-subtype='list'] {
-		width: 3vw;
-		min-width: 3vw;
-		border: none;
-	}
-
-	.text-node[data-subtype='nestedlist'] {
-		width: 5vw;
-		min-width: 5vw;
 		border: none;
 	}
 
@@ -251,9 +243,24 @@
 		transition: var(--transition-all);
 		min-width: var(--font-size-base);
 	}
+
 	/* Add top margin except for corrections, this way, we can essentially have a consistent line-height */
 	.text-node:not(.correction) {
 		margin-top: var(--spacing-4);
+	}
+
+	/* Heading styling */
+	.heading {
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-bold);
+		color: var(--text-accent);
+	}
+
+	/* List item styling */
+	.list-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
 	}
 
 	.correction-wrapper .text-content {

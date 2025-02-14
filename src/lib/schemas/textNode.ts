@@ -39,11 +39,9 @@ export const spacerSubtypeEnum = z.enum([
 export const structuralRole = z.enum([
     'title',
     'subtitle',
-    'heading1',
-    'heading2',
-    'heading3',
+    'heading',
     'paragraphStart',
-    'listItem'
+    'listItem',
   ]);
 
 export const nodeMetadataSchema = z.lazy(() => z.object({

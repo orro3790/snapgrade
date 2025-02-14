@@ -9,7 +9,6 @@
 	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
-	import StagingArea from './StagingArea.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 
@@ -50,7 +49,6 @@
 			</div>
 		</div>
 	</div>
-
 	{#if $modalStore?.type === 'upload'}
 		<UploadDocument data={data.documentForm} />
 	{:else if $modalStore?.type === 'classManager'}
@@ -58,14 +56,6 @@
 			data={{
 				classForm: data.classForm,
 				studentForm: data.studentForm,
-				user: data.user,
-				uid: data.uid
-			}}
-		/>
-	{:else if $modalStore?.type === 'stagingArea'}
-		<StagingArea
-			data={{
-				stageDocumentForm: data.stageDocumentForm,
 				user: data.user,
 				uid: data.uid
 			}}

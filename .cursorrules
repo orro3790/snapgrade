@@ -66,6 +66,18 @@ If understand and comply with the statements above, begin by saying "Instruction
 
    - Teacher reviews identified structural elements
    - Confirms or adjusts structural analysis
+   - Teacher enters "formatting mode" in TextEditor
+   - UI displays formatting buttons:
+     - Indent
+     - Paragraph
+     - Title
+     - List
+   - Cursor changes to match selected formatting action using CSS custom cursors:
+     - Uses embedded SVG cursors via `cursor: url('data:image/svg+xml,...')`
+     - Includes fallback cursors for touch devices via `@media (hover: none)`
+     - SVG cursors match formatting actions (indent arrow, paragraph symbol, etc)
+   - Teacher clicks words to apply/remove formatting
+   - Changes are immediately visible and reversible
 
 6. **Writing Analysis**
 
