@@ -16,6 +16,7 @@
 
 	let modalElement: HTMLDivElement;
 	let inputElement: HTMLTextAreaElement;
+
 	// Get selected nodes for multi-node correction
 	let isMultiNodeCorrection = $derived(editorStore.groupSelect.isGroupMode);
 	let selectedNodesList = $derived(
@@ -110,43 +111,29 @@
 		const trimmedValue = inputValue.trim();
 
 		if (isMultiNodeCorrection) {
-			// Handle multi-node correction
+			// Handle multi-node correction using GROUP_CORRECTION command
+			const selectedIds = editorStore.groupSelect.selectedNodeIds;
 			const groupNode = selectedNodesList.find(
 				(n) => n.type === 'correction' && n.metadata.groupedNodes
 			);
 
 			if (!trimmedValue && groupNode) {
 				// For empty submission on group correction, unpack the nodes
-				EditorCommands.CORRECTION.execute([groupNode.id, '']);
+				EditorCommands.UNPACK_GROUP.execute(groupNode.id);
 			} else if (trimmedValue && trimmedValue !== originalText) {
-				// Only create new correction if text actually changed
-				editorStore.createMultiNodeCorrection(
-					editorStore.groupSelect.selectedNodeIds,
-					trimmedValue,
-					'',
-					''
-				);
+				// Use GROUP_CORRECTION command for creating new corrections
+				EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
 			}
 		} else {
 			if (!trimmedValue && node.type === 'correction') {
 				// For empty submission on single correction, revert to normal
 				EditorCommands.CORRECTION.execute([node.id, '']);
 			} else if (node.type === 'empty') {
-				// Handle empty nodes differently - convert to addition
-				editorStore.updateNode(node.id, trimmedValue, undefined, undefined, 'addition');
+				// Handle empty nodes using UPDATE command
+				EditorCommands.UPDATE.execute(node.id);
 			} else if (trimmedValue && trimmedValue !== originalText) {
-				// Only create correction if text actually changed
-				editorStore.updateNode(
-					node.id,
-					node.text,
-					{
-						correctedText: trimmedValue,
-						pattern: '',
-						explanation: ''
-					},
-					undefined,
-					'correction'
-				);
+				// Use CORRECTION command for single node corrections
+				EditorCommands.CORRECTION.execute([node.id, trimmedValue]);
 			}
 		}
 
@@ -158,24 +145,27 @@
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			editorStore.removeNodes(editorStore.groupSelect.selectedNodeIds);
+			// Use GROUP_REMOVE command for multiple nodes
+			EditorCommands.GROUP_REMOVE.execute(editorStore.groupSelect.selectedNodeIds);
 		} else {
-			editorStore.removeNode(node.id);
+			// Use REMOVE command for single node
+			EditorCommands.REMOVE.execute(node.id);
 		}
 		onClose();
 	}
 
-	// Modify handleDelete to only handle deletion state
 	function handleDelete() {
 		if (isProcessingEdit) return;
 		isProcessingEdit = true;
 
 		if (isMultiNodeCorrection) {
-			editorStore.toggleMultiNodeDeletion(editorStore.groupSelect.selectedNodeIds);
+			// Use GROUP_DELETE command for multiple nodes
+			EditorCommands.GROUP_DELETE.execute(editorStore.groupSelect.selectedNodeIds);
 		} else if (node.type !== 'empty') {
-			editorStore.updateNode(node.id, node.text, undefined, undefined, 'deletion');
+			// Use DELETE command for single node
+			EditorCommands.DELETE.execute(node.id);
 		} else {
-			isProcessingEdit = false; // Reset the flag before returning
+			isProcessingEdit = false;
 			return;
 		}
 		onClose();
@@ -184,7 +174,16 @@
 	function handleAddAfter() {
 		if (isProcessingEdit || !inputValue.trim()) return;
 		isProcessingEdit = true;
-		editorStore.insertNodeAfter(node.id, inputValue.trim(), 'addition');
+
+		// Use INSERT_EMPTY command followed by UPDATE
+		EditorCommands.INSERT_EMPTY.execute(node.id);
+		const newNode = editorStore.nodes.find(
+			(n) => n.type === 'empty' && n.metadata.position > node.metadata.position
+		);
+		if (newNode) {
+			EditorCommands.UPDATE.execute(newNode.id);
+		}
+
 		onClose();
 	}
 

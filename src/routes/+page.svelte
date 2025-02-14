@@ -28,91 +28,104 @@
 		settingsStore.set(settings);
 	});
 
-	function handleKeyDown(e: KeyboardEvent) {
-		// Toggle mode with Ctrl+M
-		if (e.ctrlKey && e.key === 'm') {
-			e.preventDefault();
-			editorStore.toggleMode();
+	// Add a keyboard event handler to the window instead
+	$effect(() => {
+		function handleGlobalKeyDown(e: KeyboardEvent) {
+			// Toggle mode with Ctrl+M
+			if (e.ctrlKey && e.key === 'm') {
+				e.preventDefault();
+				editorStore.toggleMode();
+			}
 		}
-	}
+
+		// Add event listener
+		window.addEventListener('keydown', handleGlobalKeyDown);
+
+		// Cleanup on component destroy
+		return () => {
+			window.removeEventListener('keydown', handleGlobalKeyDown);
+		};
+	});
 </script>
 
-<div class="app-container" onkeydown={handleKeyDown}>
-	<div class="sidebar-editor-wrapper">
-		<Sidebar />
-		<div class="content-wrapper">
-			<header class="editor-header">
-				<button
-					type="button"
-					class="toggle-button"
-					onclick={() => sidebarStore.toggle()}
-					aria-label={sidebarStore.state.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
-					aria-expanded={sidebarStore.state.state === 'expanded'}
-				>
-					<SidebarToggle size="var(--icon-sm)" />
-				</button>
-				<div class="header-content">
-					<div class="title-container">
-						<h1>{documentName || 'No Document Loaded'}</h1>
-						<div class="mode-buttons">
-							<button
-								type="button"
-								class="toggle-button"
-								class:active={currentMode === EditorMode.FORMATTING}
-								onclick={() => (editorStore.mode = EditorMode.FORMATTING)}
-								aria-pressed={currentMode === EditorMode.FORMATTING}
-								aria-label="Formatting mode"
-							>
-								<Paragraph
-									stroke={currentMode === EditorMode.FORMATTING
-										? 'var(--text-on-accent)'
-										: 'var(--text-muted)'}
-									size="var(--icon-sm)"
-								/>
-							</button>
-							<button
-								type="button"
-								class="toggle-button"
-								class:active={currentMode === EditorMode.CORRECTING}
-								onclick={() => (editorStore.mode = EditorMode.CORRECTING)}
-								aria-pressed={currentMode === EditorMode.CORRECTING}
-								aria-label="Correcting mode"
-							>
-								<Pencil
-									stroke={currentMode === EditorMode.CORRECTING
-										? 'var(--text-on-accent)'
-										: 'var(--text-muted)'}
-									size="var(--icon-sm)"
-								/>
-							</button>
+<div class="app-wrapper">
+	<main aria-label="Document editor">
+		<div class="sidebar-editor-wrapper">
+			<Sidebar />
+			<div class="content-wrapper">
+				<header class="editor-header">
+					<button
+						type="button"
+						class="toggle-button"
+						onclick={() => sidebarStore.toggle()}
+						aria-label={sidebarStore.state.state === 'expanded' ? 'Collapse menu' : 'Expand menu'}
+						aria-expanded={sidebarStore.state.state === 'expanded'}
+					>
+						<SidebarToggle size="var(--icon-sm)" />
+					</button>
+					<div class="header-content">
+						<div class="title-container">
+							<h1>{documentName || 'No Document Loaded'}</h1>
+							<div class="mode-buttons">
+								<button
+									type="button"
+									class="toggle-button"
+									class:active={currentMode === EditorMode.FORMATTING}
+									onclick={() => (editorStore.mode = EditorMode.FORMATTING)}
+									aria-pressed={currentMode === EditorMode.FORMATTING}
+									aria-label="Formatting mode"
+								>
+									<Paragraph
+										stroke={currentMode === EditorMode.FORMATTING
+											? 'var(--text-on-accent)'
+											: 'var(--text-muted)'}
+										size="var(--icon-sm)"
+									/>
+								</button>
+								<button
+									type="button"
+									class="toggle-button"
+									class:active={currentMode === EditorMode.CORRECTING}
+									onclick={() => (editorStore.mode = EditorMode.CORRECTING)}
+									aria-pressed={currentMode === EditorMode.CORRECTING}
+									aria-label="Correcting mode"
+								>
+									<Pencil
+										stroke={currentMode === EditorMode.CORRECTING
+											? 'var(--text-on-accent)'
+											: 'var(--text-muted)'}
+										size="var(--icon-sm)"
+									/>
+								</button>
+							</div>
 						</div>
 					</div>
+				</header>
+				<div class="editor-container">
+					<TextEditor initialContent="" />
 				</div>
-			</header>
-			<div class="editor-container">
-				<TextEditor initialContent="" />
 			</div>
 		</div>
-	</div>
-	{#if $modalStore?.type === 'upload'}
-		<UploadDocument data={data.documentForm} />
-	{:else if $modalStore?.type === 'classManager'}
-		<ClassManager
-			data={{
-				classForm: data.classForm,
-				studentForm: data.studentForm,
-				user: data.user,
-				uid: data.uid
-			}}
-		/>
-	{/if}
+		{#if $modalStore?.type === 'upload'}
+			<UploadDocument data={data.documentForm} />
+		{:else if $modalStore?.type === 'classManager'}
+			<ClassManager
+				data={{
+					classForm: data.classForm,
+					studentForm: data.studentForm,
+					user: data.user,
+					uid: data.uid
+				}}
+			/>
+		{/if}
+	</main>
 </div>
 
 <style>
-	.app-container {
+	.app-wrapper {
 		width: 100%;
 		min-height: 100vh;
-		overflow-x: hidden;
+		display: block;
 	}
 
 	.sidebar-editor-wrapper {
