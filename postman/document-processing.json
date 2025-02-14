@@ -1,0 +1,116 @@
+{
+	"info": {
+		"name": "Document Processing API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Process Document",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"image\": \"{{base64_image}}\",\n  \"text\": \"{{extracted_text}}\",\n  \"uid\": \"{{firebase_user_id}}\",\n  \"botToken\": \"{{bot_token}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/documents/process",
+					"host": ["{{base_url}}"],
+					"path": ["api", "documents", "process"]
+				},
+				"description": "Process a document by analyzing its structure using Claude. Requires:\n- base64_image: Base64 encoded image of the document\n- extracted_text: Text extracted by LLMWhisperer\n- firebase_user_id: User's Firebase UID\n- bot_token: Telegram bot authentication token"
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"image\": \"base64_encoded_image_data\",\n  \"text\": \"Sample essay text content\",\n  \"uid\": \"user123\",\n  \"botToken\": \"bot_token_123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/documents/process"
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": "{\n  \"success\": true,\n  \"documentId\": \"generated_document_id\",\n  \"text\": \"Sample essay text content\",\n  \"nodes\": [\n    {\n      \"id\": \"node1\",\n      \"text\": \"Sample Title\",\n      \"type\": \"normal\",\n      \"structuralRole\": \"title\",\n      \"metadata\": {\n        \"position\": 0,\n        \"isPunctuation\": false,\n        \"isWhitespace\": false,\n        \"startIndex\": 0,\n        \"endIndex\": 11\n      }\n    }\n  ],\n  \"alternativeText\": \"Alternative text if discrepancies found\"\n}"
+				},
+				{
+					"name": "Error - Invalid Token",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"image\": \"base64_encoded_image_data\",\n  \"text\": \"Sample essay text content\",\n  \"uid\": \"user123\",\n  \"botToken\": \"invalid_token\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/documents/process"
+						}
+					},
+					"status": "Unauthorized",
+					"code": 401,
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": "{\n  \"error\": \"Invalid bot token\"\n}"
+				},
+				{
+					"name": "Error - Invalid Request",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"image\": \"\",\n  \"text\": \"\",\n  \"uid\": \"user123\",\n  \"botToken\": \"bot_token_123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/documents/process"
+						}
+					},
+					"status": "Bad Request",
+					"code": 400,
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": "{\n  \"error\": \"Image data and text content are required\"\n}"
+				}
+			]
+		}
+	]
+}

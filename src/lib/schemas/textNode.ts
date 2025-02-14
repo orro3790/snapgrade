@@ -1,14 +1,17 @@
 import { z } from 'zod';
 
-type NodeSchemaType = z.ZodType<{
+// Remove the manual NodeSchemaType definition and directly export the schema
+const nodeSchema: z.ZodType<{
     id: string;
     text: string;
     type: z.infer<typeof nodeTypeEnum>;
     correctionData?: z.infer<typeof correctionDataSchema>;
-    spacerData?: { subtype: z.infer<typeof spacerSubtypeEnum> };
+    structuralRole?: z.infer<typeof structuralRole>;
+    spacerData?: {
+        subtype: z.infer<typeof spacerSubtypeEnum>;
+    };
     metadata: z.infer<typeof nodeMetadataSchema>;
-}>;
-const nodeSchema: NodeSchemaType = z.lazy(() => z.object({
+}> = z.lazy(() => z.object({
     id: z.string(),
     text: z.string(),
     type: nodeTypeEnum,
@@ -41,7 +44,6 @@ export const structuralRole = z.enum([
     'subtitle',
     'heading',
     'paragraphStart',
-    'listItem',
   ]);
 
 export const nodeMetadataSchema = z.lazy(() => z.object({

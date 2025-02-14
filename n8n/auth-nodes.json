@@ -1,0 +1,149 @@
+{
+	"nodes": [
+		{
+			"parameters": {
+				"operation": "get",
+				"collection": "users",
+				"options": {},
+				"where": {
+					"conditions": [
+						{
+							"field": "metadata.telegramId",
+							"operator": "equal",
+							"value": "={{ $json.message.from.id }}"
+						},
+						{
+							"field": "metadata.accountStatus",
+							"operator": "equal",
+							"value": "ACTIVE"
+						}
+					],
+					"options": {
+						"caseSensitive": true
+					}
+				}
+			},
+			"name": "Check User Auth",
+			"type": "n8n-nodes-base.googleFirestore",
+			"typeVersion": 2,
+			"position": [-220, 220],
+			"credentials": {
+				"googleFirestoreOAuth2Api": {
+					"id": "YOUR_FIRESTORE_CRED_ID",
+					"name": "Firestore Account"
+				}
+			}
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"boolean": [
+						{
+							"value1": "={{ $('Check User Auth').item.json.data }}",
+							"value2": true,
+							"operation": "exists"
+						}
+					]
+				}
+			},
+			"name": "Is User Authenticated",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 1,
+			"position": [-20, 220]
+		},
+		{
+			"parameters": {
+				"chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+				"text": "⚠️ Please link your Snapgrade account first:\nhttps://snapgrade.app/link-telegram",
+				"additionalFields": {
+					"parse_mode": "HTML"
+				}
+			},
+			"name": "Send Auth Error",
+			"type": "n8n-nodes-base.telegram",
+			"typeVersion": 1.2,
+			"position": [-20, 400],
+			"credentials": {
+				"telegramApi": {
+					"id": "YOUR_TELEGRAM_CRED_ID",
+					"name": "Telegram account"
+				}
+			}
+		},
+		{
+			"parameters": {
+				"keepOnlySet": true,
+				"values": {
+					"string": [
+						{
+							"name": "userId",
+							"value": "={{ $('Check User Auth').item.json.data[0].id }}"
+						},
+						{
+							"name": "userName",
+							"value": "={{ $('Check User Auth').item.json.data[0].name }}"
+						}
+					]
+				},
+				"options": {}
+			},
+			"name": "Set User Data",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 2,
+			"position": [180, 220]
+		}
+	],
+	"connections": {
+		"Telegram Trigger": {
+			"main": [
+				[
+					{
+						"node": "Check User Auth",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Check User Auth": {
+			"main": [
+				[
+					{
+						"node": "Is User Authenticated",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Is User Authenticated": {
+			"main": [
+				[
+					{
+						"node": "Set User Data",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Send Auth Error",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Set User Data": {
+			"main": [
+				[
+					{
+						"node": "Switch",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	}
+}

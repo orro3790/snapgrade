@@ -92,7 +92,7 @@ If understand and comply with the statements above, begin by saying "Instruction
    - Nodes conform to TextNode schema
    - Ready for display in editor
 
-## 2. TECH STACK
+## 2. TECH STACK AND PROJECT ARCHITECTURE
 
 ### 2.1 FRAMEWORK
 
@@ -120,6 +120,25 @@ If understand and comply with the statements above, begin by saying "Instruction
 #### 2.5 Design System
 
 - Use design tokens from @/src/app.css and follow the design system guidelines.
+
+#### 2.6 Development Tools
+
+- **API Testing**: "Snapgrade Editor API" Postman Collection
+  - Use for development and testing of API endpoints
+  - Each new endpoint implementation includes corresponding Postman HTTP imports
+  - Collection contains pre-configured environments and variables
+  - Facilitates rapid API testing and validation
+  - Ensures consistent API behavior across development stages
+
+#### 2.7 Server Hooks
+
+- **Authentication and Route Protection**:
+  - `@hooks.server.ts` intercepts all server requests
+  - Implements Firebase authentication middleware
+  - Protects specified routes from unauthorized access
+  - Manages user sessions via cookies
+  - Stores user data and settings in `event.locals`
+  - Handles account status redirects (suspended/inactive)
 
 ## 3. Forbidden To Use
 
