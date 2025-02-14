@@ -79,7 +79,7 @@ Note: userId is available from event.locals.uid
 // In editorStore.svelte
 export const EditorMode = {
 	FORMATTING: 'formatting',
-	EDITING: 'editing'
+	CORRECTING: 'editing'
 } as const;
 
 let currentMode = $state(EditorMode.FORMATTING);

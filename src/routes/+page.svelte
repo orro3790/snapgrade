@@ -6,11 +6,13 @@
 	import { settingsStore } from '$lib/stores/settingsStore.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
-	import { editorStore } from '$lib/stores/editorStore.svelte';
+	import { editorStore, EditorMode } from '$lib/stores/editorStore.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
+	import Pencil from '$lib/icons/Pencil.svelte';
+	import Paragraph from '$lib/icons/Paragraph.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 
@@ -18,15 +20,24 @@
 	let user = $state(data?.user ?? null);
 	let settings = $state(data?.settings ?? null);
 	let documentName = $derived(editorStore.documentName);
+	let currentMode = $derived(editorStore.mode);
 
 	// Initialize stores with data
 	$effect(() => {
 		userStore.setUser(user);
 		settingsStore.set(settings);
 	});
+
+	function handleKeyDown(e: KeyboardEvent) {
+		// Toggle mode with Ctrl+M
+		if (e.ctrlKey && e.key === 'm') {
+			e.preventDefault();
+			editorStore.toggleMode();
+		}
+	}
 </script>
 
-<div class="app-container">
+<div class="app-container" onkeydown={handleKeyDown}>
 	<div class="sidebar-editor-wrapper">
 		<Sidebar />
 		<div class="content-wrapper">
@@ -41,7 +52,41 @@
 					<SidebarToggle size="var(--icon-sm)" />
 				</button>
 				<div class="header-content">
-					<h1>{documentName || 'No Document Loaded'}</h1>
+					<div class="title-container">
+						<h1>{documentName || 'No Document Loaded'}</h1>
+						<div class="mode-buttons">
+							<button
+								type="button"
+								class="toggle-button"
+								class:active={currentMode === EditorMode.FORMATTING}
+								onclick={() => (editorStore.mode = EditorMode.FORMATTING)}
+								aria-pressed={currentMode === EditorMode.FORMATTING}
+								aria-label="Formatting mode"
+							>
+								<Paragraph
+									stroke={currentMode === EditorMode.FORMATTING
+										? 'var(--text-on-accent)'
+										: 'var(--text-muted)'}
+									size="var(--icon-sm)"
+								/>
+							</button>
+							<button
+								type="button"
+								class="toggle-button"
+								class:active={currentMode === EditorMode.CORRECTING}
+								onclick={() => (editorStore.mode = EditorMode.CORRECTING)}
+								aria-pressed={currentMode === EditorMode.CORRECTING}
+								aria-label="Correcting mode"
+							>
+								<Pencil
+									stroke={currentMode === EditorMode.CORRECTING
+										? 'var(--text-on-accent)'
+										: 'var(--text-muted)'}
+									size="var(--icon-sm)"
+								/>
+							</button>
+						</div>
+					</div>
 				</div>
 			</header>
 			<div class="editor-container">
@@ -97,11 +142,22 @@
 		flex: 1;
 	}
 
-	.header-content h1 {
+	.title-container {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-4);
+	}
+
+	.title-container h1 {
 		font-size: var(--font-size-xl);
 		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 		margin: 0;
+	}
+
+	.mode-buttons {
+		display: flex;
+		gap: var(--spacing-1);
 	}
 
 	.toggle-button {
@@ -119,9 +175,21 @@
 		color: var(--text-normal);
 	}
 
+	.toggle-button.active {
+		background: var(--background-modifier-active);
+		color: var(--text-on-accent);
+	}
+
 	.editor-container {
 		flex: 1;
 		overflow-y: auto;
 		background-color: var(--background-secondary);
+	}
+
+	/* Print styles */
+	@media print {
+		.mode-buttons {
+			display: none;
+		}
 	}
 </style>

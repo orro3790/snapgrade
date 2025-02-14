@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       documentName: `Untitled - ${now.toLocaleDateString()}`,
       documentBody,
       sourceType: 'llmwhisperer',
-      status: DocumentStatus.EDITING,
+      status: DocumentStatus.CORRECTING,
       createdAt: now,
       updatedAt: now,
       sourceMetadata

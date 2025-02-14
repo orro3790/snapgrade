@@ -14,7 +14,7 @@ import { z } from 'zod';
  */
 export const EditorMode = {
     FORMATTING: 'formatting',
-    EDITING: 'editing'
+    CORRECTING: 'correcting'
 } as const;
 
 export type EditorModeType = typeof EditorMode[keyof typeof EditorMode];
@@ -793,7 +793,7 @@ export const editorStore = {
      * Check if editor is in editing mode
      */
     isEditingMode() {
-        return editorState.mode === EditorMode.EDITING;
+        return editorState.mode === EditorMode.CORRECTING;
     },
 
     /**
@@ -801,7 +801,7 @@ export const editorStore = {
      */
     toggleMode() {
         editorState.mode = editorState.mode === EditorMode.FORMATTING
-            ? EditorMode.EDITING
+            ? EditorMode.CORRECTING
             : EditorMode.FORMATTING;
     },
 
