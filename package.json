@@ -17,7 +17,9 @@
 		"lint": "prettier --check . && eslint .",
 		"test": "vitest",
 		"test:watch": "vitest --watch",
-		"test:coverage": "vitest run --coverage"
+		"test:coverage": "vitest run --coverage",
+		"dev:rag": "python3 -m mcp.documentation_expert_server",
+		"dev:full": "concurrently -n 'FRONTEND,RAG' 'npm run dev' 'npm run rag'"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
@@ -53,6 +55,7 @@
 		"firebase": "^11.2.0",
 		"firebase-admin": "^13.1.0",
 		"html2canvas": "^1.4.1",
-		"jszip": "^3.10.1"
+		"jszip": "^3.10.1",
+		"concurrently": "^8.2.2"
 	}
 }

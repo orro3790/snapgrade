@@ -23,7 +23,7 @@
 					"host": ["{{base_url}}"],
 					"path": ["api", "documents", "process"]
 				},
-				"description": "Process a document by analyzing its structure using Claude. Requires:\n- base64_image: Base64 encoded image of the document\n- extracted_text: Text extracted by LLMWhisperer\n- firebase_user_id: User's Firebase UID\n- bot_token: Telegram bot authentication token"
+				"description": "Process a document by analyzing its structure using Claude. Requires:\n- base64_image: Base64 encoded image of the document\n- extracted_text: Text extracted by LLMWhisperer\n- firebase_user_id: User's Firebase UID\n- bot_token: Discord bot authentication token"
 			},
 			"response": [
 				{
