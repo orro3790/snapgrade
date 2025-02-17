@@ -121,16 +121,28 @@
 				// For empty submission on group correction, unpack the nodes
 				EditorCommands.UNPACK_GROUP.execute(groupNode.id);
 			} else if (trimmedValue && trimmedValue !== originalText) {
-				// Use GROUP_CORRECTION command for creating new corrections
-				EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
+				// For addition nodes, update each node individually
+				if (selectedNodesList.every((n) => n.type === 'addition')) {
+					selectedNodesList.forEach((node) => {
+						EditorCommands.UPDATE.execute([node.id, trimmedValue]);
+					});
+				} else {
+					// Use GROUP_CORRECTION command for creating new corrections
+					EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
+				}
 			}
 		} else {
 			if (!trimmedValue && node.type === 'correction') {
 				// For empty submission on single correction, revert to normal
 				EditorCommands.CORRECTION.execute([node.id, '']);
-			} else if (node.type === 'empty') {
-				// Handle empty nodes using UPDATE command
-				EditorCommands.UPDATE.execute(node.id);
+			} else if (!isMultiNodeCorrection && (node.type === 'empty' || node.type === 'addition')) {
+				// Handle single empty and addition nodes using UPDATE command with the trimmed text
+				EditorCommands.UPDATE.execute([node.id, trimmedValue]);
+			} else if (isMultiNodeCorrection && selectedNodesList.every((n) => n.type === 'addition')) {
+				// Handle multiple addition nodes - update each one individually
+				selectedNodesList.forEach((node) => {
+					EditorCommands.UPDATE.execute([node.id, trimmedValue]);
+				});
 			} else if (trimmedValue && trimmedValue !== originalText) {
 				// Use CORRECTION command for single node corrections
 				EditorCommands.CORRECTION.execute([node.id, trimmedValue]);
@@ -181,7 +193,7 @@
 			(n) => n.type === 'empty' && n.metadata.position > node.metadata.position
 		);
 		if (newNode) {
-			EditorCommands.UPDATE.execute(newNode.id);
+			EditorCommands.UPDATE.execute([newNode.id, inputValue.trim()]);
 		}
 
 		onClose();

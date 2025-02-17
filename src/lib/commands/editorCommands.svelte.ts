@@ -432,18 +432,38 @@ export const EditorCommands = {
 
     UPDATE: {
         id: 'update',
-        execute: (nodeId: string) => {
+        execute: ([nodeId, text]: [string, string]) => {
             if (!EditorCommands.UPDATE.canExecute(nodeId)) return;
             
             commandStore.startCommand('update');
             
             const node = editorStore.nodes.find(n => n.id === nodeId);
             if (!node) {
-            commandStore.endCommand('update');
+                commandStore.endCommand('update');
                 return;
             }
             
-            editorStore.updateNode(nodeId, node.text);
+            if (node.type === 'empty' && text) {
+                // Convert empty node to addition node when it receives text
+                editorStore.updateNode(
+                    nodeId,
+                    text,
+                    undefined,
+                    undefined,
+                    'addition'
+                );
+            } else if (node.type === 'addition') {
+                // Maintain addition type when updating addition nodes
+                editorStore.updateNode(
+                    nodeId,
+                    text,
+                    undefined,
+                    undefined,
+                    'addition'
+                );
+            } else {
+                editorStore.updateNode(nodeId, text);
+            }
             
             commandStore.endCommand('update');
         },
@@ -465,7 +485,25 @@ export const EditorCommands = {
             nodeIds.forEach(id => {
                 const node = editorStore.nodes.find(n => n.id === id);
                 if (node) {
-                    editorStore.updateNode(id, node.text);
+                    if (node.type === 'empty' && node.text) {
+                        editorStore.updateNode(
+                            id,
+                            node.text,
+                            undefined,
+                            undefined,
+                            'addition'
+                        );
+                    } else if (node.type === 'addition') {
+                        editorStore.updateNode(
+                            id,
+                            node.text,
+                            undefined,
+                            undefined,
+                            'addition'
+                        );
+                    } else {
+                        editorStore.updateNode(id, node.text);
+                    }
                 }
             });
             
