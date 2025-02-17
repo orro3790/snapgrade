@@ -26,3 +26,8 @@ vite.config.ts.timestamp-*
 .venv/
 __pycache__/
 *.pyc
+
+# Python
+rag-mcp/venv/
+rag-mcp/__pycache__/
+*.pyc
