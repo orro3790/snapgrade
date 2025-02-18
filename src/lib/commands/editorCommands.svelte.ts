@@ -58,7 +58,10 @@ export const basicCommandSchema = z.object({
         .returns(z.void()),
     canExecute: z.function()
         .args(z.string())
-        .returns(z.boolean()),
+        .returns(z.discriminatedUnion('allowed', [
+            z.object({ allowed: z.literal(true) }),
+            z.object({ allowed: z.literal(false), reason: z.string() })
+        ])),
     shortcuts: z.array(z.string()),
     description: z.string()
 });
@@ -80,7 +83,10 @@ export const groupCommandSchema = z.object({
         .returns(z.void()),
     canExecute: z.function()
         .args(z.array(z.string()))
-        .returns(z.boolean()),
+        .returns(z.discriminatedUnion('allowed', [
+            z.object({ allowed: z.literal(true) }),
+            z.object({ allowed: z.literal(false), reason: z.string() })
+        ])),
     shortcuts: z.array(z.string()),
     description: z.string()
 });
@@ -103,7 +109,10 @@ export const correctionCommandSchema = z.object({
         .returns(z.void()),
     canExecute: z.function()
         .args(z.string())
-        .returns(z.boolean()),
+        .returns(z.discriminatedUnion('allowed', [
+            z.object({ allowed: z.literal(true) }),
+            z.object({ allowed: z.literal(false), reason: z.string() })
+        ])),
     shortcuts: z.array(z.string()),
     description: z.string()
 });
@@ -126,7 +135,10 @@ export const groupCorrectionCommandSchema = z.object({
         .returns(z.void()),
     canExecute: z.function()
         .args(z.array(z.string()))
-        .returns(z.boolean()),
+        .returns(z.discriminatedUnion('allowed', [
+            z.object({ allowed: z.literal(true) }),
+            z.object({ allowed: z.literal(false), reason: z.string() })
+        ])),
     shortcuts: z.array(z.string()),
     description: z.string()
 });
@@ -321,11 +333,15 @@ export const EditorCommands = {
             
             commandStore.endCommand('delete');
         },
-        canExecute: (nodeId: string): boolean => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            // Allow deletion of normal, correction, and deletion nodes
-            // Prevent deletion of user-created nodes (addition, empty, spacer)
-            return node ? !['addition', 'empty', 'spacer'].includes(node.type) : false;
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            if (['addition', 'empty', 'spacer'].includes(node.type)) {
+                return { allowed: false, reason: 'Cannot delete user-created nodes' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Alt + Click', 'Delete'],
         description: 'Mark node for deletion'
@@ -387,9 +403,15 @@ export const EditorCommands = {
             });
             commandStore.endCommand('unpack-group');
         },
-        canExecute: (nodeId: string) => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            return !!node?.metadata.groupedNodes;
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            if (!node.metadata.groupedNodes) {
+                return { allowed: false, reason: 'Node is not a group node' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Alt + Click on group'],
         description: 'Unpack grouped nodes'
@@ -406,9 +428,12 @@ export const EditorCommands = {
             
             commandStore.endCommand('remove');
         },
-        canExecute: (nodeId: string) => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            return !!node;
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Ctrl + Right Click'],
         description: 'Remove node from editor'
@@ -425,7 +450,17 @@ export const EditorCommands = {
             
             commandStore.endCommand('group-remove');
         },
-        canExecute: (nodeIds: string[]) => nodeIds.length > 0,
+        canExecute: (nodeIds: string[]): { allowed: true } | { allowed: false; reason: string } => {
+            if (nodeIds.length === 0) {
+                return { allowed: false, reason: 'No nodes selected' };
+            }
+            const nodes = nodeIds.map(id => editorStore.nodes.find(n => n.id === id)).filter(Boolean);
+            const anyAddition = nodes.some(node => node?.type === 'addition');
+            if (anyAddition) {
+                return { allowed: false, reason: 'Cannot perform group operations on addition nodes' };
+            }
+            return { allowed: true };
+        },
         shortcuts: ['Ctrl + Right Click on selection'],
         description: 'Remove multiple nodes from editor'
     },
@@ -467,9 +502,12 @@ export const EditorCommands = {
             
             commandStore.endCommand('update');
         },
-        canExecute: (nodeId: string) => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            return !!node;
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['` (backtick)'],
         description: 'Update node text'
@@ -509,7 +547,17 @@ export const EditorCommands = {
             
             commandStore.endCommand('group-update');
         },
-        canExecute: (nodeIds: string[]) => nodeIds.length > 0,
+        canExecute: (nodeIds: string[]): { allowed: true } | { allowed: false; reason: string } => {
+            if (nodeIds.length === 0) {
+                return { allowed: false, reason: 'No nodes selected' };
+            }
+            const nodes = nodeIds.map(id => editorStore.nodes.find(n => n.id === id)).filter(Boolean);
+            const anyAddition = nodes.some(node => node?.type === 'addition');
+            if (anyAddition) {
+                return { allowed: false, reason: 'Cannot perform group operations on addition nodes' };
+            }
+            return { allowed: true };
+        },
         shortcuts: ['` (backtick) on selection'],
         description: 'Update multiple nodes text'
     },
@@ -525,9 +573,12 @@ export const EditorCommands = {
             
             commandStore.endCommand('insert-empty');
         },
-        canExecute: (nodeId: string) => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            return !!node;
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Ctrl + Click'],
         description: 'Insert empty node after current node'
@@ -632,9 +683,15 @@ export const EditorCommands = {
             
             commandStore.endCommand('correction');
         },
-        canExecute: (nodeId: string) => {
+        canExecute: (nodeId: string): { allowed: true } | { allowed: false; reason: string } => {
             const node = editorStore.nodes.find(n => n.id === nodeId);
-            return node?.type !== 'empty' && node?.type !== 'spacer';
+            if (!node) {
+                return { allowed: false, reason: 'Node not found' };
+            }
+            if (node.type === 'empty' || node.type === 'spacer') {
+                return { allowed: false, reason: 'Cannot correct empty or spacer nodes' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Enter'],
         description: 'Convert node to correction'
@@ -666,11 +723,22 @@ export const EditorCommands = {
             
             commandStore.endCommand('group-correction');
         },
-        canExecute: (nodeIds: string[]) => {
-            return nodeIds.length > 0 && nodeIds.every(id => {
-                const node = editorStore.nodes.find(n => n.id === id);
-                return node?.type !== 'empty' && node?.type !== 'spacer';
-            });
+        canExecute: (nodeIds: string[]): { allowed: true } | { allowed: false; reason: string } => {
+            if (nodeIds.length === 0) {
+                return { allowed: false, reason: 'No nodes selected' };
+            }
+
+            const nodes = nodeIds.map(id => editorStore.nodes.find(n => n.id === id)).filter(Boolean);
+            const anyAddition = nodes.some(node => node?.type === 'addition');
+            const anyNotAllowed = nodes.some(node => node?.type === 'empty' || node?.type === 'spacer');
+
+            if (anyAddition) {
+                return { allowed: false, reason: 'Cannot perform group operations on addition nodes' };
+            }
+            if (anyNotAllowed) {
+                return { allowed: false, reason: 'Cannot perform group operations on empty or spacer nodes' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Enter on selection'],
         description: 'Convert multiple nodes to correction'
@@ -701,14 +769,22 @@ export const EditorCommands = {
             
             commandStore.endCommand('group-delete');
         },
-        canExecute: (nodeIds: string[]) => {
-            if (nodeIds.length === 0) return false;
-            return nodeIds.every(id => {
-                const node = editorStore.nodes.find(n => n.id === id);
-                // Allow deletion of normal, correction, and deletion nodes
-                // Prevent deletion of user-created nodes (addition, empty, spacer)
-                return node ? !['addition', 'empty', 'spacer'].includes(node.type) : false;
-            });
+        canExecute: (nodeIds: string[]): { allowed: true } | { allowed: false; reason: string } => {
+            if (nodeIds.length === 0) {
+                return { allowed: false, reason: 'No nodes selected' };
+            }
+
+            const nodes = nodeIds.map(id => editorStore.nodes.find(n => n.id === id)).filter(Boolean);
+            const anyAddition = nodes.some(node => node?.type === 'addition');
+            const anyNotAllowed = nodes.some(node => ['addition', 'empty', 'spacer'].includes(node?.type || ''));
+
+            if (anyAddition) {
+                return { allowed: false, reason: 'Cannot perform group operations on addition nodes' };
+            }
+            if (anyNotAllowed) {
+                return { allowed: false, reason: 'Cannot perform group operations on empty or spacer nodes' };
+            }
+            return { allowed: true };
         },
         shortcuts: ['Alt + Click on selection'],
         description: 'Mark multiple nodes for deletion'

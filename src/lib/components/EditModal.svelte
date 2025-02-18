@@ -44,8 +44,36 @@
 	);
 	let isProcessingEdit = $state(false);
 
-	// Add a derived value to check if correction is possible
-	let canCorrect = $derived(inputValue.trim() !== originalText);
+	// Command validation results
+	let deleteResult = $derived(
+		isMultiNodeCorrection
+			? EditorCommands.GROUP_DELETE.canExecute(editorStore.groupSelect.selectedNodeIds)
+			: EditorCommands.DELETE.canExecute(node.id)
+	);
+
+	let addResult = $derived(EditorCommands.INSERT_EMPTY.canExecute(node.id));
+
+	let removeResult = $derived(
+		isMultiNodeCorrection
+			? EditorCommands.GROUP_REMOVE.canExecute(editorStore.groupSelect.selectedNodeIds)
+			: EditorCommands.REMOVE.canExecute(node.id)
+	);
+
+	let correctionResult = $derived(
+		(() => {
+			const baseResult = isMultiNodeCorrection
+				? EditorCommands.GROUP_CORRECTION.canExecute(editorStore.groupSelect.selectedNodeIds)
+				: EditorCommands.CORRECTION.canExecute(node.id);
+
+			if (!baseResult.allowed) {
+				return baseResult;
+			}
+
+			return inputValue.trim() !== originalText
+				? { allowed: true }
+				: { allowed: false, reason: 'No changes made' };
+		})()
+	);
 
 	// Add this function to adjust textarea height
 	function adjustTextareaHeight(textarea: HTMLTextAreaElement) {
@@ -110,6 +138,11 @@
 
 		const trimmedValue = inputValue.trim();
 
+		if (!correctionResult.allowed) {
+			isProcessingEdit = false;
+			return;
+		}
+
 		if (isMultiNodeCorrection) {
 			// Handle multi-node correction using GROUP_CORRECTION command
 			const selectedIds = editorStore.groupSelect.selectedNodeIds;
@@ -121,28 +154,16 @@
 				// For empty submission on group correction, unpack the nodes
 				EditorCommands.UNPACK_GROUP.execute(groupNode.id);
 			} else if (trimmedValue && trimmedValue !== originalText) {
-				// For addition nodes, update each node individually
-				if (selectedNodesList.every((n) => n.type === 'addition')) {
-					selectedNodesList.forEach((node) => {
-						EditorCommands.UPDATE.execute([node.id, trimmedValue]);
-					});
-				} else {
-					// Use GROUP_CORRECTION command for creating new corrections
-					EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
-				}
+				// Use GROUP_CORRECTION command for creating new corrections
+				EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
 			}
 		} else {
 			if (!trimmedValue && node.type === 'correction') {
 				// For empty submission on single correction, revert to normal
 				EditorCommands.CORRECTION.execute([node.id, '']);
-			} else if (!isMultiNodeCorrection && (node.type === 'empty' || node.type === 'addition')) {
-				// Handle single empty and addition nodes using UPDATE command with the trimmed text
+			} else if (node.type === 'empty' || node.type === 'addition') {
+				// Handle empty and addition nodes using UPDATE command
 				EditorCommands.UPDATE.execute([node.id, trimmedValue]);
-			} else if (isMultiNodeCorrection && selectedNodesList.every((n) => n.type === 'addition')) {
-				// Handle multiple addition nodes - update each one individually
-				selectedNodesList.forEach((node) => {
-					EditorCommands.UPDATE.execute([node.id, trimmedValue]);
-				});
 			} else if (trimmedValue && trimmedValue !== originalText) {
 				// Use CORRECTION command for single node corrections
 				EditorCommands.CORRECTION.execute([node.id, trimmedValue]);
@@ -243,22 +264,40 @@
 			aria-multiline="true"
 		></textarea>
 		<div class="actions" role="toolbar" aria-label="Editing actions">
-			<button onclick={handleDelete} type="button" title="Mark for deletion">
+			<button
+				onclick={handleDelete}
+				type="button"
+				title={deleteResult.allowed ? 'Mark for deletion' : deleteResult.reason}
+				disabled={!deleteResult.allowed}
+				class:disabled={!deleteResult.allowed}
+			>
 				<Slash />
 			</button>
-			<button onclick={handleAddAfter} type="button" title="Add after">
+			<button
+				onclick={handleAddAfter}
+				type="button"
+				title={addResult.allowed ? 'Add after' : addResult.reason}
+				disabled={!addResult.allowed}
+				class:disabled={!addResult.allowed}
+			>
 				<Add />
 			</button>
 			<button
 				onclick={handleSubmit}
 				type="button"
-				title="Correct"
-				disabled={!canCorrect}
-				class:disabled={!canCorrect}
+				title={correctionResult.allowed ? 'Correct' : correctionResult.reason}
+				disabled={!correctionResult.allowed}
+				class:disabled={!correctionResult.allowed}
 			>
 				<Correction />
 			</button>
-			<button onclick={handleRemove} type="button" title="Remove node">
+			<button
+				onclick={handleRemove}
+				type="button"
+				title={removeResult.allowed ? 'Remove node' : removeResult.reason}
+				disabled={!removeResult.allowed}
+				class:disabled={!removeResult.allowed}
+			>
 				<Eraser />
 			</button>
 		</div>

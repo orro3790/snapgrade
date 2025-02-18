@@ -6,7 +6,18 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ## DOCUMENTATION RETRIEVAL USING RAG MCP TOOLS
 
-You have been given access to the "rag-mcp" MCP tools which allows you to access documentation for many of the technologies we are using. Before carrying out any task, you will first use the "rag-mcp" MCP tools to search for the most up-to-date documentation for the task at hand.
+You have been given access to the "rag-mcp" MCP tools which allows you to access documentation for many of the technologies we are using. If you feel you need additional information, use your list_documentation_sources MCP tool to see if the documentation you need is available.
+
+### TASK SPECIFIC DOCUMENTATION
+
+Before carrying out any task involving the following, you will first use the "rag-mcp" MCP tools to search for the most up-to-date documentation for the task at hand:
+
+- If working with reactive state management --> refer to the Svelte documentation
+- If creating routes, pages, server files, api endpoints, and components --> refer to Sveltekit documentation
+- If creating forms --> refer to Superforms documentation
+- If creating anything related to Discord --> refer to Discord documentation
+- If creating anything related to scraping or web crawling --> refer to crawl4AI documentation
+- If creating anything related to OCR --> refer to Tesseract documentation
 
 Important Notes:
 
@@ -39,7 +50,7 @@ If you understand and comply with the statements above, you will begin by saying
 1. **Initial Input**
 
    - Teacher (client-side) takes a photo of a student's essay
-   - Photo is sent to our Discord bot in a private message
+   - Photo is sent to our Discord bot
 
 2. **Text Extraction**
 
@@ -112,6 +123,7 @@ If you understand and comply with the statements above, you will begin by saying
 #### 2.4.1 Authentication
 
 - Firebase Authentication
+- Discord OAuth2 Authentication (refer to documentation/discord/Reference.mdx for implementation)
 
 #### 2.4.2 Database
 
@@ -142,10 +154,12 @@ If you understand and comply with the statements above, you will begin by saying
 - **Authentication and Route Protection**:
   - `@hooks.server.ts` intercepts all server requests
   - Implements Firebase authentication middleware
+  - Implements Discord authentication middleware
   - Protects specified routes from unauthorized access
   - Manages user sessions via cookies
   - Stores user data and settings in `event.locals`
   - Handles account status redirects (suspended/inactive)
+  - Validates Discord bot token for protected routes
 
 ## 3. Forbidden To Use
 
@@ -166,7 +180,7 @@ If you understand and comply with the statements above, you will begin by saying
 leap/
 ├── src/
 │   ├── lib/
-│   │   ├── components/     # Reusable Svelte components
+│   │   ├── components/      # Reusable Svelte components
 │   │   ├── icons/          # Tabler.io SVG components
 │   │   ├── schemas/        # Zod validation schemas and types
 │   │   ├── firebase/       # Firebase services
@@ -190,11 +204,97 @@ leap/
 - **Implementation**:
   - **Reference File**: `Pointer.svelte`
 
-### 5.2 Date Handling
+### 5.2 Accessibility Requirements
+
+#### 5.2.1 Interactive Elements
+
+- **Click Events**:
+  - Must include keyboard handlers (onkeydown or onkeyup)
+  - Required keyboard events for Enter and Space keys
+  - Example implementation:
+  ```svelte
+  <div
+  		class="modal"
+  		role="button"
+  		tabindex="0"
+  		aria-label="Edit text"
+  		onclick={(e) => e.stopPropagation()}
+  		onkeydown={(e) => {
+  			if (e.key === 'Enter' || e.key === ' ') {
+  				e.preventDefault();
+  				e.stopPropagation();
+  			}
+  		}}
+  	>
+  ```
+
+#### 5.2.2 Non-interactive to Interactive Conversion
+
+When converting a non-interactive element (like a div) to be interactive:
+
+1. **Required Attributes**:
+   - `role="button"` (or appropriate ARIA role)
+   - `tabindex="0"` (for keyboard focus)
+   - `aria-label` or appropriate labeling
+2. **Required Event Handlers**:
+
+   - `onclick` for mouse interaction
+   - `onkeydown` for keyboard interaction
+   - Must handle both Enter and Space keys
+
+3. **Implementation Example**:
+
+```svelte
+<div
+	role="button"
+	tabindex="0"
+	aria-label="Edit item"
+	onclick={handleClick}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleClick();
+		}
+	}}
+>
+	Content
+</div>
+```
+
+#### 5.2.3 Preferred Alternatives
+
+In order of preference:
+
+1. Native `<button type="button">` element
+2. Native `<a>` element for navigation
+3. Enhanced `<div>` with full ARIA attributes only when necessary
+
+#### 5.2.4 ARIA Guidelines
+
+- All interactive elements must have:
+  - Appropriate ARIA role
+  - Descriptive aria-label or aria-labelledby
+  - aria-expanded for expandable elements
+  - aria-controls when controlling other elements
+  - aria-describedby for additional descriptions
+
+### 5.3 HTML Elements
+
+- **Div Requirements**:
+  - ARIA role
+  - Tab index
+  - ARIA attributes
+
+### 5.4 Date Handling
 
 - Use `z.date()` for date fields
 - Firestore automatically stores dates as Timestamps, so they need conversion on client side
   - Example document field {...createdAt: {nanoseconds: 285000000, seconds: 1738769371}}
+
+## 6. Documentation
+
+- Maintain clear README with setup instructions
+- Always supply JSDOC comments for all functions
 
 ## 7. Git Usage
 
