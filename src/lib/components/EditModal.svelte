@@ -7,6 +7,7 @@
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
 	import Eraser from '$lib/icons/Eraser.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	let { node, position, onClose } = $props<{
 		node: TextNodeType;
@@ -264,42 +265,69 @@
 			aria-multiline="true"
 		></textarea>
 		<div class="actions" role="toolbar" aria-label="Editing actions">
-			<button
-				onclick={handleDelete}
-				type="button"
-				title={deleteResult.allowed ? 'Mark for deletion' : deleteResult.reason}
-				disabled={!deleteResult.allowed}
-				class:disabled={!deleteResult.allowed}
+			<Tooltip
+				tooltip={!deleteResult.allowed ? deleteResult.reason : undefined}
+				position="top"
+				delay={300}
 			>
-				<Slash />
-			</button>
-			<button
-				onclick={handleAddAfter}
-				type="button"
-				title={addResult.allowed ? 'Add after' : addResult.reason}
-				disabled={!addResult.allowed}
-				class:disabled={!addResult.allowed}
+				<button
+					onclick={handleDelete}
+					type="button"
+					title={deleteResult.allowed ? 'Mark for deletion' : ''}
+					disabled={!deleteResult.allowed}
+					class:disabled={!deleteResult.allowed}
+				>
+					<Slash />
+				</button>
+			</Tooltip>
+
+			<Tooltip
+				tooltip={!addResult.allowed ? addResult.reason : undefined}
+				position="top"
+				delay={300}
 			>
-				<Add />
-			</button>
-			<button
-				onclick={handleSubmit}
-				type="button"
-				title={correctionResult.allowed ? 'Correct' : correctionResult.reason}
-				disabled={!correctionResult.allowed}
-				class:disabled={!correctionResult.allowed}
+				<button
+					onclick={handleAddAfter}
+					type="button"
+					title={addResult.allowed ? 'Add after' : ''}
+					disabled={!addResult.allowed}
+					class:disabled={!addResult.allowed}
+				>
+					<Add />
+				</button>
+			</Tooltip>
+
+			<Tooltip
+				tooltip={!correctionResult.allowed ? correctionResult.reason : undefined}
+				position="top"
+				delay={300}
 			>
-				<Correction />
-			</button>
-			<button
-				onclick={handleRemove}
-				type="button"
-				title={removeResult.allowed ? 'Remove node' : removeResult.reason}
-				disabled={!removeResult.allowed}
-				class:disabled={!removeResult.allowed}
+				<button
+					onclick={handleSubmit}
+					type="button"
+					title={correctionResult.allowed ? 'Correct' : ''}
+					disabled={!correctionResult.allowed}
+					class:disabled={!correctionResult.allowed}
+				>
+					<Correction />
+				</button>
+			</Tooltip>
+
+			<Tooltip
+				tooltip={!removeResult.allowed ? removeResult.reason : undefined}
+				position="top"
+				delay={300}
 			>
-				<Eraser />
-			</button>
+				<button
+					onclick={handleRemove}
+					type="button"
+					title={removeResult.allowed ? 'Remove node' : ''}
+					disabled={!removeResult.allowed}
+					class:disabled={!removeResult.allowed}
+				>
+					<Eraser />
+				</button>
+			</Tooltip>
 		</div>
 	</div>
 </div>

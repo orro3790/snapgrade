@@ -7,12 +7,7 @@
 		children?: import('svelte').Snippet;
 	}
 
-	let {
-		tooltip = false,
-		position = 'top',
-		delay = 0,
-		children
-	}: Props = $props();
+	let { tooltip = false, position = 'top', delay = 0, children }: Props = $props();
 
 	let showTooltip = $state(true);
 	let timeoutId: ReturnType<typeof setTimeout>;
@@ -32,17 +27,8 @@
 <div
 	class="tooltip-wrapper"
 	data-position={position}
-	role="button"
-	tabindex="0"
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
-	onfocus={handleMouseEnter}
-	onblur={handleMouseLeave}
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			handleMouseEnter();
-		}
-	}}
 >
 	{@render children?.()}
 	{#if tooltip && showTooltip}
@@ -63,91 +49,96 @@
 
 	.tooltip {
 		position: absolute;
-		z-index: 1000;
+		z-index: var(--z-popover);
 		pointer-events: none;
 		opacity: 0;
-		animation: fadeIn 0.2s ease forwards;
+		animation: fadeIn 0.15s ease forwards;
+		box-shadow: var(--shadow-md);
 	}
 
 	.tooltip-content {
-		background: var(--secondary-2);
-		color: var(--primary-0);
-		padding: var(--padding-small) var(--padding-medium);
-		border-radius: var(--standard-radius);
-		font-size: var(--font-size-smaller);
+		background: var(--background-secondary);
+		color: var(--text-normal);
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-base);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-medium);
+		line-height: var(--line-height-none);
 		white-space: nowrap;
-		box-shadow: var(--standard-shadow);
+		border: 1px solid var(--background-modifier-border);
 		text-align: center;
 	}
 
 	.tooltip-arrow {
 		position: absolute;
-		width: 8px;
-		height: 8px;
-		background: var(--secondary-2);
+		width: 6px;
+		height: 6px;
+		background: var(--background-secondary);
+		border: 1px solid var(--background-modifier-border);
+		border-top: none;
+		border-left: none;
 		transform: rotate(45deg);
 	}
 
-	/* Top position */
+	/* Top position with proper spacing */
 	.tooltip-wrapper[data-position='top'] .tooltip {
-		bottom: 100%;
+		bottom: calc(100% + var(--spacing-2));
 		left: 50%;
 		transform: translateX(-50%);
-		padding-bottom: 6px;
 	}
 
 	.tooltip-wrapper[data-position='top'] .tooltip-arrow {
-		bottom: 2px;
+		bottom: -3px;
 		left: 50%;
-		margin-left: -4px;
+		margin-left: -3px;
 	}
 
-	/* Bottom position */
+	/* Bottom position with proper spacing */
 	.tooltip-wrapper[data-position='bottom'] .tooltip {
-		top: 100%;
+		top: calc(100% + var(--spacing-2));
 		left: 50%;
 		transform: translateX(-50%);
-		padding-top: 6px;
 	}
 
 	.tooltip-wrapper[data-position='bottom'] .tooltip-arrow {
-		top: 2px;
+		top: -3px;
 		left: 50%;
-		margin-left: -4px;
+		margin-left: -3px;
+		transform: rotate(225deg);
 	}
 
-	/* Left position */
+	/* Left position with proper spacing */
 	.tooltip-wrapper[data-position='left'] .tooltip {
-		right: 100%;
+		right: calc(100% + var(--spacing-2));
 		top: 50%;
 		transform: translateY(-50%);
-		padding-right: 6px;
 	}
 
 	.tooltip-wrapper[data-position='left'] .tooltip-arrow {
-		right: 2px;
+		right: -3px;
 		top: 50%;
-		margin-top: -4px;
+		margin-top: -3px;
+		transform: rotate(135deg);
 	}
 
-	/* Right position */
+	/* Right position with proper spacing */
 	.tooltip-wrapper[data-position='right'] .tooltip {
-		left: 100%;
+		left: calc(100% + var(--spacing-2));
 		top: 50%;
 		transform: translateY(-50%);
-		padding-left: 6px;
 	}
 
 	.tooltip-wrapper[data-position='right'] .tooltip-arrow {
-		left: 2px;
+		left: -3px;
 		top: 50%;
-		margin-top: -4px;
+		margin-top: -3px;
+		transform: rotate(315deg);
 	}
 
 	@keyframes fadeIn {
 		from {
 			opacity: 0;
-			transform: translate(var(--translate-x, -50%), var(--translate-y, -5px));
+			transform: translate(var(--translate-x, -50%), var(--translate-y, -4px));
 		}
 		to {
 			opacity: 1;
@@ -157,20 +148,29 @@
 
 	/* Position-specific animations */
 	.tooltip-wrapper[data-position='top'] .tooltip {
-		--translate-y: -5px;
+		--translate-y: -4px;
 	}
 
 	.tooltip-wrapper[data-position='bottom'] .tooltip {
-		--translate-y: 5px;
+		--translate-y: 4px;
 	}
 
 	.tooltip-wrapper[data-position='left'] .tooltip {
-		--translate-x: -5px;
+		--translate-x: -4px;
 		--translate-y: -50%;
 	}
 
 	.tooltip-wrapper[data-position='right'] .tooltip {
-		--translate-x: 5px;
+		--translate-x: 4px;
 		--translate-y: -50%;
+	}
+
+	/* Ensure tooltip wrapper fills grid cell */
+	:global(.actions .tooltip-wrapper) {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 </style>
