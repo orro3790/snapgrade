@@ -1,35 +1,36 @@
-# EditModal Refactor Plan
+# Edit Modal Refactor Plan
 
 ## Current Issues
 
-1. Redundant Validation
+1. Empty node text updates not working
+2. Need for a dedicated submit button
 
-- EditModal.svelte contains operation logic that should be in commands
-- Group operations for addition nodes handled in modal instead of commands
-- Creates inconsistency with centralized command pattern
+## Analysis
 
-2. TypeScript Errors
+### Empty Node Update Issue
 
-- Derived syntax needs updating to properly handle command results
-- Current implementation may cause type inference issues
+The current implementation in `EditModal.svelte` has a gap in the `handleSubmit` function's logic. While it handles various node types, it's not properly executing the UPDATE command for empty nodes.
 
-## Proposed Changes
-
-### 1. Remove Redundant Logic
-
-Remove from EditModal.svelte:
+Current problematic code section:
 
 ```typescript
-// Remove this entire block
-else if (isMultiNodeCorrection && selectedNodesList.every((n) => n.type === 'addition')) {
-    // Handle multiple addition nodes - update each one individually
-    selectedNodesList.forEach((node) => {
-        EditorCommands.UPDATE.execute([node.id, trimmedValue]);
-    });
+} else if (node.type === 'empty' || node.type === 'addition') {
+    // Handle empty and addition nodes using UPDATE command
+    EditorCommands.UPDATE.execute([node.id, trimmedValue]);
 }
 ```
 
-### 2. Simplify handleSubmit Logic
+This code is in the right place but isn't being reached due to earlier conditional checks.
+
+### Submit Button Addition
+
+We need to add a new submit button using the Replace icon for better UX.
+
+## Implementation Plan
+
+### 1. Fix Empty Node Update
+
+#### Changes needed in handleSubmit function:
 
 ```typescript
 function handleSubmit() {
@@ -38,135 +39,68 @@ function handleSubmit() {
 
 	const trimmedValue = inputValue.trim();
 
-	if (!correctionResult.allowed) {
-		isProcessingEdit = false;
+	// Handle empty nodes first
+	if (node.type === 'empty') {
+		EditorCommands.UPDATE.execute([node.id, trimmedValue]);
+		onClose();
 		return;
 	}
 
-	if (isMultiNodeCorrection) {
-		// Handle multi-node correction using GROUP_CORRECTION command
-		const selectedIds = editorStore.groupSelect.selectedNodeIds;
-		const groupNode = selectedNodesList.find(
-			(n) => n.type === 'correction' && n.metadata.groupedNodes
-		);
-
-		if (!trimmedValue && groupNode) {
-			EditorCommands.UNPACK_GROUP.execute(groupNode.id);
-		} else if (trimmedValue && trimmedValue !== originalText) {
-			EditorCommands.GROUP_CORRECTION.execute([selectedIds, trimmedValue]);
-		}
-	} else {
-		// Single node operations
-		if (!trimmedValue && node.type === 'correction') {
-			EditorCommands.CORRECTION.execute([node.id, '']);
-		} else if (trimmedValue && trimmedValue !== originalText) {
-			// Use appropriate command based on node type
-			const command =
-				node.type === 'empty' || node.type === 'addition'
-					? EditorCommands.UPDATE
-					: EditorCommands.CORRECTION;
-			command.execute([node.id, trimmedValue]);
-		}
-	}
-
-	onClose();
+	// Rest of the existing logic...
 }
 ```
 
-### 3. Fix Derived Syntax
+### 2. Add Submit Button
 
-Update derived expressions to properly handle command results:
-
-```typescript
-// Current problematic implementation
-let deleteResult = $derived(() =>
-    isMultiNodeCorrection
-        ? EditorCommands.GROUP_DELETE.canExecute(editorStore.groupSelect.selectedNodeIds)
-        : EditorCommands.DELETE.canExecute(node.id)
-);
-
-// Proposed fix
-let deleteResult = $derived({
-    if (isMultiNodeCorrection) {
-        return EditorCommands.GROUP_DELETE.canExecute(editorStore.groupSelect.selectedNodeIds);
-    }
-    return EditorCommands.DELETE.canExecute(node.id);
-});
-```
-
-Apply similar pattern to other derived values:
+#### Required Imports:
 
 ```typescript
-let addResult = $derived({
-    return EditorCommands.INSERT_EMPTY.canExecute(node.id);
-});
-
-let removeResult = $derived({
-    if (isMultiNodeCorrection) {
-        return EditorCommands.GROUP_REMOVE.canExecute(editorStore.groupSelect.selectedNodeIds);
-    }
-    return EditorCommands.REMOVE.canExecute(node.id);
-});
-
-let correctionResult = $derived({
-    const baseResult = isMultiNodeCorrection
-        ? EditorCommands.GROUP_CORRECTION.canExecute(editorStore.groupSelect.selectedNodeIds)
-        : EditorCommands.CORRECTION.canExecute(node.id);
-
-    if (!baseResult.allowed) {
-        return baseResult;
-    }
-
-    return inputValue.trim() !== originalText
-        ? { allowed: true }
-        : { allowed: false, reason: 'No changes made' };
-});
+import Replace from '$lib/icons/Replace.svelte';
 ```
 
-## Benefits
+#### New Button HTML:
 
-1. Centralized Logic
+```svelte
+<button
+	onclick={() =>
+		correctionResult.allowed ? handleSubmit() : handleDisabledClick(correctionResult, true)}
+	type="button"
+	title="Submit changes"
+	class:disabled={!correctionResult.allowed}
+>
+	<span class="button-icon">
+		<Replace />
+	</span>
+</button>
+```
 
-- All operation validation happens in commands
-- EditModal only handles UI state and command delegation
-- Consistent behavior across all operations
+#### Button Styling:
 
-2. Improved Type Safety
-
-- Proper type inference for command results
-- Clear return types for derived values
-- Better TypeScript integration
-
-3. Better UI Feedback
-
-- Buttons properly reflect command validation state
-- Consistent error messages from commands
-- Clear indication of why operations are disabled
+```css
+/* Add to existing styles */
+button:nth-child(5):hover {
+	color: var(--interactive-accent);
+}
+```
 
 ## Implementation Steps
 
-1. Update Derived Syntax
+1. Switch to Code mode
+2. Update EditModal.svelte:
+   - Modify handleSubmit function to properly handle empty nodes
+   - Add Replace icon import
+   - Add new submit button to actions container
+   - Add appropriate styling for the new button
+3. Test changes:
+   - Test empty node creation and text update
+   - Test submit button functionality
+   - Verify existing functionality still works
 
-- Fix type inference issues
-- Ensure proper command result handling
-- Maintain reactivity
+## Recommendation
 
-2. Remove Redundant Logic
+I recommend switching to Code mode to implement these changes:
 
-- Remove addition node group handling from modal
-- Simplify handleSubmit logic
-- Rely on command validation
-
-3. Test Changes
-
-- Verify button states reflect command validation
-- Test all operations with different node types
-- Ensure proper error messages display
-
-## Success Criteria
-
-1. All operation logic centralized in commands
-2. No TypeScript errors in derived expressions
-3. Buttons properly reflect command validation state
-4. Consistent handling of all node types
-5. Clear error messages from commands displayed in UI
+<switch_mode>
+<mode_slug>code</mode_slug>
+<reason>Need to implement code changes to fix empty node updates and add submit button functionality</reason>
+</switch_mode>

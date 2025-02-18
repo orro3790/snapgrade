@@ -7,8 +7,7 @@
 	import Correction from '$lib/icons/Correction.svelte';
 	import Slash from '$lib/icons/Slash.svelte';
 	import Eraser from '$lib/icons/Eraser.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-
+	import Replace from '$lib/icons/Replace.svelte';
 	let { node, position, onClose } = $props<{
 		node: TextNodeType;
 		position: { x: number; y: number };
@@ -44,6 +43,42 @@
 		})()
 	);
 	let isProcessingEdit = $state(false);
+	let activeError = $state<string | undefined>(undefined);
+	let errorTimeout: number | undefined;
+
+	function setError(message: string) {
+		// Clear any existing timeout
+		if (errorTimeout) {
+			clearTimeout(errorTimeout);
+		}
+
+		// Set the error message
+		activeError = message;
+
+		// Clear the error after 3 seconds
+		errorTimeout = window.setTimeout(() => {
+			activeError = undefined;
+		}, 3000);
+	}
+
+	function handleDisabledClick(result: { allowed: boolean; reason?: string }, isSubmit = false) {
+		if (!result.allowed) {
+			if (isSubmit && inputValue.trim() === originalText) {
+				setError('No changes made');
+			} else if (result.reason) {
+				setError(result.reason);
+			}
+		}
+	}
+
+	// Clear timeout on cleanup
+	$effect.root(() => {
+		return () => {
+			if (errorTimeout) {
+				clearTimeout(errorTimeout);
+			}
+		};
+	});
 
 	// Command validation results
 	let deleteResult = $derived(
@@ -59,20 +94,49 @@
 			? EditorCommands.GROUP_REMOVE.canExecute(editorStore.groupSelect.selectedNodeIds)
 			: EditorCommands.REMOVE.canExecute(node.id)
 	);
+	type ValidationResult = { allowed: boolean; reason?: string };
+
+	// New update validation result
+	let updateResult = $derived(
+		(() => {
+			// Only allow updates for empty and addition nodes
+			if (isMultiNodeCorrection) {
+				return { allowed: false, reason: 'Cannot update multiple nodes' } as ValidationResult;
+			}
+			if (node.type !== 'empty' && node.type !== 'addition') {
+				return {
+					allowed: false,
+					reason: 'Can only update empty or addition nodes'
+				} as ValidationResult;
+			}
+			// For empty and addition nodes, require a non-empty value
+			return inputValue.trim()
+				? ({ allowed: true } as ValidationResult)
+				: ({ allowed: false, reason: 'Text cannot be empty' } as ValidationResult);
+		})()
+	);
 
 	let correctionResult = $derived(
 		(() => {
+			// Don't allow corrections for empty or addition nodes
+			if (node.type === 'empty' || node.type === 'addition') {
+				return {
+					allowed: false,
+					reason: 'Cannot correct empty or addition nodes'
+				} as ValidationResult;
+			}
+
 			const baseResult = isMultiNodeCorrection
 				? EditorCommands.GROUP_CORRECTION.canExecute(editorStore.groupSelect.selectedNodeIds)
 				: EditorCommands.CORRECTION.canExecute(node.id);
 
 			if (!baseResult.allowed) {
-				return baseResult;
+				return baseResult as ValidationResult;
 			}
 
 			return inputValue.trim() !== originalText
-				? { allowed: true }
-				: { allowed: false, reason: 'No changes made' };
+				? ({ allowed: true } as ValidationResult)
+				: ({ allowed: false } as ValidationResult); // Don't set reason until user tries to submit
 		})()
 	);
 
@@ -139,6 +203,15 @@
 
 		const trimmedValue = inputValue.trim();
 
+		// Handle empty and addition nodes with UPDATE command
+		if ((node.type === 'empty' || node.type === 'addition') && updateResult.allowed) {
+			EditorCommands.UPDATE.execute([node.id, trimmedValue]);
+			onClose();
+			isProcessingEdit = false;
+			return;
+		}
+
+		// Handle corrections for other node types
 		if (!correctionResult.allowed) {
 			isProcessingEdit = false;
 			return;
@@ -162,9 +235,6 @@
 			if (!trimmedValue && node.type === 'correction') {
 				// For empty submission on single correction, revert to normal
 				EditorCommands.CORRECTION.execute([node.id, '']);
-			} else if (node.type === 'empty' || node.type === 'addition') {
-				// Handle empty and addition nodes using UPDATE command
-				EditorCommands.UPDATE.execute([node.id, trimmedValue]);
 			} else if (trimmedValue && trimmedValue !== originalText) {
 				// Use CORRECTION command for single node corrections
 				EditorCommands.CORRECTION.execute([node.id, trimmedValue]);
@@ -264,70 +334,70 @@
 			rows="1"
 			aria-multiline="true"
 		></textarea>
-		<div class="actions" role="toolbar" aria-label="Editing actions">
-			<Tooltip
-				tooltip={!deleteResult.allowed ? deleteResult.reason : undefined}
-				position="top"
-				delay={300}
-			>
+		<div class="actions-container">
+			<div class="error-message" class:visible={activeError !== undefined}>
+				{activeError}
+			</div>
+			<div class="actions" role="toolbar" aria-label="Editing actions">
 				<button
-					onclick={handleDelete}
+					onclick={() =>
+						deleteResult.allowed ? handleDelete() : handleDisabledClick(deleteResult)}
 					type="button"
-					title={deleteResult.allowed ? 'Mark for deletion' : ''}
-					disabled={!deleteResult.allowed}
+					title="Mark for deletion"
 					class:disabled={!deleteResult.allowed}
 				>
-					<Slash />
+					<span class="button-icon">
+						<Slash />
+					</span>
 				</button>
-			</Tooltip>
 
-			<Tooltip
-				tooltip={!addResult.allowed ? addResult.reason : undefined}
-				position="top"
-				delay={300}
-			>
 				<button
-					onclick={handleAddAfter}
+					onclick={() => (addResult.allowed ? handleAddAfter() : handleDisabledClick(addResult))}
 					type="button"
-					title={addResult.allowed ? 'Add after' : ''}
-					disabled={!addResult.allowed}
+					title="Add after"
 					class:disabled={!addResult.allowed}
 				>
-					<Add />
+					<span class="button-icon">
+						<Add />
+					</span>
 				</button>
-			</Tooltip>
 
-			<Tooltip
-				tooltip={!correctionResult.allowed ? correctionResult.reason : undefined}
-				position="top"
-				delay={300}
-			>
 				<button
-					onclick={handleSubmit}
+					onclick={() =>
+						correctionResult.allowed ? handleSubmit() : handleDisabledClick(correctionResult, true)}
 					type="button"
-					title={correctionResult.allowed ? 'Correct' : ''}
-					disabled={!correctionResult.allowed}
+					title="Correct"
 					class:disabled={!correctionResult.allowed}
 				>
-					<Correction />
+					<span class="button-icon">
+						<Correction />
+					</span>
 				</button>
-			</Tooltip>
 
-			<Tooltip
-				tooltip={!removeResult.allowed ? removeResult.reason : undefined}
-				position="top"
-				delay={300}
-			>
 				<button
-					onclick={handleRemove}
+					onclick={() =>
+						removeResult.allowed ? handleRemove() : handleDisabledClick(removeResult)}
 					type="button"
-					title={removeResult.allowed ? 'Remove node' : ''}
-					disabled={!removeResult.allowed}
+					title="Remove node"
 					class:disabled={!removeResult.allowed}
 				>
-					<Eraser />
+					<span class="button-icon">
+						<Eraser />
+					</span>
 				</button>
-			</Tooltip>
+
+				<button
+					onclick={() =>
+						updateResult.allowed ? handleSubmit() : handleDisabledClick(updateResult, true)}
+					type="button"
+					title="Replace value"
+					class:disabled={!updateResult.allowed}
+				>
+					<span class="button-icon">
+						<Replace />
+					</span>
+				</button>
+			</div>
 		</div>
 	</div>
 </div>
@@ -379,21 +449,65 @@
 		outline: none;
 	}
 
-	.actions {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+	.actions-container {
+		display: flex;
+		flex-direction: column;
 		border-top: 1px solid var(--background-modifier-border);
 	}
 
+	.error-message {
+		font-size: var(--font-size-xs);
+		color: var(--text-muted);
+		padding: 0;
+		text-align: center;
+		max-height: 0;
+		opacity: 0;
+		overflow: hidden;
+		transition:
+			max-height 300ms ease-out,
+			opacity 200ms ease-out,
+			padding 300ms ease-out;
+	}
+
+	.error-message.visible {
+		max-height: var(--spacing-8);
+		opacity: 1;
+		padding: var(--spacing-1);
+		transition:
+			max-height 250ms ease-in,
+			opacity 300ms ease-in,
+			padding 250ms ease-in;
+	}
+
+	.actions {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		gap: var(--spacing-1);
+		padding: var(--spacing-2);
+	}
+
 	button {
-		display: grid;
-		place-items: center;
-		height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--spacing-8);
+		height: var(--spacing-8);
 		background: none;
 		border: none;
+		border-radius: var(--radius-base);
 		cursor: pointer;
 		color: var(--text-muted);
 		transition: var(--transition-all);
+		padding: var(--spacing-2);
+	}
+
+	.button-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--icon-sm);
+		height: var(--icon-sm);
 	}
 
 	button:hover {
@@ -401,25 +515,9 @@
 		color: var(--text-normal);
 	}
 
-	button:first-child:hover {
-		color: var(--text-error);
-	}
-
-	button:nth-child(2):hover {
-		color: var(--background-modifier-success);
-	}
-
-	button:nth-child(3):hover {
-		color: var(--interactive-accent);
-	}
-
-	button:last-child:hover {
-		color: var(--text-error-hover);
-	}
-
 	button.disabled {
 		opacity: 0.5;
-		pointer-events: none;
+		cursor: default;
 	}
 
 	button.disabled:hover {
