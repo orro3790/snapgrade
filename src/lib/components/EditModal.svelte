@@ -339,64 +339,75 @@
 				{activeError}
 			</div>
 			<div class="actions" role="toolbar" aria-label="Editing actions">
-				<button
-					onclick={() =>
-						deleteResult.allowed ? handleDelete() : handleDisabledClick(deleteResult)}
-					type="button"
-					title="Mark for deletion"
-					class:disabled={!deleteResult.allowed}
-				>
-					<span class="button-icon">
-						<Slash />
-					</span>
-				</button>
+				<!-- Editing Functions Group -->
+				<div class="button-group" role="group" aria-label="Text editing actions">
+					<button
+						onclick={() =>
+							deleteResult.allowed ? handleDelete() : handleDisabledClick(deleteResult)}
+						type="button"
+						title="Mark for deletion"
+						class:disabled={!deleteResult.allowed}
+					>
+						<span class="button-icon">
+							<Slash />
+						</span>
+					</button>
 
-				<button
-					onclick={() => (addResult.allowed ? handleAddAfter() : handleDisabledClick(addResult))}
-					type="button"
-					title="Add after"
-					class:disabled={!addResult.allowed}
-				>
-					<span class="button-icon">
-						<Add />
-					</span>
-				</button>
+					<button
+						onclick={() =>
+							correctionResult.allowed
+								? handleSubmit()
+								: handleDisabledClick(correctionResult, true)}
+						type="button"
+						title="Correct"
+						class:disabled={!correctionResult.allowed}
+					>
+						<span class="button-icon">
+							<Correction />
+						</span>
+					</button>
 
-				<button
-					onclick={() =>
-						correctionResult.allowed ? handleSubmit() : handleDisabledClick(correctionResult, true)}
-					type="button"
-					title="Correct"
-					class:disabled={!correctionResult.allowed}
-				>
-					<span class="button-icon">
-						<Correction />
-					</span>
-				</button>
+					<button
+						onclick={() =>
+							updateResult.allowed ? handleSubmit() : handleDisabledClick(updateResult, true)}
+						type="button"
+						title="Replace value"
+						class:disabled={!updateResult.allowed}
+					>
+						<span class="button-icon">
+							<Replace />
+						</span>
+					</button>
+				</div>
 
-				<button
-					onclick={() =>
-						removeResult.allowed ? handleRemove() : handleDisabledClick(removeResult)}
-					type="button"
-					title="Remove node"
-					class:disabled={!removeResult.allowed}
-				>
-					<span class="button-icon">
-						<Eraser />
-					</span>
-				</button>
+				<!-- Separator -->
+				<div class="actions-separator" role="separator" aria-hidden="true"></div>
 
-				<button
-					onclick={() =>
-						updateResult.allowed ? handleSubmit() : handleDisabledClick(updateResult, true)}
-					type="button"
-					title="Replace value"
-					class:disabled={!updateResult.allowed}
-				>
-					<span class="button-icon">
-						<Replace />
-					</span>
-				</button>
+				<!-- Node Controls Group -->
+				<div class="button-group" role="group" aria-label="Node control actions">
+					<button
+						onclick={() =>
+							removeResult.allowed ? handleRemove() : handleDisabledClick(removeResult)}
+						type="button"
+						title="Remove node"
+						class:disabled={!removeResult.allowed}
+					>
+						<span class="button-icon">
+							<Eraser />
+						</span>
+					</button>
+
+					<button
+						onclick={() => (addResult.allowed ? handleAddAfter() : handleDisabledClick(addResult))}
+						type="button"
+						title="Insert node"
+						class:disabled={!addResult.allowed}
+					>
+						<span class="button-icon">
+							<Add />
+						</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -483,8 +494,21 @@
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
+		align-items: center; /* Added to vertically center the separator */
 		gap: var(--spacing-1);
 		padding: var(--spacing-2);
+	}
+
+	.button-group {
+		display: flex;
+		gap: var(--spacing-1);
+	}
+
+	.actions-separator {
+		width: 1px;
+		height: var(--spacing-6);
+		background: var(--background-modifier-border);
+		margin: 0 var(--spacing-2);
 	}
 
 	button {
