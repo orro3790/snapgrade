@@ -1,151 +1,89 @@
 import WebSocket from 'ws';
-import { adminDb } from './firebase.js';
-import { discordMappingSchema, type DiscordMapping } from './schemas.js';
-import { pendingImageSchema, type PendingImage } from './schemas.js';
-
+import { adminDb } from '../firebase/admin.js';
+import { discordMappingSchema } from '../schemas/discord.js';
+import { pendingImageSchema } from '../schemas/pending-image.js';
 // Gateway opcodes
-enum GatewayOpcodes {
-    Dispatch = 0,
-    Heartbeat = 1,
-    Identify = 2,
-    PresenceUpdate = 3,
-    VoiceStateUpdate = 4,
-    Resume = 6,
-    Reconnect = 7,
-    RequestGuildMembers = 8,
-    InvalidSession = 9,
-    Hello = 10,
-    HeartbeatAck = 11,
-}
-
+var GatewayOpcodes;
+(function (GatewayOpcodes) {
+    GatewayOpcodes[GatewayOpcodes["Dispatch"] = 0] = "Dispatch";
+    GatewayOpcodes[GatewayOpcodes["Heartbeat"] = 1] = "Heartbeat";
+    GatewayOpcodes[GatewayOpcodes["Identify"] = 2] = "Identify";
+    GatewayOpcodes[GatewayOpcodes["PresenceUpdate"] = 3] = "PresenceUpdate";
+    GatewayOpcodes[GatewayOpcodes["VoiceStateUpdate"] = 4] = "VoiceStateUpdate";
+    GatewayOpcodes[GatewayOpcodes["Resume"] = 6] = "Resume";
+    GatewayOpcodes[GatewayOpcodes["Reconnect"] = 7] = "Reconnect";
+    GatewayOpcodes[GatewayOpcodes["RequestGuildMembers"] = 8] = "RequestGuildMembers";
+    GatewayOpcodes[GatewayOpcodes["InvalidSession"] = 9] = "InvalidSession";
+    GatewayOpcodes[GatewayOpcodes["Hello"] = 10] = "Hello";
+    GatewayOpcodes[GatewayOpcodes["HeartbeatAck"] = 11] = "HeartbeatAck";
+})(GatewayOpcodes || (GatewayOpcodes = {}));
 // Gateway close codes
-enum GatewayCloseCodes {
-    UnknownError = 4000,
-    UnknownOpcode = 4001,
-    DecodeError = 4002,
-    NotAuthenticated = 4003,
-    AuthenticationFailed = 4004,
-    AlreadyAuthenticated = 4005,
-    InvalidSeq = 4007,
-    RateLimited = 4008,
-    SessionTimeout = 4009,
-    InvalidShard = 4010,
-    ShardingRequired = 4011,
-    InvalidAPIVersion = 4012,
-    InvalidIntents = 4013,
-    DisallowedIntents = 4014,
-}
-
-// Gateway payload interfaces
-interface GatewayPayload<T = unknown> {
-    op: GatewayOpcodes;
-    d?: T;
-    s?: number | null;
-    t?: string | null;
-}
-
-interface HelloData {
-    heartbeat_interval: number;
-}
-
-interface ReadyData {
-    session_id: string;
-    resume_gateway_url: string;
-}
-
-interface MessageData {
-    id: string;
-    channel_id: string;
-    author: {
-        id: string;
-        username: string;
-        discriminator: string;
-        bot?: boolean;
-    };
-    content: string;
-    attachments: Array<{
-        id: string;
-        filename: string;
-        size: number;
-        url: string;
-        proxy_url: string;
-        content_type?: string;
-    }>;
-}
-
-interface IdentifyProperties {
-    os: string;
-    browser: string;
-    device: string;
-}
-
-interface IdentifyData {
-    token: string;
-    intents: number;
-    properties: IdentifyProperties;
-}
-
-interface ResumeData {
-    token: string;
-    session_id: string;
-    seq: number | null;
-}
-
+var GatewayCloseCodes;
+(function (GatewayCloseCodes) {
+    GatewayCloseCodes[GatewayCloseCodes["UnknownError"] = 4000] = "UnknownError";
+    GatewayCloseCodes[GatewayCloseCodes["UnknownOpcode"] = 4001] = "UnknownOpcode";
+    GatewayCloseCodes[GatewayCloseCodes["DecodeError"] = 4002] = "DecodeError";
+    GatewayCloseCodes[GatewayCloseCodes["NotAuthenticated"] = 4003] = "NotAuthenticated";
+    GatewayCloseCodes[GatewayCloseCodes["AuthenticationFailed"] = 4004] = "AuthenticationFailed";
+    GatewayCloseCodes[GatewayCloseCodes["AlreadyAuthenticated"] = 4005] = "AlreadyAuthenticated";
+    GatewayCloseCodes[GatewayCloseCodes["InvalidSeq"] = 4007] = "InvalidSeq";
+    GatewayCloseCodes[GatewayCloseCodes["RateLimited"] = 4008] = "RateLimited";
+    GatewayCloseCodes[GatewayCloseCodes["SessionTimeout"] = 4009] = "SessionTimeout";
+    GatewayCloseCodes[GatewayCloseCodes["InvalidShard"] = 4010] = "InvalidShard";
+    GatewayCloseCodes[GatewayCloseCodes["ShardingRequired"] = 4011] = "ShardingRequired";
+    GatewayCloseCodes[GatewayCloseCodes["InvalidAPIVersion"] = 4012] = "InvalidAPIVersion";
+    GatewayCloseCodes[GatewayCloseCodes["InvalidIntents"] = 4013] = "InvalidIntents";
+    GatewayCloseCodes[GatewayCloseCodes["DisallowedIntents"] = 4014] = "DisallowedIntents";
+})(GatewayCloseCodes || (GatewayCloseCodes = {}));
 export class DiscordBot {
-    private ws: WebSocket | null = null;
-    private heartbeatInterval: NodeJS.Timeout | null = null;
-    private sequence: number | null = null;
-    private sessionId: string | null = null;
-    private resumeGatewayUrl: string | null = null;
-    private lastHeartbeatAck: boolean = true;
-    private isDisconnecting: boolean = false;
-
-    constructor(
-        private readonly token: string,
-        private readonly intents: number
-    ) {}
-
+    constructor(token, intents) {
+        this.token = token;
+        this.intents = intents;
+        this.ws = null;
+        this.heartbeatInterval = null;
+        this.sequence = null;
+        this.sessionId = null;
+        this.resumeGatewayUrl = null;
+        this.lastHeartbeatAck = true;
+        this.isDisconnecting = false;
+    }
     /**
      * Initialize the bot and connect to Discord's Gateway
      */
-    public async connect(): Promise<void> {
+    async connect() {
         try {
             console.log('Starting bot connection...');
-            
             // Get the Gateway URL
             const gatewayUrl = await this.getGatewayUrl();
             console.log('Using Gateway URL:', gatewayUrl);
-            
             // Connect to the Gateway
             console.log('Establishing WebSocket connection...');
             this.ws = new WebSocket(`${gatewayUrl}?v=10&encoding=json`);
-
             // Set up event handlers
             this.ws.on('open', this.handleOpen.bind(this));
             this.ws.on('message', this.handleMessage.bind(this));
             this.ws.on('close', this.handleClose.bind(this));
-            this.ws.on('error', (error: Error) => {
+            this.ws.on('error', (error) => {
                 console.error('WebSocket error:', {
                     message: error.message,
                     error
                 });
                 this.handleError(error);
             });
-
             // Return a promise that resolves when connection is established
-            return new Promise<void>((resolve, reject) => {
-                this.ws!.once('open', () => {
+            return new Promise((resolve, reject) => {
+                this.ws.once('open', () => {
                     console.log('WebSocket connection established');
                     resolve();
                 });
-                
-                this.ws!.once('error', (error: Error) => {
+                this.ws.once('error', (error) => {
                     console.error('WebSocket connection failed:', error);
                     reject(error);
                 });
             });
-        } catch (error) {
-            const err = error as Error;
+        }
+        catch (error) {
+            const err = error;
             console.error('Failed to connect to Discord Gateway:', {
                 name: err.name,
                 message: err.message,
@@ -155,11 +93,10 @@ export class DiscordBot {
             throw error;
         }
     }
-
     /**
      * Get the Gateway URL from Discord's API
      */
-    private async getGatewayUrl(): Promise<string> {
+    async getGatewayUrl() {
         try {
             console.log('Fetching Gateway URL...');
             const response = await fetch('https://discord.com/api/v10/gateway/bot', {
@@ -167,43 +104,37 @@ export class DiscordBot {
                     Authorization: `Bot ${this.token}`,
                 },
             });
-
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(
-                    `Failed to get gateway URL: ${response.status} ${response.statusText}\n${errorText}`
-                );
+                throw new Error(`Failed to get gateway URL: ${response.status} ${response.statusText}\n${errorText}`);
             }
-
             const data = await response.json();
             console.log('Gateway URL fetched successfully');
             return data.url;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error getting Gateway URL:', error);
             throw error;
         }
     }
-
     /**
      * Handle WebSocket open event
      */
-    private handleOpen(): void {
+    handleOpen() {
         console.log('Connected to Discord Gateway');
     }
-
     /**
      * Handle WebSocket messages
      */
-    private handleMessage(data: WebSocket.Data): void {
+    handleMessage(data) {
         try {
-            const payload: GatewayPayload = JSON.parse(data.toString());
-            
+            const payload = JSON.parse(data.toString());
             // Update sequence number if present
-            if (payload.s) this.sequence = payload.s;
-
+            if (payload.s)
+                this.sequence = payload.s;
             switch (payload.op) {
                 case GatewayOpcodes.Hello:
-                    this.handleHello(payload.d as HelloData);
+                    this.handleHello(payload.d);
                     break;
                 case GatewayOpcodes.HeartbeatAck:
                     this.lastHeartbeatAck = true;
@@ -212,39 +143,36 @@ export class DiscordBot {
                     this.sendHeartbeat();
                     break;
                 case GatewayOpcodes.Dispatch:
-                    this.handleDispatch(payload as GatewayPayload<ReadyData | MessageData>);
+                    this.handleDispatch(payload);
                     break;
                 case GatewayOpcodes.InvalidSession:
-                    this.handleInvalidSession(payload.d as boolean);
+                    this.handleInvalidSession(payload.d);
                     break;
                 case GatewayOpcodes.Reconnect:
                     this.handleReconnect();
                     break;
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error handling Gateway message:', error);
         }
     }
-
     /**
      * Handle Hello event and start heartbeating
      */
-    private handleHello(data: HelloData): void {
+    handleHello(data) {
         // Start heartbeating
         this.startHeartbeat(data.heartbeat_interval);
-        
         // Send identify payload
         this.identify();
     }
-
     /**
      * Start the heartbeat interval
      */
-    private startHeartbeat(interval: number): void {
+    startHeartbeat(interval) {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
         }
-
         // Add jitter to prevent thundering herd
         const jitter = Math.random();
         setTimeout(() => {
@@ -259,25 +187,23 @@ export class DiscordBot {
             }, interval);
         }, interval * jitter);
     }
-
     /**
      * Send a heartbeat to the Gateway
      */
-    private sendHeartbeat(): void {
-        if (!this.ws) return;
-
+    sendHeartbeat() {
+        if (!this.ws)
+            return;
         this.lastHeartbeatAck = false;
         this.send({
             op: GatewayOpcodes.Heartbeat,
             d: this.sequence
         });
     }
-
     /**
      * Send identify payload to the Gateway
      */
-    private identify(): void {
-        const identifyData: IdentifyData = {
+    identify() {
+        const identifyData = {
             token: this.token,
             intents: this.intents,
             properties: {
@@ -286,19 +212,17 @@ export class DiscordBot {
                 device: 'snapgrade'
             }
         };
-
         this.send({
             op: GatewayOpcodes.Identify,
             d: identifyData
         });
     }
-
     /**
      * Handle dispatch events
      */
-    private handleDispatch(payload: GatewayPayload<ReadyData | MessageData>): void {
-        if (!payload.t) return;
-
+    handleDispatch(payload) {
+        if (!payload.t)
+            return;
         switch (payload.t) {
             case 'READY': {
                 if (this.isReadyData(payload.d)) {
@@ -316,133 +240,100 @@ export class DiscordBot {
             }
         }
     }
-
     /**
      * Type guards for payload data
      */
-    private isReadyData(data: unknown): data is ReadyData {
-        return data !== null && 
-               typeof data === 'object' && 
-               'session_id' in data && 
-               'resume_gateway_url' in data;
+    isReadyData(data) {
+        return data !== null &&
+            typeof data === 'object' &&
+            'session_id' in data &&
+            'resume_gateway_url' in data;
     }
-
-    private isMessageData(data: unknown): data is MessageData {
-        return data !== null && 
-               typeof data === 'object' && 
-               'content' in data && 
-               'author' in data;
+    isMessageData(data) {
+        return data !== null &&
+            typeof data === 'object' &&
+            'content' in data &&
+            'author' in data;
     }
-
     /**
      * Handle incoming messages
      */
-    private async handleIncomingMessage(message: MessageData): Promise<void> {
+    async handleIncomingMessage(message) {
         // Ignore messages from bots
-        if (message.author.bot) return;
-
+        if (message.author.bot)
+            return;
         // Check if this is a DM
         try {
             // Get the user's authentication status
             const authStatus = await this.checkUserAuth(message.author.id);
-
             if (!authStatus.authenticated) {
-                await this.sendDirectMessage(message.channel_id, 
-                    "You need to link your Discord account with Snapgrade first. " +
-                    "Please visit the Snapgrade website and connect your Discord account."
-                );
+                await this.sendDirectMessage(message.channel_id, "You need to link your Discord account with Snapgrade first. " +
+                    "Please visit the Snapgrade website and connect your Discord account.");
                 return;
             }
-
             if (authStatus.status !== 'ACTIVE') {
-                await this.sendDirectMessage(message.channel_id,
-                    authStatus.status === 'SUSPENDED' 
-                        ? "Your account has been suspended. Please contact support."
-                        : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
-                );
+                await this.sendDirectMessage(message.channel_id, authStatus.status === 'SUSPENDED'
+                    ? "Your account has been suspended. Please contact support."
+                    : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade.");
                 return;
             }
-
             // Process any image attachments
             if (message.attachments.length > 0) {
                 await this.handleImageAttachments(message);
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error handling message:', error);
-            await this.sendDirectMessage(message.channel_id,
-                "Sorry, there was an error processing your message. Please try again later."
-            );
+            await this.sendDirectMessage(message.channel_id, "Sorry, there was an error processing your message. Please try again later.");
         }
     }
-
     /**
      * Check user's authentication status
      */
-    private async checkUserAuth(discordId: string): Promise<{ 
-        authenticated: boolean; 
-        status?: DiscordMapping['status'];
-        firebaseUid?: string;
-    }> {
+    async checkUserAuth(discordId) {
         try {
             const mappingRef = adminDb.collection('discord_mappings').where('discordId', '==', discordId);
             const snapshot = await mappingRef.get();
-
             if (snapshot.empty) {
                 return { authenticated: false };
             }
-
             const mappingDoc = snapshot.docs[0];
             const mapping = discordMappingSchema.parse(mappingDoc.data());
-
             // Update lastUsed timestamp
             await mappingDoc.ref.update({
                 lastUsed: new Date()
             });
-
             return {
                 authenticated: true,
                 status: mapping.status,
                 firebaseUid: mapping.firebaseUid
             };
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error checking user auth:', error);
             throw error;
         }
     }
-
     /**
      * Handle image attachments in a message
      */
-    private async handleImageAttachments(message: MessageData): Promise<void> {
+    async handleImageAttachments(message) {
         const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        const images = message.attachments.filter(
-            attachment => attachment.content_type && validImageTypes.includes(attachment.content_type)
-        );
-
+        const images = message.attachments.filter(attachment => attachment.content_type && validImageTypes.includes(attachment.content_type));
         if (images.length === 0) {
-            await this.sendDirectMessage(message.channel_id,
-                "Please send a valid image file (JPEG, PNG, WEBP, or GIF)."
-            );
+            await this.sendDirectMessage(message.channel_id, "Please send a valid image file (JPEG, PNG, WEBP, or GIF).");
             return;
         }
-
         if (images.length > 1) {
-            await this.sendDirectMessage(message.channel_id,
-                "Please send only one image at a time."
-            );
+            await this.sendDirectMessage(message.channel_id, "Please send only one image at a time.");
             return;
         }
-
         const image = images[0];
-        
         // Send acknowledgment
-        await this.sendDirectMessage(message.channel_id,
-            "Processing your image... This may take a moment."
-        );
-
+        await this.sendDirectMessage(message.channel_id, "Processing your image... This may take a moment.");
         try {
             // Validate and store the image information
-            const pendingImage: PendingImage = pendingImageSchema.parse({
+            const pendingImage = pendingImageSchema.parse({
                 discordMessageId: message.id,
                 channelId: message.channel_id,
                 userId: message.author.id,
@@ -450,24 +341,21 @@ export class DiscordBot {
                 filename: image.filename,
                 contentType: image.content_type,
                 size: image.size,
-                status: 'PENDING' as const,
+                status: 'PENDING',
                 createdAt: new Date()
             });
-
             // Store in Firestore for n8n to process
             await adminDb.collection('pending_images').add(pendingImage);
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error storing image information:', error);
-            await this.sendDirectMessage(message.channel_id,
-                "Sorry, there was an error processing your image. Please try again later."
-            );
+            await this.sendDirectMessage(message.channel_id, "Sorry, there was an error processing your image. Please try again later.");
         }
     }
-
     /**
      * Send a direct message to a channel
      */
-    private async sendDirectMessage(channelId: string, content: string): Promise<void> {
+    async sendDirectMessage(channelId, content) {
         try {
             await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
                 method: 'POST',
@@ -477,90 +365,81 @@ export class DiscordBot {
                 },
                 body: JSON.stringify({ content })
             });
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error sending direct message:', error);
             throw error;
         }
     }
-
     /**
      * Handle invalid session
      */
-    private handleInvalidSession(resumable: boolean): void {
+    handleInvalidSession(resumable) {
         if (resumable) {
             this.resume();
-        } else {
+        }
+        else {
             // Wait a random amount of time between 1 and 5 seconds
             setTimeout(() => {
                 this.connect();
             }, Math.random() * 4000 + 1000);
         }
     }
-
     /**
      * Handle reconnect request
      */
-    private handleReconnect(): void {
+    handleReconnect() {
         this.reconnect();
     }
-
     /**
      * Reconnect to the Gateway
      */
-    private reconnect(): void {
+    reconnect() {
         if (this.ws) {
             this.ws.close();
         }
-        
         if (this.sessionId && this.resumeGatewayUrl) {
             // We can resume the session
             this.resume();
-        } else {
+        }
+        else {
             // We need to start a new session
             this.connect();
         }
     }
-
     /**
      * Resume a session
      */
-    private resume(): void {
+    resume() {
         if (!this.sessionId || !this.resumeGatewayUrl) {
             this.connect();
             return;
         }
-
         this.ws = new WebSocket(`${this.resumeGatewayUrl}?v=10&encoding=json`);
-        
         this.ws.on('open', () => {
-            const resumeData: ResumeData = {
+            const resumeData = {
                 token: this.token,
-                session_id: this.sessionId!,
+                session_id: this.sessionId,
                 seq: this.sequence
             };
-
             this.send({
                 op: GatewayOpcodes.Resume,
                 d: resumeData
             });
         });
-
         this.ws.on('message', this.handleMessage.bind(this));
         this.ws.on('close', this.handleClose.bind(this));
         this.ws.on('error', this.handleError.bind(this));
     }
-
     /**
      * Handle WebSocket close
      */
-    private handleClose(code: number): void {
+    handleClose(code) {
         console.log(`Gateway connection closed with code ${code}`);
-        
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
         }
-
         // Handle different close codes
         switch (code) {
             case GatewayCloseCodes.AuthenticationFailed:
@@ -575,45 +454,40 @@ export class DiscordBot {
                 this.reconnect();
         }
     }
-
     /**
      * Handle WebSocket errors
      */
-    private handleError(error: Error): void {
+    handleError(error) {
         console.error('Gateway error:', error);
     }
-
     /**
      * Send a payload to the Gateway
      */
-    private send(payload: GatewayPayload): void {
-        if (!this.ws) return;
-        
+    send(payload) {
+        if (!this.ws)
+            return;
         try {
             this.ws.send(JSON.stringify(payload));
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error sending payload to Gateway:', error);
         }
     }
-
     /**
      * Gracefully disconnect from the Gateway
      */
-    public async disconnect(): Promise<void> {
+    async disconnect() {
         this.isDisconnecting = true;
-
         // Clear heartbeat interval
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
         }
-
         // Close WebSocket connection with a normal closure
         if (this.ws) {
             this.ws.close(1000, 'Bot disconnecting');
             this.ws = null;
         }
-
         // Reset state
         this.sequence = null;
         this.sessionId = null;

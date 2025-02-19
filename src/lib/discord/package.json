@@ -1,0 +1,16 @@
+{
+  "name": "snapgrade-discord-bot",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.bot.json",
+    "start": "node dist/start.js",
+    "dev": "npm run build && npm start"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  }
+}

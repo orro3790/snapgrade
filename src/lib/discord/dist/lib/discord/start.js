@@ -2,31 +2,27 @@
  * Start the Discord bot
  */
 import { initializeBot } from './init.js';
-
 // Global bot instance
-let bot: Awaited<ReturnType<typeof initializeBot>> | null = null;
-
+let bot = null;
 async function startBot() {
     const token = process.env.DISCORD_BOT_TOKEN;
     if (!token) {
         throw new Error('DISCORD_BOT_TOKEN is required but not found in environment variables');
     }
-
     try {
         // Initialize and store bot instance
         bot = await initializeBot(token);
         console.log('Bot started successfully');
-
         // Keep the process alive
         process.stdin.resume();
-    } catch (error) {
+    }
+    catch (error) {
         console.error('Failed to start bot:', error);
         process.exit(1);
     }
 }
-
 // Helper function to format error details
-function formatError(error: unknown) {
+function formatError(error) {
     if (error instanceof Error) {
         return {
             name: error.name,
@@ -37,18 +33,15 @@ function formatError(error: unknown) {
     }
     return { error };
 }
-
 // Start the bot and handle any errors
 startBot().catch(error => {
     console.error('Failed to start bot:', formatError(error));
     process.exit(1);
 });
-
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (error: unknown) => {
+process.on('unhandledRejection', (error) => {
     console.error('Unhandled promise rejection:', formatError(error));
     process.exit(1);
 });
-
 // Export bot instance for potential programmatic use
 export { bot };
