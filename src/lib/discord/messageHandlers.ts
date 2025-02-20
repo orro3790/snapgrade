@@ -4,35 +4,60 @@ import { processSession } from '../services/documentProcessing';
 import { createSession, addImageToSession } from '../services/documentSession';
 import { type PendingImage, extractCdnExpiry } from '../schemas/pending-image';
 import { SUPPORTED_IMAGE_TYPES } from '../schemas/documentSession';
+import { getBotToken } from './tokenManager';
+import { updateStatus } from './statusMonitor';
 
 /**
  * Handle an incoming message from Discord
- * @param message The message data from Discord
  */
 export const handleIncomingMessage = async (message: MessageData): Promise<void> => {
     try {
+        console.log('[Message Received]', {
+            id: message.id,
+            channelId: message.channelId,
+            authorId: message.author.id,
+            attachments: message.attachments.map(a => ({
+                id: a.id,
+                filename: a.filename,
+                contentType: a.contentType
+            }))
+        });
+
         // Ignore messages from bots
-        if ('bot' in message.author && message.author.bot) return;
+        if ('bot' in message.author && message.author.bot) {
+            console.log('Ignoring bot message');
+            return;
+        }
 
         // Verify user authentication
+        console.log('Verifying user:', message.author.id);
         const authResult = await verifyDiscordUser(message.author.id);
+        console.log('Auth result:', authResult);
         
         // Handle unauthenticated or inactive users
         const statusMessage = getAuthStatusMessage(authResult);
         if (statusMessage) {
+            console.log('Auth status message:', statusMessage);
             await sendDirectMessage(message.channelId, statusMessage);
             return;
         }
 
         // Process attachments if present
         if (message.attachments.length > 0) {
+            console.log('Processing attachments:', message.attachments.length);
             await handleAttachments(message.attachments, message.author.id, message.channelId);
         }
     } catch (error) {
+        const formattedError = formatError(error);
         console.error('Error handling incoming message:', {
             messageId: message.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            channelId: message.channelId,
+            authorId: message.author.id,
+            attachmentCount: message.attachments.length,
+            error: formattedError
         });
+        
+        updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
         
         await sendDirectMessage(
             message.channelId,
@@ -43,9 +68,6 @@ export const handleIncomingMessage = async (message: MessageData): Promise<void>
 
 /**
  * Handle image attachments from a message
- * @param attachments Array of attachments from the message
- * @param userId The Discord user's ID
- * @param channelId The channel ID for status messages
  */
 export const handleAttachments = async (
     attachments: Attachment[],
@@ -60,6 +82,12 @@ export const handleAttachments = async (
             )
         );
 
+        console.log('Filtered attachments:', {
+            total: attachments.length,
+            supported: imageAttachments.length,
+            types: attachments.map(a => a.contentType)
+        });
+
         if (imageAttachments.length === 0) {
             await sendDirectMessage(
                 channelId,
@@ -69,7 +97,10 @@ export const handleAttachments = async (
         }
 
         // Create a new document session
+        console.log('Creating session for user:', userId);
         const session = await createSession(userId, imageAttachments.length);
+        console.log('Session created:', session.sessionId);
+        
         await sendDirectMessage(
             channelId,
             `Processing ${imageAttachments.length} image${imageAttachments.length > 1 ? 's' : ''}...`
@@ -78,6 +109,12 @@ export const handleAttachments = async (
         // Process each image
         for (const [index, attachment] of imageAttachments.entries()) {
             try {
+                console.log('Processing image:', {
+                    index,
+                    id: attachment.id,
+                    filename: attachment.filename
+                });
+
                 const pendingImage: PendingImage = {
                     discordMessageId: attachment.id,
                     channelId,
@@ -95,11 +132,20 @@ export const handleAttachments = async (
                 };
 
                 await addImageToSession(session, pendingImage);
+                console.log('Image added to session:', {
+                    sessionId: session.sessionId,
+                    imageId: attachment.id
+                });
             } catch (error) {
+                const formattedError = formatError(error);
                 console.error('Error processing image:', {
                     attachmentId: attachment.id,
-                    error: error instanceof Error ? error.message : 'Unknown error'
+                    sessionId: session.sessionId,
+                    pageNumber: index + 1,
+                    error: formattedError
                 });
+                
+                updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
                 
                 await sendDirectMessage(
                     channelId,
@@ -110,6 +156,7 @@ export const handleAttachments = async (
         }
 
         // Start processing the session
+        console.log('Starting session processing:', session.sessionId);
         await processSession(session.sessionId);
         
         await sendDirectMessage(
@@ -117,10 +164,14 @@ export const handleAttachments = async (
             'Your document is being processed. You will be notified when it\'s ready.'
         );
     } catch (error) {
+        const formattedError = formatError(error);
         console.error('Error handling attachments:', {
             userId,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            attachmentCount: attachments.length,
+            error: formattedError
         });
+        
+        updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
         
         await sendDirectMessage(
             channelId,
@@ -131,9 +182,6 @@ export const handleAttachments = async (
 
 /**
  * Send a direct message to a Discord channel
- * @param channelId The channel ID to send the message to
- * @param content The message content
- * @param components Optional message components (buttons, etc)
  */
 export const sendDirectMessage = async (
     channelId: string,
@@ -141,6 +189,11 @@ export const sendDirectMessage = async (
     components?: ActionRow[]
 ): Promise<void> => {
     try {
+        console.log('Sending message:', {
+            channelId,
+            content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+        });
+
         const body: { content: string; components?: ActionRow[] } = { content };
         if (components) {
             body.components = components;
@@ -151,7 +204,7 @@ export const sendDirectMessage = async (
             {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    Authorization: `Bot ${getBotToken()}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(body)
@@ -161,11 +214,28 @@ export const sendDirectMessage = async (
         if (!response.ok) {
             throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
         }
+
+        console.log('Message sent successfully');
     } catch (error) {
+        const formattedError = formatError(error);
         console.error('Error sending direct message:', {
             channelId,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: formattedError
         });
         throw error;
     }
+};
+
+/**
+ * Format error details for logging
+ */
+const formatError = (error: unknown) => {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        };
+    }
+    return { error };
 };

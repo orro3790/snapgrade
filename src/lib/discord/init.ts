@@ -5,6 +5,8 @@ import { createGatewayState, getGatewayUrl, handleMessage } from './events';
 const INTENTS = (
     (1 << 0) |  // GUILDS
     (1 << 9) |  // DIRECT_MESSAGES
+    (1 << 10) | // DIRECT_MESSAGE_TYPING
+    (1 << 11) | // DIRECT_MESSAGE_REACTIONS
     (1 << 15)   // MESSAGE_CONTENT
 );
 
@@ -18,14 +20,19 @@ export async function initializeBot(token: string): Promise<() => Promise<void>>
         throw new Error('DISCORD_BOT_TOKEN is required but not provided');
     }
 
+    console.log('Starting bot connection...');
+
     // Create gateway state
     const state = createGatewayState();
 
     try {
         // Get gateway URL
+        console.log('Fetching Gateway URL...');
         const gatewayUrl = await getGatewayUrl(token);
+        console.log('Gateway URL fetched successfully');
         console.log('Using Gateway URL:', gatewayUrl);
 
+        console.log('Establishing WebSocket connection...');
         // Connect to gateway
         state.ws = new WebSocket(`${gatewayUrl}?v=10&encoding=json`);
 
@@ -49,6 +56,7 @@ export async function initializeBot(token: string): Promise<() => Promise<void>>
 
             state.ws.once('open', () => {
                 console.log('Connected to Discord Gateway');
+                console.log('WebSocket connection established');
                 resolve();
             });
 

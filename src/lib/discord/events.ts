@@ -1,7 +1,11 @@
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { handleIncomingMessage } from './messageHandlers';
-import type { MessageData } from '../schemas/discord';
+import { 
+    rawDiscordMessageSchema,
+    transformDiscordMessage
+} from '../schemas/discord';
+import { updateStatus } from './statusMonitor';
 
 // Gateway payload schemas
 const gatewayPayloadSchema = z.object({
@@ -31,34 +35,6 @@ const identifySchema = z.object({
     intents: z.number(),
     properties: identifyPropertiesSchema
 });
-
-// Discord API message schemas
-const discordAuthorSchema = z.object({
-    id: z.string(),
-    username: z.string(),
-    discriminator: z.string(),
-    bot: z.boolean().optional()
-});
-
-const discordAttachmentSchema = z.object({
-    id: z.string(),
-    url: z.string().url(),
-    filename: z.string(),
-    content_type: z.string().optional(),
-    size: z.number()
-});
-
-const discordMessageSchema = z.object({
-    id: z.string(),
-    channel_id: z.string(),
-    author: discordAuthorSchema,
-    content: z.string(),
-    attachments: z.array(discordAttachmentSchema)
-});
-
-// Inferred types
-type GatewayPayload = z.infer<typeof gatewayPayloadSchema>;
-type DiscordMessage = z.infer<typeof discordMessageSchema>;
 
 // Gateway state management
 interface GatewayState {
@@ -106,11 +82,17 @@ export const getGatewayUrl = async (token: string): Promise<string> => {
 /**
  * Send a payload to the Gateway
  */
-export const sendPayload = (ws: WebSocket, payload: GatewayPayload): void => {
+export const sendPayload = (ws: WebSocket, payload: z.infer<typeof gatewayPayloadSchema>): void => {
     try {
+        console.log('Sending payload:', {
+            op: payload.op,
+            type: payload.t,
+            hasData: !!payload.d
+        });
         ws.send(JSON.stringify(payload));
     } catch (error) {
         console.error('Error sending payload:', error);
+        updateStatus('error', error instanceof Error ? error : new Error('Failed to send payload'));
     }
 };
 
@@ -118,6 +100,7 @@ export const sendPayload = (ws: WebSocket, payload: GatewayPayload): void => {
  * Send identify payload to the Gateway
  */
 export const sendIdentify = (ws: WebSocket, token: string, intents: number): void => {
+    console.log('Sending identify payload with intents:', intents.toString(2));
     const identifyData = identifySchema.parse({
         token,
         intents,
@@ -187,6 +170,7 @@ export const handleHello = (
     if (!state.ws) return;
 
     const helloData = helloDataSchema.parse(data);
+    console.log('Received HELLO with heartbeat interval:', helloData.heartbeat_interval);
     
     // Start heartbeating
     state.heartbeatInterval = startHeartbeat(
@@ -196,6 +180,7 @@ export const handleHello = (
         () => {
             if (!state.lastHeartbeatAck) {
                 console.error('Missed heartbeat ACK, reconnecting...');
+                updateStatus('error', new Error('Missed heartbeat ACK'));
                 state.ws?.close();
             }
             state.lastHeartbeatAck = false;
@@ -213,31 +198,8 @@ export const handleReady = (state: GatewayState, data: unknown): void => {
     const readyData = readyDataSchema.parse(data);
     state.sessionId = readyData.session_id;
     state.resumeGatewayUrl = readyData.resume_gateway_url;
-    console.log('Bot is ready!');
-};
-
-/**
- * Transform Discord API message to internal format
- */
-const transformMessage = (discordMessage: unknown): MessageData => {
-    // Validate and parse the Discord message
-    const message = discordMessageSchema.parse(discordMessage);
-    
-    // Transform to our internal format
-    return {
-        id: message.id,
-        channelId: message.channel_id,
-        author: {
-            id: message.author.id
-        },
-        attachments: message.attachments.map(att => ({
-            id: att.id,
-            url: att.url,
-            filename: att.filename,
-            contentType: att.content_type,
-            size: att.size
-        }))
-    };
+    updateStatus('connected');
+    console.log('Bot is ready! Session ID:', readyData.session_id);
 };
 
 /**
@@ -251,6 +213,12 @@ export const handleMessage = async (
 ): Promise<void> => {
     try {
         const payload = gatewayPayloadSchema.parse(JSON.parse(data.toString()));
+        console.log('Received gateway payload:', {
+            op: payload.op,
+            type: payload.t,
+            hasSequence: !!payload.s,
+            hasData: !!payload.d
+        });
         
         // Update sequence if present
         if (payload.s) state.sequence = payload.s;
@@ -268,28 +236,42 @@ export const handleMessage = async (
                 if (payload.t === 'READY') {
                     handleReady(state, payload.d);
                 } else if (payload.t === 'MESSAGE_CREATE') {
-                    const message = transformMessage(payload.d);
+                    console.log('Received MESSAGE_CREATE event');
+                    const rawMessage = rawDiscordMessageSchema.parse(payload.d);
+                    console.log('Message data:', {
+                        id: rawMessage.id,
+                        author: rawMessage.author.username,
+                        content: rawMessage.content.substring(0, 50),
+                        attachments: rawMessage.attachments.length
+                    });
+                    const message = transformDiscordMessage(rawMessage);
                     await handleIncomingMessage(message);
                 }
                 break;
             
             case 7: // RECONNECT
+                console.log('Received RECONNECT request');
+                updateStatus('connecting');
                 state.ws?.close();
                 break;
             
             case 9: // INVALID_SESSION
+                console.log('Received INVALID_SESSION:', payload.d);
                 if (payload.d === true) {
                     // Session is resumable
+                    updateStatus('connecting');
                     state.ws?.close();
                 } else {
                     // Session is not resumable
                     state.sessionId = null;
                     state.resumeGatewayUrl = null;
+                    updateStatus('disconnected');
                     state.ws?.close();
                 }
                 break;
         }
     } catch (error) {
         console.error('Error handling gateway message:', error);
+        updateStatus('error', error instanceof Error ? error : new Error('Failed to handle gateway message'));
     }
 };

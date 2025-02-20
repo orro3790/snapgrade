@@ -1,5 +1,5 @@
-import { adminDb } from '$lib/firebase/admin';
-import { envSchema } from '$lib/schemas/env';
+import { adminDb } from '../firebase/admin';
+import { envSchema } from '../schemas/env';
 import { z } from 'zod';
 
 const env = envSchema.parse({

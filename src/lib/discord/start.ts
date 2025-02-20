@@ -1,32 +1,33 @@
 import 'dotenv/config';
 import { initializeBot } from './init.js';
-
-/**
- * Cleanup function returned by initializeBot
- */
-type Cleanup = () => Promise<void>;
-
-// Global cleanup function
-let cleanup: Cleanup | null = null;
+import { getBotToken } from './tokenManager';
+import { updateStatus } from './statusMonitor';
 
 /**
  * Start the Discord bot
  */
 async function startBot() {
-    const token = process.env.DISCORD_BOT_TOKEN;
-    if (!token) {
-        throw new Error('DISCORD_BOT_TOKEN is required but not found in environment variables');
-    }
-
     try {
+        updateStatus('connecting');
+        
+        // Get bot token using our token manager
+        const token = getBotToken();
+        
         // Initialize bot and store cleanup function
-        cleanup = await initializeBot(token);
+        const cleanup = await initializeBot(token);
         console.log('Bot started successfully');
+        
+        // Update status to connected
+        updateStatus('connected');
 
         // Keep the process alive
         process.stdin.resume();
+
+        return cleanup;
     } catch (error) {
-        console.error('Failed to start bot:', formatError(error));
+        const formattedError = formatError(error);
+        console.error('Failed to start bot:', formattedError);
+        updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
         process.exit(1);
     }
 }
@@ -51,6 +52,8 @@ function formatError(error: unknown) {
  */
 async function shutdown(code = 0) {
     try {
+        updateStatus('disconnected');
+        const cleanup = await startBot();
         if (cleanup) {
             console.log('Shutting down bot...');
             await cleanup();
@@ -70,19 +73,19 @@ process.on('SIGTERM', () => void shutdown());
 // Handle unhandled errors
 process.on('uncaughtException', (error) => {
     console.error('Uncaught exception:', formatError(error));
+    updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
     void shutdown(1);
 });
 
 process.on('unhandledRejection', (error) => {
     console.error('Unhandled promise rejection:', formatError(error));
+    updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
     void shutdown(1);
 });
 
 // Start the bot
 startBot().catch(error => {
     console.error('Failed to start bot:', formatError(error));
+    updateStatus('error', error instanceof Error ? error : new Error('Unknown error'));
     process.exit(1);
 });
-
-// Export cleanup function for programmatic use
-export { cleanup };

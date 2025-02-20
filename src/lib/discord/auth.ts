@@ -1,23 +1,16 @@
 import { adminDb } from './firebase';
-import { discordMappingSchema, type DiscordMapping } from '../schemas/discord';
-
-/**
- * Result of verifying a Discord user's authentication status
- */
-interface AuthResult {
-    authenticated: boolean;
-    status?: DiscordMapping['status'];
-    firebaseUid?: string;
-    error?: string;
-}
+import { 
+    discordMappingSchema,
+    type AuthResult
+} from '../schemas/discord';
 
 /**
  * Verify a Discord user's authentication status and mapping to Firebase
- * @param discordId The Discord user's ID
- * @returns Authentication result with status and Firebase UID if authenticated
  */
 export const verifyDiscordUser = async (discordId: string): Promise<AuthResult> => {
     try {
+        console.log('Verifying Discord user:', discordId);
+        
         // Query for Discord mapping
         const mappingRef = adminDb
             .collection('discord_mappings')
@@ -27,6 +20,7 @@ export const verifyDiscordUser = async (discordId: string): Promise<AuthResult> 
 
         // No mapping found
         if (snapshot.empty) {
+            console.log('No mapping found for Discord ID:', discordId);
             return {
                 authenticated: false,
                 error: 'Discord account not linked with Snapgrade'
@@ -35,7 +29,11 @@ export const verifyDiscordUser = async (discordId: string): Promise<AuthResult> 
 
         // Get and validate mapping data
         const mappingDoc = snapshot.docs[0];
-        const mapping = discordMappingSchema.parse(mappingDoc.data());
+        const rawData = mappingDoc.data();
+        console.log('Raw Firestore data:', JSON.stringify(rawData, null, 2));
+
+        const mapping = discordMappingSchema.parse(rawData);
+        console.log('Parsed mapping:', mapping);
 
         // Update last used timestamp
         await updateLastUsed(discordId);
@@ -61,7 +59,6 @@ export const verifyDiscordUser = async (discordId: string): Promise<AuthResult> 
 
 /**
  * Update the lastUsed timestamp for a Discord mapping
- * @param discordId The Discord user's ID
  */
 export const updateLastUsed = async (discordId: string): Promise<void> => {
     try {
@@ -87,8 +84,6 @@ export const updateLastUsed = async (discordId: string): Promise<void> => {
 
 /**
  * Get user-friendly status message based on auth result
- * @param result Authentication result
- * @returns Message to send to user
  */
 export const getAuthStatusMessage = (result: AuthResult): string => {
     if (!result.authenticated) {

@@ -31,3 +31,6 @@ __pycache__/
 rag-mcp/venv/
 rag-mcp/__pycache__/
 *.pyc
+
+# Discord Bot
+src/lib/discord/dist
