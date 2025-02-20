@@ -1,7 +1,8 @@
 import WebSocket from 'ws';
 import { adminDb } from './firebase.js';
 import { discordMappingSchema, type DiscordMapping } from './schemas.js';
-import { pendingImageSchema, type PendingImage } from './schemas.js';
+import { DocumentHandler } from './handlers/documentHandler';
+import type { MessageData, ActionRow } from '../schemas/discordInteractions';
 
 // Gateway opcodes
 enum GatewayOpcodes {
@@ -53,25 +54,6 @@ interface ReadyData {
     resume_gateway_url: string;
 }
 
-interface MessageData {
-    id: string;
-    channel_id: string;
-    author: {
-        id: string;
-        username: string;
-        discriminator: string;
-        bot?: boolean;
-    };
-    content: string;
-    attachments: Array<{
-        id: string;
-        filename: string;
-        size: number;
-        url: string;
-        proxy_url: string;
-        content_type?: string;
-    }>;
-}
 
 interface IdentifyProperties {
     os: string;
@@ -99,11 +81,14 @@ export class DiscordBot {
     private resumeGatewayUrl: string | null = null;
     private lastHeartbeatAck: boolean = true;
     private isDisconnecting: boolean = false;
+    private documentHandler: DocumentHandler;
 
     constructor(
         private readonly token: string,
         private readonly intents: number
-    ) {}
+    ) {
+        this.documentHandler = new DocumentHandler(this.sendDirectMessage.bind(this));
+    }
 
     /**
      * Initialize the bot and connect to Discord's Gateway
@@ -321,166 +306,17 @@ export class DiscordBot {
      * Type guards for payload data
      */
     private isReadyData(data: unknown): data is ReadyData {
-        return data !== null && 
-               typeof data === 'object' && 
-               'session_id' in data && 
+        return data !== null &&
+               typeof data === 'object' &&
+               'session_id' in data &&
                'resume_gateway_url' in data;
     }
 
     private isMessageData(data: unknown): data is MessageData {
-        return data !== null && 
-               typeof data === 'object' && 
-               'content' in data && 
+        return data !== null &&
+               typeof data === 'object' &&
+               'content' in data &&
                'author' in data;
-    }
-
-    /**
-     * Handle incoming messages
-     */
-    private async handleIncomingMessage(message: MessageData): Promise<void> {
-        // Ignore messages from bots
-        if (message.author.bot) return;
-
-        // Check if this is a DM
-        try {
-            // Get the user's authentication status
-            const authStatus = await this.checkUserAuth(message.author.id);
-
-            if (!authStatus.authenticated) {
-                await this.sendDirectMessage(message.channel_id, 
-                    "You need to link your Discord account with Snapgrade first. " +
-                    "Please visit the Snapgrade website and connect your Discord account."
-                );
-                return;
-            }
-
-            if (authStatus.status !== 'ACTIVE') {
-                await this.sendDirectMessage(message.channel_id,
-                    authStatus.status === 'SUSPENDED' 
-                        ? "Your account has been suspended. Please contact support."
-                        : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
-                );
-                return;
-            }
-
-            // Process any image attachments
-            if (message.attachments.length > 0) {
-                await this.handleImageAttachments(message);
-            }
-        } catch (error) {
-            console.error('Error handling message:', error);
-            await this.sendDirectMessage(message.channel_id,
-                "Sorry, there was an error processing your message. Please try again later."
-            );
-        }
-    }
-
-    /**
-     * Check user's authentication status
-     */
-    private async checkUserAuth(discordId: string): Promise<{ 
-        authenticated: boolean; 
-        status?: DiscordMapping['status'];
-        firebaseUid?: string;
-    }> {
-        try {
-            const mappingRef = adminDb.collection('discord_mappings').where('discordId', '==', discordId);
-            const snapshot = await mappingRef.get();
-
-            if (snapshot.empty) {
-                return { authenticated: false };
-            }
-
-            const mappingDoc = snapshot.docs[0];
-            const mapping = discordMappingSchema.parse(mappingDoc.data());
-
-            // Update lastUsed timestamp
-            await mappingDoc.ref.update({
-                lastUsed: new Date()
-            });
-
-            return {
-                authenticated: true,
-                status: mapping.status,
-                firebaseUid: mapping.firebaseUid
-            };
-        } catch (error) {
-            console.error('Error checking user auth:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Handle image attachments in a message
-     */
-    private async handleImageAttachments(message: MessageData): Promise<void> {
-        const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        const images = message.attachments.filter(
-            attachment => attachment.content_type && validImageTypes.includes(attachment.content_type)
-        );
-
-        if (images.length === 0) {
-            await this.sendDirectMessage(message.channel_id,
-                "Please send a valid image file (JPEG, PNG, WEBP, or GIF)."
-            );
-            return;
-        }
-
-        if (images.length > 1) {
-            await this.sendDirectMessage(message.channel_id,
-                "Please send only one image at a time."
-            );
-            return;
-        }
-
-        const image = images[0];
-        
-        // Send acknowledgment
-        await this.sendDirectMessage(message.channel_id,
-            "Processing your image... This may take a moment."
-        );
-
-        try {
-            // Validate and store the image information
-            const pendingImage: PendingImage = pendingImageSchema.parse({
-                discordMessageId: message.id,
-                channelId: message.channel_id,
-                userId: message.author.id,
-                imageUrl: image.url,
-                filename: image.filename,
-                contentType: image.content_type,
-                size: image.size,
-                status: 'PENDING' as const,
-                createdAt: new Date()
-            });
-
-            // Store in Firestore for n8n to process
-            await adminDb.collection('pending_images').add(pendingImage);
-        } catch (error) {
-            console.error('Error storing image information:', error);
-            await this.sendDirectMessage(message.channel_id,
-                "Sorry, there was an error processing your image. Please try again later."
-            );
-        }
-    }
-
-    /**
-     * Send a direct message to a channel
-     */
-    private async sendDirectMessage(channelId: string, content: string): Promise<void> {
-        try {
-            await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bot ${this.token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ content })
-            });
-        } catch (error) {
-            console.error('Error sending direct message:', error);
-            throw error;
-        }
     }
 
     /**
@@ -621,4 +457,112 @@ export class DiscordBot {
         this.lastHeartbeatAck = true;
         this.isDisconnecting = false;
     }
+
+    /**
+     * Handle incoming messages
+     */
+    private async handleIncomingMessage(message: MessageData): Promise<void> {
+        // Ignore messages from bots
+        if (message.author.bot) return;
+
+        try {
+            // Get the user's authentication status
+            const authStatus = await this.checkUserAuth(message.author.id);
+
+            if (!authStatus.authenticated) {
+                await this.sendDirectMessage(message.channel_id, 
+                    "You need to link your Discord account with Snapgrade first. " +
+                    "Please visit the Snapgrade website and connect your Discord account."
+                );
+                return;
+            }
+
+            if (authStatus.status !== 'ACTIVE') {
+                await this.sendDirectMessage(message.channel_id,
+                    authStatus.status === 'SUSPENDED' 
+                        ? "Your account has been suspended. Please contact support."
+                        : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
+                );
+                return;
+            }
+
+            // Process any image attachments
+            if (message.attachments.length > 0) {
+                await this.documentHandler.handleImageAttachments(message);
+            }
+        } catch (error) {
+            console.error('Error handling message:', error);
+            await this.sendDirectMessage(message.channel_id,
+                "Sorry, there was an error processing your message. Please try again later."
+            );
+        }
+    }
+
+    /**
+     * Send a direct message to a channel
+     */
+    /**
+     * Check user's authentication status
+     */
+    private async checkUserAuth(discordId: string): Promise<{
+        authenticated: boolean;
+        status?: DiscordMapping['status'];
+        firebaseUid?: string;
+    }> {
+        try {
+            const mappingRef = adminDb.collection('discord_mappings').where('discordId', '==', discordId);
+            const snapshot = await mappingRef.get();
+
+            if (snapshot.empty) {
+                return { authenticated: false };
+            }
+
+            const mappingDoc = snapshot.docs[0];
+            const mapping = discordMappingSchema.parse(mappingDoc.data());
+
+            // Update lastUsed timestamp
+            await mappingDoc.ref.update({
+                lastUsed: new Date()
+            });
+
+            return {
+                authenticated: true,
+                status: mapping.status,
+                firebaseUid: mapping.firebaseUid
+            };
+        } catch (error) {
+            console.error('Error checking user auth:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send a direct message to a channel
+     */
+    private async sendDirectMessage(
+        channelId: string,
+        content: string,
+        components?: ActionRow[]
+    ): Promise<void> {
+        try {
+            const body: { content: string; components?: ActionRow[] } = { content };
+            if (components) {
+                body.components = components;
+            }
+
+            await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bot ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
+        } catch (error) {
+            console.error('Error sending direct message:', error);
+            throw error;
+        }
+    }
+
+    // ... (keep remaining methods)
 }

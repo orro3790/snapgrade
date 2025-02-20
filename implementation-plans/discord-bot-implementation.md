@@ -2,172 +2,173 @@
 
 ## Overview
 
-Implementation plan for the Discord bot message handler and document processing pipeline, with support for both single and multi-page document processing.
+Implementation plan for handling multi-page document uploads through Discord, using message components for user interaction and session management.
 
-## 1. Multi-File Document Handling
+## 1. Message Component Implementation
 
-### Document Session Management
+### Initial Upload Interaction
 
-- Track related uploads using a document session
-- Allow teachers to indicate multi-page documents
-- Support flexible upload patterns
+1. When user sends image(s):
 
-```typescript
-// Add to schemas/documentSession.ts
-export const documentSessionSchema = z.object({
-	sessionId: z.string(),
-	userId: z.string(),
-	status: z.enum(['COLLECTING', 'PROCESSING', 'COMPLETED', 'FAILED']),
-	pageCount: z.number().optional(),
-	createdAt: z.date(),
-	expiresAt: z.date(),
-	completedAt: z.date().optional()
-});
+   ```typescript
+   // Response with buttons
+   {
+     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+     data: {
+       content: "Is this part of a multi-page document?",
+       components: [{
+         type: MessageComponentTypes.ACTION_ROW,
+         components: [{
+           type: MessageComponentTypes.BUTTON,
+           custom_id: "multi_page_yes",
+           label: "Yes",
+           style: ButtonStyleTypes.PRIMARY
+         }, {
+           type: MessageComponentTypes.BUTTON,
+           custom_id: "multi_page_no",
+           label: "No",
+           style: ButtonStyleTypes.SECONDARY
+         }]
+       }]
+     }
+   }
+   ```
 
-// Update pending-image.ts
-export const pendingImageSchema = pendingImageSchema.extend({
-	sessionId: z.string().optional(),
-	pageNumber: z.number().optional()
-});
-```
+2. If user clicks "Yes":
+   ```typescript
+   // Follow-up with select menu
+   {
+     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+     data: {
+       content: "How many pages in total?",
+       flags: InteractionResponseFlags.EPHEMERAL,
+       components: [{
+         type: MessageComponentTypes.ACTION_ROW,
+         components: [{
+           type: MessageComponentTypes.STRING_SELECT,
+           custom_id: "page_count_select",
+           placeholder: "Select total pages",
+           options: [
+             { label: "2 pages", value: "2" },
+             { label: "3 pages", value: "3" },
+             { label: "4 pages", value: "4" },
+             { label: "5 pages", value: "5" }
+           ]
+         }]
+       }]
+     }
+   }
+   ```
 
-### User Interaction Flow
+## 2. Document Session Management
 
-1. Initial Upload
+### Components
 
-   - Bot responds: "Is this a multi-page document? (Yes/No)"
-   - If Yes:
-     - "How many pages total?"
-     - Create document session
-     - Track uploaded pages
-   - If No:
-     - Process as single document
+1. Session Creation
 
-2. Multi-page Upload
+   - Create when user selects page count
+   - Store session ID in Firestore
+   - Set 10-minute expiration
 
-   - Track uploads within session
-   - Show progress (e.g., "Received page 2 of 5")
-   - Auto-complete when all pages received
-   - Allow manual completion
+2. Page Tracking
 
-3. Session Management
-   - 10-minute timeout for completing uploads
-   - Allow manual session cancellation
-   - Support for adding/removing pages
-
-## 2. Discord Bot Message Handler
-
-### Core Functionality
-
-- Listen for image attachments
-- Handle single/multi-page scenarios
-- Validate user authentication
-- Manage document sessions
-- Queue processing
-
-### Implementation Flow
-
-1. Message with image(s) received
-2. Validate user status
-3. Check for active session
-   - If exists: Add to session
-   - If not: Ask about multi-page
-4. Create pending image record(s)
-5. Queue for processing when ready
-6. Update status throughout
-
-## 3. Document Processing Pipeline
-
-### Core Components
-
-1. Image Processing
-
-   - Process individual pages
+   - Track uploaded pages in session
    - Maintain page order
-   - Combine multi-page results
+   - Auto-complete when all pages received
 
-2. Text Analysis
+3. Status Updates
+   - Send progress messages using ephemeral responses
+   - Allow session cancellation
+   - Handle timeouts
 
-   - Extract text structure
-   - Verify text quality
-   - Handle multi-page context
+## 3. Implementation Steps
 
-3. Storage
-   - Store complete document
-   - Track page relationships
-   - Handle session status
+### Phase 1: Message Components
 
-## Implementation Steps
+1. Implement button interactions for multi-page selection
+2. Add page count selection menu
+3. Handle interaction responses
 
-### Phase 1: Session Management
+### Phase 2: Session Management
 
-1. Implement document session schema
-2. Add session tracking
-3. Create user interaction flows
-4. Add timeout handling
-
-### Phase 2: Discord Integration
-
-1. Set up message listeners
-2. Add multi-page prompts
-3. Implement session management
-4. Handle user responses
+1. Create document session schema
+2. Implement session tracking
+3. Add timeout handling
 
 ### Phase 3: Document Processing
 
 1. Process individual pages
-2. Combine multi-page documents
-3. Generate complete analysis
-4. Store final results
+2. Track page relationships
+3. Combine multi-page documents
 
-## Error Handling
+## 4. Error Handling
 
-- Incomplete uploads
-- Session timeouts
-- Out-of-order pages
-- Processing failures
-- Missing pages
+### User Interaction Errors
 
-## User Experience
+- Invalid page order
+- Timeout exceeded
+- Session cancellation
+- Duplicate uploads
 
-- Clear progress indicators
-- Simple session management
-- Flexible upload patterns
-- Error recovery options
+### Processing Errors
 
-### Example Bot Interactions
+- Failed OCR
+- Invalid file types
+- Size limits exceeded
 
-```
-Teacher: [uploads image]
-Bot: "Is this a multi-page document? (Yes/No)"
+## 5. User Experience Flow
 
-Teacher: "Yes"
-Bot: "How many pages should I expect?"
+1. Initial Upload:
 
-Teacher: "3"
-Bot: "Created session for 3-page document. Upload remaining pages within 10 minutes.
-     Current progress: 1/3 pages"
+   ```
+   User: [uploads image]
+   Bot: "Is this part of a multi-page document?" [Yes/No buttons]
+   ```
 
-Teacher: [uploads second image]
-Bot: "Received page 2/3. Waiting for 1 more page..."
+2. Multi-page Setup:
 
-Teacher: [uploads third image]
-Bot: "All pages received! Processing your document..."
-```
+   ```
+   User: [clicks Yes]
+   Bot: "How many pages in total?" [Select menu: 2-5]
+   User: [selects 3]
+   Bot: "Created session for 3 pages. Upload remaining pages within 10 minutes.
+        Current progress: 1/3 pages"
+   ```
 
-## Success Criteria
+3. Progress Updates:
 
-- Seamless handling of single/multi-page documents
-- Clear user communication
-- Accurate page tracking
-- Proper document assembly
-- Error resilience
+   ```
+   User: [uploads second image]
+   Bot: "Received page 2/3. Waiting for 1 more page..."
+   ```
 
-## Future Enhancements
+4. Session Completion:
+   ```
+   User: [uploads final image]
+   Bot: "All pages received! Processing your document..."
+   ```
 
-(To be implemented based on user feedback)
+## 6. Implementation Notes
 
-- Batch processing
-- Page reordering
-- Preview before processing
-- Extended session timeouts
+1. Message Components:
+
+   - Use buttons for binary choices
+   - Use select menus for numeric options
+   - All progress messages should be ephemeral
+
+2. Session Management:
+
+   - Store session state in Firestore
+   - Include user ID, page count, and timeout
+   - Track page order and status
+
+3. Error Recovery:
+
+   - Allow session restart on timeout
+   - Provide clear error messages
+   - Enable manual cancellation
+
+4. Security:
+   - Validate all interactions
+   - Check user permissions
+   - Verify file types and sizes
