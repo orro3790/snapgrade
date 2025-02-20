@@ -1,4 +1,3 @@
-<!-- src/routes/+page.svelte -->
 <script lang="ts">
 	import type { PageData } from './$types';
 	import TextEditor from '$lib/components/TextEditor.svelte';
@@ -7,8 +6,10 @@
 	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import { editorStore, EditorMode } from '$lib/stores/editorStore.svelte';
+	import { discordStore } from '$lib/stores/discordStore.svelte';
 	import UploadDocument from './UploadDocument.svelte';
 	import ClassManager from './ClassManager.svelte';
+	import DiscordSettingsModal from '$lib/components/DiscordSettingsModal.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 	import Pencil from '$lib/icons/Pencil.svelte';
@@ -26,6 +27,16 @@
 	$effect(() => {
 		userStore.setUser(user);
 		settingsStore.set(settings);
+		discordStore.set(data.discord);
+
+		// Open Discord settings modal if redirected from OAuth
+		if (data.modal?.type === 'discordSettings') {
+			modalStore.open('discordSettings', {
+				...data.discord,
+				error: data.modal.error,
+				discord: data.modal.discord
+			});
+		}
 	});
 
 	// Add a keyboard event handler to the window instead
@@ -117,6 +128,8 @@
 					uid: data.uid
 				}}
 			/>
+		{:else if $modalStore?.type === 'discordSettings'}
+			<DiscordSettingsModal data={$discordStore} />
 		{/if}
 	</main>
 </div>

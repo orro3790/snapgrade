@@ -16,4 +16,10 @@ export const discordMappingSchema = z.object({
     status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
 });
 
+export const discordConnectionSchema = z.object({
+    isConnected: z.boolean(),
+    status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).nullable()
+});
+
 export type DiscordMapping = z.infer<typeof discordMappingSchema>;
+export type DiscordConnection = z.infer<typeof discordConnectionSchema>;

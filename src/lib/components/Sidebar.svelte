@@ -1,8 +1,8 @@
-<!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
 	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
+	import { discordStore } from '$lib/stores/discordStore.svelte';
 
 	// Import icons
 	import Home from '$lib/icons/Home.svelte';
@@ -83,6 +83,8 @@
 			modalStore.open('classManager');
 		} else if (itemId === 'staging-area') {
 			modalStore.open('stagingArea');
+		} else if (itemId === 'settings') {
+			modalStore.open('discordSettings', $discordStore);
 		}
 	}
 

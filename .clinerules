@@ -19,13 +19,14 @@ Before carrying out any task involving the following, you will first use the "ra
 - If creating anything related to scraping or web crawling --> refer to crawl4AI documentation
 - If creating anything related to OCR --> refer to LLM Whisperer documentation
 
-Important Notes:
+#### Important Notes:
 
-- You will always notify me when you access documentation through RAG
+- You will always notify me when you access documentation
 - You will be explicit about which documentation pages you've retrieved and reviewed
 - If you cannot find sufficient information, you will perform additional queries
-- You will be transparent if you cannot find specific documentation or if URLs are missing
-- You will always start with RAG search before proceeding with any implementation
+- You will be transparent and notify me if you cannot find the information you need
+- You will always start with the search_documentation MCP tool before proceeding with any implementation
+- When using multiple technologies, be sure to search each respective documentation source
 
 If you understand and comply with the statements above, you will begin by saying "Instructions understood!".
 
@@ -54,26 +55,22 @@ If you understand and comply with the statements above, you will begin by saying
 
 2. **Text Extraction**
 
-   - Discord bot confirms auth with Firebase and my user document to ensure user's account is active (subscribed)
+   - Discord bot confirms auth with Firebase and user document to ensure account is active
    - Discord bot forwards photo to LLM Whisperer service
    - LLM Whisperer performs OCR (Optical Character Recognition)
    - Raw text is extracted from the photo
 
-3. **Parallel Processing**
+3. **Document Processing**
 
    - Raw text is stored in Firestore database
-   - Raw text, image, and user ID is sent to Snapgrade server's API endpoint
-
-4. **Structural Analysis**
-
-   - Server forwards text and image to Structure LLM
+   - Document processor service analyzes text structure
    - Structure LLM identifies:
      - Headers
      - Titles
      - Paragraphs
      - Lists
 
-5. **Teacher Review**
+4. **Teacher Review**
 
    - Teacher reviews identified structural elements
    - Confirms or adjusts structural analysis
@@ -90,7 +87,7 @@ If you understand and comply with the statements above, you will begin by saying
    - Teacher clicks words to apply/remove formatting
    - Changes are immediately visible and reversible
 
-6. **Writing Analysis**
+5. **Writing Analysis**
 
    - Text is processed by Writing Analysis LLM
    - Performs comprehensive checks:
@@ -98,7 +95,7 @@ If you understand and comply with the statements above, you will begin by saying
      - Spelling
      - Style
 
-7. **Final Output**
+6. **Final Output**
    - Analysis results are converted to Text Node array
    - Nodes conform to TextNode schema
    - Ready for display in editor
@@ -123,18 +120,26 @@ If you understand and comply with the statements above, you will begin by saying
 #### 2.4.1 Authentication
 
 - Firebase Authentication
-- Discord OAuth2 Authentication (refer to documentation/discord/Reference.mdx for implementation)
+- Discord OAuth2 Authentication
 
 #### 2.4.2 Database
 
 - Firestore
 - Discord API endpoints (for bot interactions)
 
-#### 2.4.3 Discord Integration
+#### 2.4.3 Document Processing
 
-- **Bot Implementation**:
+- LLM Whisperer for OCR
+- Structure LLM for document analysis
+- Writing Analysis LLM for text review
 
+#### 2.4.4 Discord Integration
+
+- Bot Implementation:
   - Located in `/src/lib/discord/dm-bot.ts`
+  - Handles image processing flow
+  - Manages user authentication
+  - Provides status updates
 
 #### 2.5 Design System
 
@@ -176,7 +181,6 @@ If you understand and comply with the statements above, you will begin by saying
 ### 4.1 Project Tree Structure
 
 ```javascript
-
 leap/
 ├── src/
 │   ├── lib/
@@ -186,9 +190,16 @@ leap/
 │   │   ├── firebase/       # Firebase services
 │   │   ├── stores/         # State management stores
 │   │   ├── commands/       # Editor commands
+│   │   ├── discord/        # Discord bot implementation
 │   │   └── utils/          # Shared utility functions
 │   ├── routes/
 │   │   ├── api/            # API endpoints
+│   │   ├── editor/         # Editor routes
+│   │   └── auth/           # Authentication routes
+│   ├── app.css             # Global styles
+│   ├── app.html            # HTML template
+│   ├── app.js              # Client-side entry point
+│   ├── app.svelte          # Root component
 ├── static/
 │   ├── fonts/              # Geist font files
 │   ├── icons/             # Brand/assets

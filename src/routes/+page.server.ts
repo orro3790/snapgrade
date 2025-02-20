@@ -6,14 +6,34 @@ import { studentSchema } from '$lib/schemas/student';
 import { createDocumentSchema } from '$lib/schemas/document';
 import { fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms/server';
+import { adminDb } from '$lib/firebase/admin';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const [classForm, studentForm, documentForm] = await Promise.all([
 		superValidate(zod(classSchema)),
 		superValidate(zod(studentSchema)),
-		superValidate(zod(createDocumentSchema)),
+		superValidate(zod(createDocumentSchema))
 	]);
 
+	// Get Discord connection status if user is logged in
+	let discordStatus = null;
+	let isConnected = false;
+
+	if (locals.user) {
+		const mappingQuery = await adminDb
+			.collection('discord_mappings')
+			.where('firebaseUid', '==', locals.user.id)
+			.limit(1)
+			.get();
+
+		isConnected = !mappingQuery.empty;
+		discordStatus = isConnected ? mappingQuery.docs[0].data().status : null;
+	}
+
+	// Check for modal parameter
+	const modal = url.searchParams.get('modal');
+	const error = url.searchParams.get('error');
+	const discord = url.searchParams.get('discord');
 
 	return {
 		user: locals.user || null,
@@ -22,6 +42,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 		classForm,
 		studentForm,
 		documentForm,
+		discord: {
+			isConnected,
+			status: discordStatus
+		},
+		modal: modal === 'discordSettings' ? {
+			type: 'discordSettings' as const,
+			error,
+			discord
+		} : null
 	};
 };
 
@@ -162,7 +191,6 @@ export const actions = {
 	stageDocument: async ({ request, fetch, cookies }) => {
 		const form = await superValidate(request, zod(createDocumentSchema));
 		console.log('Stage document form validation:', form);
-
 
 		if (!form.valid) {
 			console.log('Form validation failed:', form.errors);

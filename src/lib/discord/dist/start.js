@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { initializeBot } from './init.js';
 let bot = null;
 async function startBot() {
