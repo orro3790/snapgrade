@@ -23,3 +23,50 @@ export const discordConnectionSchema = z.object({
 
 export type DiscordMapping = z.infer<typeof discordMappingSchema>;
 export type DiscordConnection = z.infer<typeof discordConnectionSchema>;
+
+/**
+ * Discord message attachment schema
+ */
+export const attachmentSchema = z.object({
+    id: z.string(),
+    url: z.string().url(),
+    filename: z.string(),
+    contentType: z.string().optional(),
+    size: z.number().positive(),
+});
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+/**
+ * Discord message data schema
+ */
+export const messageDataSchema = z.object({
+    id: z.string(),
+    channelId: z.string(),
+    author: z.object({
+        id: z.string(),
+    }),
+    attachments: z.array(attachmentSchema),
+});
+
+export type MessageData = z.infer<typeof messageDataSchema>;
+
+/**
+ * Discord button component schema
+ */
+export const buttonComponentSchema = z.object({
+    type: z.literal(2),
+    style: z.number(),
+    label: z.string(),
+    custom_id: z.string(),
+});
+
+/**
+ * Discord action row schema
+ */
+export const actionRowSchema = z.object({
+    type: z.literal(1),
+    components: z.array(buttonComponentSchema),
+});
+
+export type ActionRow = z.infer<typeof actionRowSchema>;

@@ -9,9 +9,15 @@
         "outDir": "./dist",
         "allowJs": true,
         "declaration": false,
-        "removeComments": true
+        "removeComments": true,
+        "resolveJsonModule": true,
+        "baseUrl": ".",
+        "paths": {
+            "*": ["../../../node_modules/*"]
+        }
     },
     "include": [
-        "./*.ts"
+        "./*.ts",
+        "../schemas/*.ts"
     ]
 }

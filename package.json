@@ -23,6 +23,7 @@
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
 		"@faker-js/faker": "^9.4.0",
+		"@firebase/rules-unit-testing": "^4.0.1",
 		"@sveltejs/adapter-vercel": "^5.6.1",
 		"@sveltejs/kit": "^2.17.1",
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
@@ -32,6 +33,7 @@
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-svelte": "^2.46.1",
+		"firebase-tools": "^13.31.2",
 		"globals": "^15.14.0",
 		"jsdom": "^26.0.0",
 		"prettier": "^3.4.2",
@@ -47,6 +49,7 @@
 		"zod": "^3.24.1"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.36.3",
 		"firebase": "^11.2.0",
 		"firebase-admin": "^13.1.0",
 		"html2canvas": "^1.4.1",

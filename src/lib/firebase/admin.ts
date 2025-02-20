@@ -1,11 +1,8 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { BASE64_ENCODED_SERVICE_ACCOUNT } from '$env/static/private';
-
-
-// process.env for codespaces, env. for local development
-const base64EncodedServiceAccount = process.env.BASE64_ENCODED_SERVICE_ACCOUNT || BASE64_ENCODED_SERVICE_ACCOUNT;
+// Get service account from environment variable
+const base64EncodedServiceAccount = process.env.BASE64_ENCODED_SERVICE_ACCOUNT;
 
 export function initializeAdminApp(): App {
     // Check for existing apps first

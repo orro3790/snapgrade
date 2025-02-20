@@ -1,174 +1,111 @@
-# Discord Bot and Document Processing Implementation Plan
+# Discord Bot Implementation Plan
 
 ## Overview
+We need to implement a Discord bot that can:
+1. Receive photos from teachers
+2. Authenticate users against Firebase
+3. Process images through LLM Whisperer for OCR
+4. Store results in Firestore
+5. Handle document processing workflow
 
-Implementation plan for handling multi-page document uploads through Discord, using message components for user interaction and session management.
+## Current State Analysis
+- Discord schemas defined for:
+  - User authentication mappings
+  - Message attachments
+  - Document processing
+- Existing services:
+  - documentProcessing.ts for OCR and analysis
+  - documentSession.ts for managing upload sessions
+  - claude.ts for text analysis
 
-## 1. Message Component Implementation
+## Implementation Plan
 
-### Initial Upload Interaction
+### 1. Message Processing Functions
+Location: `src/lib/discord/messageHandlers.ts`
+```typescript
+export const handleIncomingMessage = async (message: MessageData): Promise<void>;
+export const handleAttachments = async (attachments: Attachment[], userId: string): Promise<void>;
+export const sendStatusMessage = async (channelId: string, content: string): Promise<void>;
+```
 
-1. When user sends image(s):
+### 2. Authentication Functions
+Location: `src/lib/discord/auth.ts`
+```typescript
+export const verifyDiscordUser = async (discordId: string): Promise<AuthResult>;
+export const updateLastUsed = async (discordId: string): Promise<void>;
+```
 
-   ```typescript
-   // Response with buttons
-   {
-     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-     data: {
-       content: "Is this part of a multi-page document?",
-       components: [{
-         type: MessageComponentTypes.ACTION_ROW,
-         components: [{
-           type: MessageComponentTypes.BUTTON,
-           custom_id: "multi_page_yes",
-           label: "Yes",
-           style: ButtonStyleTypes.PRIMARY
-         }, {
-           type: MessageComponentTypes.BUTTON,
-           custom_id: "multi_page_no",
-           label: "No",
-           style: ButtonStyleTypes.SECONDARY
-         }]
-       }]
-     }
-   }
-   ```
+### 3. LLM Whisperer Integration
+Location: `src/lib/services/llmWhispererService.ts`
+```typescript
+export const processImage = async (imageData: string, userId: string): Promise<ProcessingResult>;
+export const checkProcessingStatus = async (whisperHash: string): Promise<ProcessingStatus>;
+export const retrieveProcessedText = async (whisperHash: string): Promise<ExtractedText>;
+```
 
-2. If user clicks "Yes":
-   ```typescript
-   // Follow-up with select menu
-   {
-     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-     data: {
-       content: "How many pages in total?",
-       flags: InteractionResponseFlags.EPHEMERAL,
-       components: [{
-         type: MessageComponentTypes.ACTION_ROW,
-         components: [{
-           type: MessageComponentTypes.STRING_SELECT,
-           custom_id: "page_count_select",
-           placeholder: "Select total pages",
-           options: [
-             { label: "2 pages", value: "2" },
-             { label: "3 pages", value: "3" },
-             { label: "4 pages", value: "4" },
-             { label: "5 pages", value: "5" }
-           ]
-         }]
-       }]
-     }
-   }
-   ```
+### 4. Document Session Management
+Location: `src/lib/services/documentSessionService.ts`
+```typescript
+export const createDocumentSession = async (userId: string, expectedPages: number): Promise<string>;
+export const addImageToSession = async (sessionId: string, imageData: ImageData): Promise<void>;
+export const finalizeSession = async (sessionId: string): Promise<void>;
+```
 
-## 2. Document Session Management
+### 5. Gateway Event Handlers
+Location: `src/lib/discord/events.ts`
+```typescript
+export const handleDispatch = async (payload: GatewayPayload): Promise<void>;
+export const handleMessageCreate = async (data: MessageData): Promise<void>;
+```
 
-### Components
+## Implementation Order
 
-1. Session Creation
+1. Authentication Flow
+   - Implement user verification
+   - Add status checking
+   - Handle auth states
 
-   - Create when user selects page count
-   - Store session ID in Firestore
-   - Set 10-minute expiration
+2. Image Processing Pipeline
+   - Convert attachments to base64
+   - Integrate with LLM Whisperer
+   - Handle OCR results
 
-2. Page Tracking
+3. Document Session Flow
+   - Create sessions for uploads
+   - Track processing status
+   - Store results in Firestore
 
-   - Track uploaded pages in session
-   - Maintain page order
-   - Auto-complete when all pages received
+4. User Communication
+   - Send status updates
+   - Handle errors
+   - Provide completion notifications
 
-3. Status Updates
-   - Send progress messages using ephemeral responses
-   - Allow session cancellation
-   - Handle timeouts
+5. Gateway Integration
+   - Connect event handlers
+   - Handle reconnection
+   - Manage WebSocket state
 
-## 3. Implementation Steps
+## Security Considerations
 
-### Phase 1: Message Components
+- Rate limiting per user
+- File type validation
+- Size restrictions (10 MiB total limit)
+- Token security
+- Error logging
 
-1. Implement button interactions for multi-page selection
-2. Add page count selection menu
-3. Handle interaction responses
+## Error Handling Strategy
 
-### Phase 2: Session Management
+- Graceful degradation
+- User-friendly messages
+- Detailed logging
+- Automatic retries for transient failures
 
-1. Create document session schema
-2. Implement session tracking
-3. Add timeout handling
+## Next Steps
 
-### Phase 3: Document Processing
+1. Implement auth functions
+2. Add LLM Whisperer service
+3. Create document session handlers
+4. Add user communication
+5. Connect gateway handlers
 
-1. Process individual pages
-2. Track page relationships
-3. Combine multi-page documents
-
-## 4. Error Handling
-
-### User Interaction Errors
-
-- Invalid page order
-- Timeout exceeded
-- Session cancellation
-- Duplicate uploads
-
-### Processing Errors
-
-- Failed OCR
-- Invalid file types
-- Size limits exceeded
-
-## 5. User Experience Flow
-
-1. Initial Upload:
-
-   ```
-   User: [uploads image]
-   Bot: "Is this part of a multi-page document?" [Yes/No buttons]
-   ```
-
-2. Multi-page Setup:
-
-   ```
-   User: [clicks Yes]
-   Bot: "How many pages in total?" [Select menu: 2-5]
-   User: [selects 3]
-   Bot: "Created session for 3 pages. Upload remaining pages within 10 minutes.
-        Current progress: 1/3 pages"
-   ```
-
-3. Progress Updates:
-
-   ```
-   User: [uploads second image]
-   Bot: "Received page 2/3. Waiting for 1 more page..."
-   ```
-
-4. Session Completion:
-   ```
-   User: [uploads final image]
-   Bot: "All pages received! Processing your document..."
-   ```
-
-## 6. Implementation Notes
-
-1. Message Components:
-
-   - Use buttons for binary choices
-   - Use select menus for numeric options
-   - All progress messages should be ephemeral
-
-2. Session Management:
-
-   - Store session state in Firestore
-   - Include user ID, page count, and timeout
-   - Track page order and status
-
-3. Error Recovery:
-
-   - Allow session restart on timeout
-   - Provide clear error messages
-   - Enable manual cancellation
-
-4. Security:
-   - Validate all interactions
-   - Check user permissions
-   - Verify file types and sizes
+Would you like to proceed with this implementation plan? Once approved, we can switch to Code mode to begin implementation.
