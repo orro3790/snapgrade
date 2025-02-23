@@ -28,8 +28,8 @@ __pycache__/
 *.pyc
 
 # Python
-rag-mcp/venv/
-rag-mcp/__pycache__/
+ragnet-mcp/venv/
+ragnet-mcp/__pycache__/
 *.pyc
 
 # Discord Bot

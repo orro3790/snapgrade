@@ -13,7 +13,7 @@
 2. Create Python virtual environment:
 
    ```bash
-   cd rag-mcp
+   cd ragnet-mcp
    python -m venv venv
    ```
 
@@ -40,9 +40,9 @@
    ```json
    {
    	"mcpServers": {
-   		"rag-mcp": {
-   			"command": "C:\\Users\\matto\\Desktop\\rag-mcp\\venv\\Scripts\\python.exe",
-   			"args": ["C:\\Users\\matto\\Desktop\\rag-mcp\\docs_mcp_server.py"],
+   		"ragnet-mcp": {
+   			"command": "C:\\Users\\matto\\Desktop\\ragnet-mcp\\venv\\Scripts\\python.exe",
+   			"args": ["C:\\Users\\matto\\Desktop\\ragnet-mcp\\docs_mcp_server.py"],
    			"disabled": false,
    			"alwaysAllow": ["search_by_title", "list_documentation_sources", "search_documentation"]
    		}
