@@ -1,13 +1,14 @@
 import WebSocket from 'ws';
 import { adminDb } from '../firebase/admin';
-import { 
+import {
     discordMappingSchema,
-    pendingImageSchema,
     type AuthResult,
     type MessageCreateEvent,
     type ReadyEvent,
-    type GatewayPayload
-} from '../schemas/discord';
+    type GatewayPayload,
+    type Interaction
+} from '../schemas/discord-consolidated';
+import { handleInteraction } from './interaction-handler';
 
 // Gateway opcodes enum
 enum GatewayOpcodes {
@@ -24,76 +25,33 @@ enum GatewayOpcodes {
     HeartbeatAck = 11
 }
 
-// Gateway close codes enum
-enum GatewayCloseCodes {
-    UnknownError = 4000,
-    UnknownOpcode = 4001,
-    DecodeError = 4002,
-    NotAuthenticated = 4003,
-    AuthenticationFailed = 4004,
-    AlreadyAuthenticated = 4005,
-    InvalidSeq = 4007,
-    RateLimited = 4008,
-    SessionTimeout = 4009,
-    InvalidShard = 4010,
-    ShardingRequired = 4011,
-    InvalidAPIVersion = 4012,
-    InvalidIntents = 4013,
-    DisallowedIntents = 4014
-}
+// Discord Intents we need
+const INTENTS = (1 << 0) | // GUILDS
+               (1 << 9) | // GUILD_MESSAGES
+               (1 << 12) | // DIRECT_MESSAGES
+               (1 << 4);  // GUILD_INTEGRATIONS - needed for interactions
 
-export class DiscordBot {
-    private ws: WebSocket | null = null;
-    private heartbeatInterval: NodeJS.Timeout | null = null;
-    private sequence: number | null = null;
-    private sessionId: string | null = null;
-    private resumeGatewayUrl: string | null = null;
-    private lastHeartbeatAck = true;
-    private isDisconnecting = false;
+/**
+ * Create a Discord bot connection
+ * @param token Discord bot token
+ * @returns Object with connect and disconnect functions
+ */
+function createDiscordBot(token: string) {
+    let ws: WebSocket | null = null;
+    let heartbeatInterval: NodeJS.Timeout | null = null;
+    let sequence: number | null = null;
+    let sessionId: string | null = null;
+    let resumeGatewayUrl: string | null = null;
+    let lastHeartbeatAck = true;
+    let isDisconnecting = false;
 
-    constructor(
-        private token: string,
-        private intents: number
-    ) {}
-
-    async connect(): Promise<void> {
-        try {
-            console.log('Starting bot connection...');
-            const gatewayUrl = await this.getGatewayUrl();
-            console.log('Using Gateway URL:', gatewayUrl);
-
-            console.log('Establishing WebSocket connection...');
-            this.ws = new WebSocket(`${gatewayUrl}?v=10&encoding=json`);
-
-            this.ws.on('open', this.handleOpen.bind(this));
-            this.ws.on('message', this.handleMessage.bind(this));
-            this.ws.on('close', this.handleClose.bind(this));
-            this.ws.on('error', (error: Error) => {
-                console.error('WebSocket error:', error);
-                this.handleError(error);
-            });
-
-            return new Promise((resolve, reject) => {
-                this.ws!.once('open', () => {
-                    console.log('WebSocket connection established');
-                    resolve();
-                });
-
-                this.ws!.once('error', (error) => {
-                    console.error('WebSocket connection failed:', error);
-                    reject(error);
-                });
-            });
-        } catch (error) {
-            console.error('Failed to connect to Discord Gateway:', error);
-            throw error;
-        }
-    }
-
-    private async getGatewayUrl(): Promise<string> {
+    /**
+     * Get the gateway URL from Discord
+     */
+    const getGatewayUrl = async (): Promise<string> => {
         const response = await fetch('https://discord.com/api/v10/gateway/bot', {
             headers: {
-                Authorization: `Bot ${this.token}`,
+                Authorization: `Bot ${token}`,
             },
         });
 
@@ -106,79 +64,61 @@ export class DiscordBot {
 
         const data = await response.json();
         return data.url;
-    }
+    };
 
-    private handleOpen(): void {
-        console.log('Connected to Discord Gateway');
-    }
+    /**
+     * Send a payload to the gateway
+     */
+    const send = (payload: GatewayPayload): void => {
+        if (!ws) return;
 
-    private handleMessage(data: WebSocket.Data): void {
         try {
-            const payload = JSON.parse(data.toString()) as GatewayPayload;
-            
-            if (payload.s) this.sequence = payload.s;
-
-            switch (payload.op) {
-                case GatewayOpcodes.Hello:
-                    this.handleHello(payload.d as { heartbeat_interval: number });
-                    break;
-                case GatewayOpcodes.HeartbeatAck:
-                    this.lastHeartbeatAck = true;
-                    break;
-                case GatewayOpcodes.Heartbeat:
-                    this.sendHeartbeat();
-                    break;
-                case GatewayOpcodes.Dispatch:
-                    this.handleDispatch(payload);
-                    break;
-                case GatewayOpcodes.InvalidSession:
-                    this.handleInvalidSession(payload.d as boolean);
-                    break;
-                case GatewayOpcodes.Reconnect:
-                    this.handleReconnect();
-                    break;
-            }
+            ws.send(JSON.stringify(payload));
         } catch (error) {
-            console.error('Error handling Gateway message:', error);
+            console.error('Error sending payload to Gateway:', error);
         }
-    }
+    };
 
-    private handleHello(data: { heartbeat_interval: number }): void {
-        this.startHeartbeat(data.heartbeat_interval);
-        this.identify();
-    }
+    /**
+     * Send a heartbeat to the gateway
+     */
+    const sendHeartbeat = (): void => {
+        if (!ws) return;
+        lastHeartbeatAck = false;
+        send({
+            op: GatewayOpcodes.Heartbeat,
+            d: sequence
+        });
+    };
 
-    private startHeartbeat(interval: number): void {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
+    /**
+     * Start the heartbeat interval
+     */
+    const startHeartbeat = (interval: number): void => {
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
         }
 
         const jitter = Math.random();
         setTimeout(() => {
-            this.sendHeartbeat();
-            this.heartbeatInterval = setInterval(() => {
-                if (!this.lastHeartbeatAck) {
-                    this.reconnect();
+            sendHeartbeat();
+            heartbeatInterval = setInterval(() => {
+                if (!lastHeartbeatAck) {
+                    reconnect();
                     return;
                 }
-                this.sendHeartbeat();
+                sendHeartbeat();
             }, interval);
         }, interval * jitter);
-    }
+    };
 
-    private sendHeartbeat(): void {
-        if (!this.ws) return;
-        this.lastHeartbeatAck = false;
-        this.send({
-            op: GatewayOpcodes.Heartbeat,
-            d: this.sequence
-        });
-    }
-
-    private identify(): void {
+    /**
+     * Identify with the gateway
+     */
+    const identify = (): void => {
         const identifyData = {
-            token: this.token,
-            intents: this.intents,
+            token,
+            intents: INTENTS,
             properties: {
                 os: 'linux',
                 browser: 'snapgrade',
@@ -186,69 +126,177 @@ export class DiscordBot {
             }
         };
 
-        this.send({
+        send({
             op: GatewayOpcodes.Identify,
             d: identifyData
         });
-    }
+    };
 
-    private handleDispatch(payload: GatewayPayload): void {
+    /**
+     * Resume a connection with the gateway
+     */
+    const resume = (): void => {
+        if (!sessionId || !resumeGatewayUrl) {
+            connect();
+            return;
+        }
+
+        ws = new WebSocket(`${resumeGatewayUrl}?v=10&encoding=json`);
+
+        ws.on('open', () => {
+            const resumeData = {
+                token,
+                session_id: sessionId,
+                seq: sequence
+            };
+
+            send({
+                op: GatewayOpcodes.Resume,
+                d: resumeData
+            });
+        });
+
+        ws.on('message', handleMessage);
+        ws.on('close', handleClose);
+        ws.on('error', handleError);
+    };
+
+    /**
+     * Reconnect to the gateway
+     */
+    const reconnect = (): void => {
+        if (ws) {
+            ws.close();
+        }
+
+        if (sessionId && resumeGatewayUrl) {
+            resume();
+        } else {
+            connect();
+        }
+    };
+
+    /**
+     * Handle a message from the gateway
+     */
+    const handleMessage = (data: WebSocket.Data): void => {
+        try {
+            const payload = JSON.parse(data.toString()) as GatewayPayload;
+            
+            if (payload.s) sequence = payload.s;
+
+            switch (payload.op) {
+                case GatewayOpcodes.Hello:
+                    startHeartbeat((payload.d as { heartbeat_interval: number }).heartbeat_interval);
+                    identify();
+                    break;
+                case GatewayOpcodes.HeartbeatAck:
+                    lastHeartbeatAck = true;
+                    break;
+                case GatewayOpcodes.Heartbeat:
+                    sendHeartbeat();
+                    break;
+                case GatewayOpcodes.Dispatch:
+                    handleDispatch(payload);
+                    break;
+                case GatewayOpcodes.InvalidSession:
+                    handleInvalidSession(payload.d as boolean);
+                    break;
+                case GatewayOpcodes.Reconnect:
+                    reconnect();
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling Gateway message:', error);
+        }
+    };
+
+    /**
+     * Handle a dispatch event from the gateway
+     */
+    const handleDispatch = (payload: GatewayPayload): void => {
         if (!payload.t) return;
 
         switch (payload.t) {
             case 'READY': {
                 const readyData = payload.d as ReadyEvent;
-                this.sessionId = readyData.session_id;
-                this.resumeGatewayUrl = readyData.resume_gateway_url;
+                sessionId = readyData.session_id;
+                resumeGatewayUrl = readyData.resume_gateway_url;
                 console.log('Bot is ready!');
                 break;
             }
             case 'MESSAGE_CREATE': {
                 const messageData = payload.d as MessageCreateEvent;
-                void this.handleIncomingMessage(messageData);
+                void handleIncomingMessage(messageData);
+                break;
+            }
+            case 'INTERACTION_CREATE': {
+                // Handle interaction events (button clicks, slash commands)
+                console.log('Received interaction:', payload.d);
+                // Cast the payload data to Interaction type
+                void handleInteraction(payload.d as Interaction);
                 break;
             }
         }
-    }
+    };
 
-    private async handleIncomingMessage(message: MessageCreateEvent): Promise<void> {
-        if (message.author.bot) return;
-
-        try {
-            const authStatus = await this.checkUserAuth(message.author.id);
-            
-            if (!authStatus.authenticated) {
-                await this.sendDirectMessage(
-                    message.channel_id,
-                    "You need to link your Discord account with Snapgrade first. " +
-                    "Please visit the Snapgrade website and connect your Discord account."
-                );
-                return;
-            }
-
-            if (authStatus.status !== 'ACTIVE') {
-                await this.sendDirectMessage(
-                    message.channel_id,
-                    authStatus.status === 'SUSPENDED'
-                        ? "Your account has been suspended. Please contact support."
-                        : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
-                );
-                return;
-            }
-
-            if (message.attachments.length > 0) {
-                await this.handleImageAttachments(message);
-            }
-        } catch (error) {
-            console.error('Error handling message:', error);
-            await this.sendDirectMessage(
-                message.channel_id,
-                "Sorry, there was an error processing your message. Please try again later."
-            );
+    /**
+     * Handle an invalid session event
+     */
+    const handleInvalidSession = (resumable: boolean): void => {
+        if (resumable) {
+            resume();
+        } else {
+            setTimeout(() => {
+                connect();
+            }, Math.random() * 4000 + 1000);
         }
-    }
+    };
 
-    private async checkUserAuth(discordId: string): Promise<AuthResult> {
+    /**
+     * Handle a close event from the gateway
+     */
+    const handleClose = (code: number): void => {
+        console.log(`Gateway connection closed with code ${code}`);
+
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+
+        // Don't reconnect if we're intentionally disconnecting
+        if (isDisconnecting) {
+            console.log('Not reconnecting - bot is shutting down');
+            return;
+        }
+
+        // Handle specific close codes
+        switch (code) {
+            case 4004: // Authentication failed
+            case 4012: // Invalid API version
+            case 4013: // Invalid intents
+            case 4014: // Disallowed intents
+                console.error(`Fatal Gateway error: ${code}`);
+                break;
+            default:
+                // Don't attempt to reconnect if we're in the process of exiting
+                if (!process.exitCode) {
+                    reconnect();
+                }
+        }
+    };
+
+    /**
+     * Handle an error event from the gateway
+     */
+    const handleError = (error: Error): void => {
+        console.error('Gateway error:', error);
+    };
+
+    /**
+     * Check if a user is authenticated
+     */
+    const checkUserAuth = async (discordId: string): Promise<AuthResult> => {
         try {
             const mappingRef = adminDb
                 .collection('discord_mappings')
@@ -261,7 +309,16 @@ export class DiscordBot {
             }
 
             const mappingDoc = snapshot.docs[0];
-            const mapping = discordMappingSchema.parse(mappingDoc.data());
+            const data = mappingDoc.data();
+            
+            // Convert Firestore Timestamp objects to JavaScript Date objects
+            const convertedData = {
+                ...data,
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+                lastUsed: data.lastUsed?.toDate ? data.lastUsed.toDate() : data.lastUsed
+            };
+            
+            const mapping = discordMappingSchema.parse(convertedData);
 
             await mappingDoc.ref.update({
                 lastUsed: new Date()
@@ -276,65 +333,17 @@ export class DiscordBot {
             console.error('Error checking user auth:', error);
             throw error;
         }
-    }
+    };
 
-    private async handleImageAttachments(message: MessageCreateEvent): Promise<void> {
-        const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        const images = message.attachments.filter(
-            attachment => attachment.content_type && validImageTypes.includes(attachment.content_type)
-        );
-
-        if (images.length === 0) {
-            await this.sendDirectMessage(
-                message.channel_id,
-                "Please send a valid image file (JPEG, PNG, WEBP, or GIF)."
-            );
-            return;
-        }
-
-        if (images.length > 1) {
-            await this.sendDirectMessage(
-                message.channel_id,
-                "Please send only one image at a time."
-            );
-            return;
-        }
-
-        const image = images[0];
-        await this.sendDirectMessage(
-            message.channel_id,
-            "Processing your image... This may take a moment."
-        );
-
-        try {
-            const pendingImage = pendingImageSchema.parse({
-                discordMessageId: message.id,
-                channelId: message.channel_id,
-                userId: message.author.id,
-                imageUrl: image.url,
-                filename: image.filename,
-                contentType: image.content_type!,
-                size: image.size,
-                status: 'PENDING',
-                createdAt: new Date()
-            });
-
-            await adminDb.collection('pending_images').add(pendingImage);
-        } catch (error) {
-            console.error('Error storing image information:', error);
-            await this.sendDirectMessage(
-                message.channel_id,
-                "Sorry, there was an error processing your image. Please try again later."
-            );
-        }
-    }
-
-    private async sendDirectMessage(channelId: string, content: string): Promise<void> {
+    /**
+     * Send a direct message to a user
+     */
+    const sendDirectMessage = async (channelId: string, content: string): Promise<void> => {
         try {
             await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bot ${this.token}`,
+                    Authorization: `Bot ${token}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ content })
@@ -343,111 +352,225 @@ export class DiscordBot {
             console.error('Error sending direct message:', error);
             throw error;
         }
-    }
+    };
 
-    private handleInvalidSession(resumable: boolean): void {
-        if (resumable) {
-            this.resume();
-        } else {
-            setTimeout(() => {
-                this.connect();
-            }, Math.random() * 4000 + 1000);
+    /**
+     * Handle an incoming message
+     */
+    const handleIncomingMessage = async (message: MessageCreateEvent): Promise<void> => {
+        if (message.author.bot) return;
+
+        try {
+            const authStatus = await checkUserAuth(message.author.id);
+            
+            if (!authStatus.authenticated) {
+                await sendDirectMessage(
+                    message.channel_id,
+                    "You need to link your Discord account with Snapgrade first. " +
+                    "Please visit the Snapgrade website and connect your Discord account."
+                );
+                return;
+            }
+
+            if (authStatus.status !== 'ACTIVE') {
+                await sendDirectMessage(
+                    message.channel_id,
+                    authStatus.status === 'SUSPENDED'
+                        ? "Your account has been suspended. Please contact support."
+                        : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
+                );
+                return;
+            }
+
+            if (message.attachments.length > 0) {
+                await handleImageAttachments(message);
+            }
+        } catch (error) {
+            console.error('Error handling message:', error);
+            await sendDirectMessage(
+                message.channel_id,
+                "Sorry, there was an error processing your message. Please try again later."
+            );
         }
-    }
+    };
 
-    private handleReconnect(): void {
-        this.reconnect();
-    }
+    /**
+     * Handle image attachments in a message
+     */
+    const handleImageAttachments = async (message: MessageCreateEvent): Promise<void> => {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        const images = message.attachments.filter(
+            attachment => attachment.content_type && validImageTypes.includes(attachment.content_type)
+        );
 
-    private reconnect(): void {
-        if (this.ws) {
-            this.ws.close();
-        }
-
-        if (this.sessionId && this.resumeGatewayUrl) {
-            this.resume();
-        } else {
-            this.connect();
-        }
-    }
-
-    private resume(): void {
-        if (!this.sessionId || !this.resumeGatewayUrl) {
-            this.connect();
+        if (images.length === 0) {
+            await sendDirectMessage(
+                message.channel_id,
+                "Please send valid image files (JPEG, PNG, WEBP, or GIF)."
+            );
             return;
         }
 
-        this.ws = new WebSocket(`${this.resumeGatewayUrl}?v=10&encoding=json`);
-
-        this.ws.on('open', () => {
-            const resumeData = {
-                token: this.token,
-                session_id: this.sessionId,
-                seq: this.sequence
-            };
-
-            this.send({
-                op: GatewayOpcodes.Resume,
-                d: resumeData
-            });
-        });
-
-        this.ws.on('message', this.handleMessage.bind(this));
-        this.ws.on('close', this.handleClose.bind(this));
-        this.ws.on('error', this.handleError.bind(this));
-    }
-
-    private handleClose(code: number): void {
-        console.log(`Gateway connection closed with code ${code}`);
-
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-        }
-
-        switch (code) {
-            case GatewayCloseCodes.AuthenticationFailed:
-            case GatewayCloseCodes.InvalidAPIVersion:
-            case GatewayCloseCodes.InvalidIntents:
-            case GatewayCloseCodes.DisallowedIntents:
-                console.error(`Fatal Gateway error: ${code}`);
-                break;
-            default:
-                this.reconnect();
-        }
-    }
-
-    private handleError(error: Error): void {
-        console.error('Gateway error:', error);
-    }
-
-    private send(payload: GatewayPayload): void {
-        if (!this.ws) return;
+        await sendDirectMessage(
+            message.channel_id,
+            `Processing ${images.length} image(s)... This may take a moment.`
+        );
 
         try {
-            this.ws.send(JSON.stringify(payload));
+            // Convert Discord attachments to the format expected by handleImageUpload
+            const attachmentsForUpload = images.map(image => ({
+                id: image.id,
+                url: image.url,
+                filename: image.filename,
+                contentType: image.content_type!,
+                size: image.size
+            }));
+
+            // Use the document session handler to process images
+            const { handleImageUpload } = await import('./document-session-handler.js');
+            await handleImageUpload(message.channel_id, message.author.id, attachmentsForUpload);
+            
+            // Log processing
+            for (const image of images) {
+                console.log('Processing image:', {
+                    id: image.id,
+                    filename: image.filename,
+                    contentType: image.content_type
+                });
+            }
         } catch (error) {
-            console.error('Error sending payload to Gateway:', error);
+            console.error('Error storing image information:', error);
+            await sendDirectMessage(
+                message.channel_id,
+                "Sorry, there was an error processing your images. Please try again later."
+            );
         }
-    }
+    };
 
-    async disconnect(): Promise<void> {
-        this.isDisconnecting = true;
+    /**
+     * Connect to the Discord gateway
+     */
+    const connect = async (): Promise<void> => {
+        try {
+            console.log('Starting bot connection...');
+            const gatewayUrl = await getGatewayUrl();
+            console.log('Using Gateway URL:', gatewayUrl);
 
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
+            console.log('Establishing WebSocket connection...');
+            ws = new WebSocket(`${gatewayUrl}?v=10&encoding=json`);
+
+            ws.on('open', () => console.log('Connected to Discord Gateway'));
+            ws.on('message', handleMessage);
+            ws.on('close', handleClose);
+            ws.on('error', (error: Error) => {
+                console.error('WebSocket error:', error);
+                handleError(error);
+            });
+
+            return new Promise((resolve, reject) => {
+                if (!ws) {
+                    reject(new Error('WebSocket not initialized'));
+                    return;
+                }
+
+                ws.once('open', () => {
+                    console.log('WebSocket connection established');
+                    resolve();
+                });
+
+                ws.once('error', (error) => {
+                    console.error('WebSocket connection failed:', error);
+                    reject(error);
+                });
+            });
+        } catch (error) {
+            console.error('Failed to connect to Discord Gateway:', error);
+            throw error;
+        }
+    };
+
+    /**
+     * Disconnect from the Discord gateway
+     */
+    const disconnect = async (): Promise<void> => {
+        // Only disconnect if not already disconnecting
+        if (isDisconnecting) {
+            return;
+        }
+        
+        isDisconnecting = true;
+
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
         }
 
-        if (this.ws) {
-            this.ws.close(1000, 'Bot disconnecting');
-            this.ws = null;
+        if (ws) {
+            // Set a timeout to force close if normal close doesn't work
+            const forceCloseTimeout = setTimeout(() => {
+                console.log('Forcing WebSocket termination after timeout');
+                if (ws) {
+                    ws.terminate();
+                    ws = null;
+                }
+            }, 2000); // 2 seconds timeout
+            
+            // Add one-time close listener to clear the timeout
+            ws.once('close', () => {
+                clearTimeout(forceCloseTimeout);
+            });
+            
+            // Normal close
+            ws.close(1000, 'Bot disconnecting');
+            ws = null;
         }
 
-        this.sequence = null;
-        this.sessionId = null;
-        this.resumeGatewayUrl = null;
-        this.lastHeartbeatAck = true;
-        this.isDisconnecting = false;
+        sequence = null;
+        sessionId = null;
+        resumeGatewayUrl = null;
+        lastHeartbeatAck = true;
+        isDisconnecting = false;
+    };
+
+    return {
+        connect,
+        disconnect
+    };
+}
+
+/**
+ * Initialize and start the Discord bot
+ */
+export async function startBot() {
+    try {
+        // Get bot token from environment
+        const token = process.env.DISCORD_BOT_TOKEN;
+        if (!token) {
+            throw new Error('DISCORD_BOT_TOKEN not found in environment variables');
+        }
+
+        // Create and connect bot
+        const bot = createDiscordBot(token);
+        await bot.connect();
+
+        // Setup cleanup function
+        const cleanup = async () => {
+            console.log('Disconnecting bot...');
+            await bot.disconnect();
+            console.log('Bot disconnected');
+            
+            // Return true to indicate successful cleanup
+            return true;
+        };
+
+        // Signal handlers are now managed in index.ts
+
+        return cleanup;
+    } catch (error) {
+        console.error('Failed to start bot:', error instanceof Error ? error.message : String(error));
+        throw error;
     }
 }
+
+// Export the startBot function for use in index.ts
+export default startBot;

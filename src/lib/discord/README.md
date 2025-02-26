@@ -6,10 +6,13 @@ This directory contains our Discord bot implementation that handles image proces
 ## Structure
 ```
 discord/
-├── bot.ts      # Core bot implementation with WebSocket handling
-├── handlers.ts # Message and image processing logic
-├── index.ts    # Bot initialization and process management
-└── README.md   # Documentation
+├── bot.ts                     # Core bot implementation with WebSocket handling
+├── document-session-handler.ts # Document session management
+├── interaction-handler.ts     # Handles Discord interactions (buttons, commands)
+├── interactive-messages.ts    # Utilities for sending interactive messages
+├── metadata-handler.ts        # Handles document metadata assignment
+├── index.ts                   # Bot initialization and process management
+└── README.md                  # Documentation
 ```
 
 ## Running the Bot
@@ -31,19 +34,33 @@ The bot requires one environment variable:
 - `DISCORD_BOT_TOKEN`: Discord bot authentication token
 
 ## Architecture
-The bot is structured into three main components:
+The bot is structured into several main components:
 
 1. **Core Bot (bot.ts)**
    - Handles Discord Gateway WebSocket connection
    - Manages authentication and heartbeat
    - Provides connection resilience and error recovery
-
-2. **Message Handlers (handlers.ts)**
    - Processes incoming messages and attachments
-   - Manages document sessions
-   - Handles image processing workflow
 
-3. **Entry Point (index.ts)**
+2. **Interaction Handler (interaction-handler.ts)**
+   - Processes Discord interactions (button clicks, slash commands)
+   - Routes interactions to appropriate handlers
+   - Manages response formatting
+
+3. **Document Session Handler (document-session-handler.ts)**
+   - Manages document sessions
+   - Handles image uploads and processing
+   - Coordinates session state transitions
+
+4. **Interactive Messages (interactive-messages.ts)**
+   - Utilities for sending messages with buttons and components
+   - Handles message formatting and delivery
+
+5. **Metadata Handler (metadata-handler.ts)**
+   - Manages document metadata (class, student assignment)
+   - Provides UI for metadata selection
+
+6. **Entry Point (index.ts)**
    - Initializes the bot
    - Sets up error handling
    - Manages process lifecycle
@@ -56,9 +73,9 @@ The bot is structured into three main components:
 
 ## Development Notes
 - The bot shares the main project's TypeScript configuration
-- Uses shared schemas from `src/lib/schemas`
+- Uses consolidated schemas from `src/lib/schemas/discord-consolidated.ts`
 - Integrates with Firebase services from `src/lib/firebase`
-- Leverages document processing services from `src/lib/services`
+- Leverages functional document processing services from `src/lib/services`
 
 ## Type Safety
 All bot code is fully typed using TypeScript, ensuring:

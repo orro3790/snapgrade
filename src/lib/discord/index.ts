@@ -1,9 +1,4 @@
-import { DiscordBot } from './bot';
-
-// Discord Intents we need
-const INTENTS = (1 << 0) | // GUILDS
-               (1 << 9) | // GUILD_MESSAGES
-               (1 << 12); // DIRECT_MESSAGES
+import { startBot as initBot } from './bot';
 
 /**
  * Initialize and start the Discord bot
@@ -12,30 +7,24 @@ async function startBot() {
     try {
         console.log('Starting Discord bot...');
         
-        // Get bot token from environment
-        const token = process.env.DISCORD_BOT_TOKEN;
-        if (!token) {
-            throw new Error('DISCORD_BOT_TOKEN not found in environment variables');
-        }
+        // Start the bot using the function from bot.ts
+        const cleanup = await initBot();
+        // Log is already printed in bot.ts via the WebSocket 'open' event
 
-        // Create and connect bot
-        const bot = new DiscordBot(token, INTENTS);
-        await bot.connect();
-        console.log('Bot connected successfully');
-
-        // Setup cleanup function
-        const cleanup = async () => {
-            console.log('Disconnecting bot...');
-            await bot.disconnect();
-            console.log('Bot disconnected');
-        };
-
-        // Handle process signals
-        process.on('SIGINT', () => void cleanup());
-        process.on('SIGTERM', () => void cleanup());
-
-        // Keep the process alive
-        process.stdin.resume();
+        // Handle process signals - with proper process exit
+        process.on('SIGINT', async () => {
+            console.log('Received SIGINT signal');
+            await cleanup();
+            // Exit the process after cleanup
+            process.exit(0);
+        });
+        
+        process.on('SIGTERM', async () => {
+            console.log('Received SIGTERM signal');
+            await cleanup();
+            // Exit the process after cleanup
+            process.exit(0);
+        });
 
         return cleanup;
     } catch (error) {

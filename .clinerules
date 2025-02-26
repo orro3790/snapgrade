@@ -6,7 +6,18 @@ This file serves as your instructions. Every time you choose to apply a rule(s),
 
 ## DOCUMENTATION RETRIEVAL USING RAG MCP TOOLS
 
-You have been given access to the "ragnet-mcp" MCP tools which allows you to access documentation for many of the technologies we are using. If you feel you need additional information, use your list_documentation_sources MCP tool to see if the documentation you need is available.
+You have been given access to the "ragnet-mcp" MCP tools which allows you to access documentation for many of the technologies we are using. If you feel you need additional information, use your list_sources MCP tool to see if the documentation you need is available. When you find what you need, you can also use the "get_context_chain" MCP tool to get a list of sources that are connected to the retrieved documentation. As of the time of this writing, the following sources are available:
+
+- svelte
+- sveltekit
+- superforms
+- discord
+- llmwhisperer
+- qdrant
+- mcp
+- firebase
+- crawl4ai
+- zod
 
 ### TASK SPECIFIC DOCUMENTATION
 
@@ -16,13 +27,19 @@ Before carrying out any task involving the following, you will first use the "ra
 - If creating routes, pages, server files, api endpoints, and components --> refer to "sveltekit" documentation
 - If creating forms --> refer to "superforms" documentation
 - If creating anything related to Discord --> refer to "discord" documentation
-- If creating anything related to OCR or llmwhisperer --> refer to "lLMWhisperer" documentation
+- If creating anything related to OCR or llmwhisperer --> refer to "llmwhisperer" documentation
+- If creating anything related to qdrant --> refer to "qdrant" documentation
+- If creating anything related to mcp --> refer to "mcp" documentation
+- If creating anything related to firebase --> refer to "firebase" documentation
+- If creating anything related to crawl4ai --> refer to "crawl4ai" documentation
+- If creating anything related to zod --> refer to "zod" documentation
+
 
 #### Important Notes:
 
 - You will ALWAYS notify me when you access documentation through ragnet
 - You will be explicit about which documentation pages you've retrieved and reviewed
-- If you cannot find sufficient information, you will perform additional queries
+- If you cannot find the information you are looking for, it is likely due to your query parameters, you will perform additional queries until you find what you need because the documentation is certainly in the database
 - You will be transparent and notify me if you cannot find the information you need
 - You will always start with the "query" MCP tool before proceeding with any implementation or planning tasks
 - When using multiple technologies, be sure to search each respective source
@@ -135,10 +152,24 @@ If you understand and comply with the statements above, you will begin by saying
 #### 2.4.4 Discord Integration
 
 - Bot Implementation:
-  - Located in `/src/lib/discord/dm-bot.ts`
+  - Located in `/src/lib/discord`
+  - Core functionality in `bot.ts`
   - Handles image processing flow
   - Manages user authentication
   - Provides status updates
+
+##### 2.4.4.1 Discord Bot Structure
+
+```
+discord/
+├── bot.ts                     # Core bot implementation with WebSocket handling
+├── document-session-handler.ts # Document session management
+├── interaction-handler.ts     # Handles Discord interactions (buttons, commands)
+├── interactive-messages.ts    # Utilities for sending interactive messages
+├── metadata-handler.ts        # Handles document metadata assignment
+├── index.ts                   # Bot initialization and process management
+└── README.md                  # Documentation
+```
 
 #### 2.5 Design System
 

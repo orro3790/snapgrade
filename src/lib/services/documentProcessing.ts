@@ -1,4 +1,4 @@
-import { adminDb } from '../discord/firebase';
+import { adminDb } from '../firebase/admin';
 import {
     type DocumentProcessResponse,
     documentProcessResponseSchema

@@ -1,4 +1,4 @@
-import { adminDb } from '../discord/firebase';
+import { adminDb } from '../firebase/admin';
 import {
     documentSessionSchema,
     type DocumentSession,
@@ -67,8 +67,19 @@ export const getActiveSession = async (userId: string): Promise<DocumentSession 
         return null;
     }
 
+    // Get the raw data from Firestore
+    const rawData = snapshot.docs[0].data();
+    
+    // Convert Firestore Timestamps to JavaScript Date objects
+    const processedData = {
+        ...rawData,
+        createdAt: rawData.createdAt?.toDate ? rawData.createdAt.toDate() : rawData.createdAt,
+        expiresAt: rawData.expiresAt?.toDate ? rawData.expiresAt.toDate() : rawData.expiresAt,
+        completedAt: rawData.completedAt?.toDate ? rawData.completedAt.toDate() : rawData.completedAt
+    };
+
     // Parse and validate session data
-    const session = documentSessionSchema.parse(snapshot.docs[0].data());
+    const session = documentSessionSchema.parse(processedData);
     return session;
 };
 
@@ -112,13 +123,16 @@ export const addImageToSession = async (
 
     // Update session
     const sessionRef = adminDb.collection('document_sessions').doc(session.sessionId);
-    const updatedSession = documentSessionSchema.parse({
+    const updatedSessionData = {
         ...session,
         receivedPages: session.receivedPages + 1,
         pageOrder: [...session.pageOrder, imageRef.id],
         totalSize: newTotalSize,
         status: session.receivedPages + 1 === session.pageCount ? 'PROCESSING' : 'COLLECTING'
-    });
+    };
+    
+    // Parse and validate session data
+    const updatedSession = documentSessionSchema.parse(updatedSessionData);
     batch.update(sessionRef, updatedSession);
 
     await batch.commit();
@@ -189,7 +203,17 @@ export const checkSessionUrlExpiry = async (sessionId: string): Promise<boolean>
         .get();
 
     for (const doc of imagesSnapshot.docs) {
-        const image = pendingImageSchema.parse(doc.data());
+        // Get the raw data from Firestore
+        const rawData = doc.data();
+        
+        // Convert Firestore Timestamps to JavaScript Date objects
+        const processedData = {
+            ...rawData,
+            createdAt: rawData.createdAt?.toDate ? rawData.createdAt.toDate() : rawData.createdAt
+        };
+        
+        // Parse and validate image data
+        const image = pendingImageSchema.parse(processedData);
         if (image.cdnUrlExpiry && isCdnUrlExpired(image.cdnUrlExpiry)) {
             return true;
         }
