@@ -293,6 +293,18 @@ export const statusStateSchema = z.object({
 });
 
 // ==========================================
+// Discord Connection Schema
+// ==========================================
+
+/**
+ * Schema for Discord connection status
+ */
+export const discordConnectionSchema = z.object({
+  isConnected: z.boolean(),
+  status: z.enum(['active', 'inactive', 'suspended']).nullable()
+});
+
+// ==========================================
 // Transform Functions
 // ==========================================
 
@@ -334,6 +346,7 @@ export type DiscordMessage = z.infer<typeof discordMessageSchema>;
 export type GatewayPayload = z.infer<typeof gatewayPayloadSchema>;
 export type ReadyEvent = z.infer<typeof readyEventSchema>;
 export type MessageCreateEvent = z.infer<typeof messageCreateEventSchema>;
+export type DiscordConnection = z.infer<typeof discordConnectionSchema>;
 
 // Component types
 export type ButtonComponent = z.infer<typeof buttonComponentSchema>;

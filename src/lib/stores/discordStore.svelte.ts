@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { discordConnectionSchema, type DiscordConnection } from '$lib/schemas/discord';
+import { discordConnectionSchema, type DiscordConnection } from '$lib/schemas/discord-consolidated';
 
 function createDiscordStore() {
 	const { subscribe, set } = writable<DiscordConnection>(

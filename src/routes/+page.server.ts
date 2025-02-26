@@ -243,5 +243,53 @@ export const actions = {
 				error: 'An unexpected error occurred'
 			});
 		}
+	},
+	
+	manageDocuments: async ({ request, fetch, cookies }) => {
+		try {
+			const data = await request.json();
+			const { action, documentIds, classId, className, studentId, studentName } = data;
+			
+			const sessionCookie = cookies.get('session');
+			if (!sessionCookie) {
+				return fail(401, {
+					error: 'You must be logged in to manage documents'
+				});
+			}
+			
+			const response = await fetch(`/api/documents/batch`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Cookie: `session=${sessionCookie}`
+				},
+				body: JSON.stringify({
+					action,
+					documentIds,
+					classId,
+					className,
+					studentId,
+					studentName
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (!response.ok) {
+				return fail(response.status, {
+					error: result.error?.message || 'Failed to process documents'
+				});
+			}
+			
+			return {
+				success: true,
+				message: result.message || `Successfully ${action}ed ${documentIds.length} document(s)`
+			};
+		} catch (error) {
+			console.error('Document management error:', error);
+			return fail(500, {
+				error: 'An unexpected error occurred'
+			});
+		}
 	}
 } satisfies Actions;

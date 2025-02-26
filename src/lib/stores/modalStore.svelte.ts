@@ -12,7 +12,8 @@ export const modalTypeSchema = z.enum([
 	'classManager',
 	'stagingArea',
 	'documentLoad',
-	'discordSettings'
+	'discordSettings',
+	'documentBay'
 ]);
 
 /**
@@ -24,7 +25,17 @@ export const modalDataSchema = z
 		documentToLoad: z.string().optional(),
 		documentName: z.string().optional(),
 		showConfirmation: z.boolean().optional(),
-		confirmationMessage: z.string().optional()
+		confirmationMessage: z.string().optional(),
+		// Document Bay specific filters
+		documentFilters: z.object({
+			classId: z.string().optional(),
+			studentId: z.string().optional(),
+			status: z.string().optional(),
+			dateRange: z.object({
+				start: z.date().optional(),
+				end: z.date().optional()
+			}).optional()
+		}).optional()
 	})
 	.and(
 		z

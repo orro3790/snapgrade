@@ -85,33 +85,33 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-family: var(--brand);
-		font-weight: 500;
+		font-family: var(--font-family-base);
+		font-weight: var(--font-weight-medium);
 		border: none;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: var(--transition-all);
 		text-decoration: none;
 	}
 
 	/* Rounded variants using the theme border-radius */
 	.btn.rounded-top {
-		border-radius: 0.5rem 0.5rem 0 0;
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
 
 	.btn.rounded-bottom {
-		border-radius: 0 0 0.5rem 0.5rem;
+		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	}
 
 	.btn.rounded-left {
-		border-radius: 0.5rem 0 0 0.5rem;
+		border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 	}
 
 	.btn.rounded-right {
-		border-radius: 0 0.5rem 0.5rem 0;
+		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 	}
 
 	.btn.rounded-all {
-		border-radius: 0.5rem;
+		border-radius: var(--radius-base);
 	}
 
 	/* Content wrapper for consistent alignment */
@@ -119,19 +119,24 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		gap: var(--spacing-2);
 		min-height: 1.5em;
 	}
 
 	/* Size variants */
 	.standard {
-		padding: 0.75rem 1.5rem;
-		font-size: 0.875rem;
+		padding: var(--spacing-3) var(--spacing-6);
+		font-size: var(--font-size-sm);
 	}
 
 	.small {
-		padding: 0.5rem 1rem;
-		font-size: 0.75rem;
+		padding: var(--spacing-2) var(--spacing-4);
+		font-size: var(--font-size-xs);
+	}
+
+	.large {
+		padding: var(--spacing-4) var(--spacing-8);
+		font-size: var(--font-size-base);
 	}
 
 	/* Icon styles with zoom effect */
@@ -139,7 +144,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: transform 0.2s ease;
+		transition: transform var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
 	.btn:hover .icon {
@@ -152,7 +157,7 @@
 
 	/* Label styling */
 	.label {
-		line-height: 1.5;
+		line-height: var(--line-height-base);
 	}
 
 	/* Button variants using theme colors */
@@ -168,7 +173,7 @@
 	.secondary {
 		background-color: var(--interactive-normal);
 		color: var(--text-normal);
-		border: 1px solid var(--background-modifier-border);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
 	}
 
 	.secondary:hover {
@@ -178,7 +183,7 @@
 	.primary-inverted {
 		background-color: transparent;
 		color: var(--interactive-accent);
-		border: 1px solid var(--interactive-accent);
+		border: var(--border-width-thin) solid var(--interactive-accent);
 	}
 
 	.primary-inverted:hover {
@@ -189,11 +194,29 @@
 	.secondary-inverted {
 		background-color: var(--background-secondary);
 		color: var(--text-normal);
-		border: 1px solid var(--background-modifier-border);
+		border: var(--border-width-thin) solid var(--background-modifier-border);
 	}
 
 	.secondary-inverted:hover {
 		background-color: var(--background-secondary-alt);
+	}
+
+	.ghost {
+		background-color: transparent;
+		color: var(--text-normal);
+	}
+
+	.ghost:hover {
+		background-color: var(--background-modifier-hover);
+	}
+
+	.danger {
+		background-color: var(--status-error);
+		color: var(--text-on-accent);
+	}
+
+	.danger:hover {
+		background-color: var(--status-error-hover);
 	}
 
 	/* Selected state */
@@ -210,11 +233,11 @@
 
 	/* Loading spinner */
 	.spinner {
-		width: 1.25rem;
-		height: 1.25rem;
-		border: 0.125rem solid var(--text-on-accent);
-		border-top: 0.125rem solid transparent;
-		border-radius: 50%;
+		width: var(--icon-sm);
+		height: var(--icon-sm);
+		border: var(--border-width-thin) solid var(--text-on-accent);
+		border-top: var(--border-width-thin) solid transparent;
+		border-radius: var(--radius-full);
 		animation: spin 0.8s linear infinite;
 	}
 

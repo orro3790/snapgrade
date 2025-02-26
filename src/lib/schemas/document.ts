@@ -4,11 +4,11 @@ import { z } from 'zod';
 /**
  * Document status enum
  */
-export const DocumentStatus = {
-  PRESERIALIZED: 'preserialized',
-  CORRECTING: 'editing',
-  COMPLETED: 'completed'
-} as const;
+export enum DocumentStatus {
+  unedited = 'unedited',
+  edited = 'edited',
+  completed = 'completed'
+}
 
 /**
  * Document schema with status as an enum field
@@ -28,7 +28,7 @@ export const documentSchema = z.object({
   documentName: z.string(),
   documentBody: z.string(),
   sourceType: z.enum(['manual', 'llmwhisperer']),
-  status: z.enum([DocumentStatus.CORRECTING, DocumentStatus.COMPLETED]),
+  status: z.enum([DocumentStatus.unedited, DocumentStatus.edited, DocumentStatus.completed]),
   createdAt: z.date(),
   updatedAt: z.date(),
   
@@ -79,7 +79,7 @@ export const createDocumentSchema = z.object({
   }).optional(),
   
   // These fields will be added automatically by the server
-  status: z.literal(DocumentStatus.CORRECTING).default(DocumentStatus.CORRECTING),
+  status: z.literal(DocumentStatus.unedited).default(DocumentStatus.unedited),
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date())
 });

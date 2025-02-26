@@ -14,6 +14,7 @@
 	import SidebarToggle from '$lib/icons/SidebarToggle.svelte';
 	import Pencil from '$lib/icons/Pencil.svelte';
 	import Paragraph from '$lib/icons/Paragraph.svelte';
+	import DocumentBay from './DocumentBay.svelte';
 
 	let { data } = $props<{ data: PageData }>();
 
@@ -130,6 +131,14 @@
 			/>
 		{:else if $modalStore?.type === 'discordSettings'}
 			<DiscordSettingsModal data={$discordStore} />
+		{:else if $modalStore?.type === 'documentBay'}
+			<DocumentBay
+				data={{
+					documentForm: data.documentForm,
+					user: data.user,
+					uid: data.uid
+				}}
+			/>
 		{/if}
 	</main>
 </div>
