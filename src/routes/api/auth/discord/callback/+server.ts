@@ -96,7 +96,7 @@ export const GET: RequestHandler = async ({ url, locals, cookies }) => {
             const doc = existingMapping.docs[0];
             await doc.ref.update({
                 lastUsed: new Date(),
-                status: 'ACTIVE'
+                status: 'active'
             });
         } else {
             // Create new mapping
@@ -105,7 +105,7 @@ export const GET: RequestHandler = async ({ url, locals, cookies }) => {
                 firebaseUid: locals.user.id,
                 createdAt: new Date(),
                 lastUsed: new Date(),
-                status: 'ACTIVE'
+                status: 'active'
             });
 
             await adminDb.collection('discord_mappings').add(mapping);

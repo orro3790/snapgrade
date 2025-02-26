@@ -32,15 +32,15 @@ export const handleImageUpload = async (
         const activeSession = await getActiveSession(userId);
         
         if (!activeSession) {
-            // No active session, ask if user wants to start a new document
+            // No active session, ask if user wants to create a document from these images
             await sendInteractiveMessage(
                 channelId,
-                "Would you like to start a new document with these images?",
+                "I've received your image(s). Would you like to create a document for processing?",
                 [
                     {
                         type: ComponentType.Button,
                         custom_id: `start_doc_${attachments.length}`,
-                        label: "Start New Document",
+                        label: "Create Document",
                         style: ButtonStyle.Primary
                     }
                 ]

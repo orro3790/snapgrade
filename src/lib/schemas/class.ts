@@ -1,5 +1,6 @@
 // File: src/lib/schemas/class.ts
 import { z } from 'zod';
+import { ensureDate } from '../utils/dateUtils';
 
 /**
  * Class schema
@@ -10,7 +11,6 @@ import { z } from 'zod';
  * @property {string} [photoUrl] - Optional URL to class photo
  */
 
-
 export const classSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -19,8 +19,8 @@ export const classSchema = z.object({
   id: z.string(),
   status: z.enum(['active', 'archived']).default('active'),
   metadata: z.object({
-    createdAt: z.date(),
-    updatedAt: z.date(),
+    createdAt: z.preprocess(ensureDate, z.date()),
+    updatedAt: z.preprocess(ensureDate, z.date()),
   }),
 });
 

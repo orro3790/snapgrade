@@ -48,11 +48,21 @@ export const sendInteractiveMessage = async (
         
         // Add components if provided
         if (components.length > 0) {
-            // Discord expects components to be wrapped in ActionRows
-            body.components = [{
-                type: ComponentType.ActionRow,
-                components
-            }];
+            // Check if components are already ActionRows
+            const isActionRow = components.some(comp => comp.type === ComponentType.ActionRow);
+            
+            if (isActionRow) {
+                // Components are already ActionRows, use them directly
+                body.components = components;
+            } else {
+                // Wrap components in a single ActionRow
+                // Note: This can cause issues if mixing SelectMenu with other components
+                // as SelectMenu should be the only component in an ActionRow
+                body.components = [{
+                    type: ComponentType.ActionRow,
+                    components
+                }];
+            }
         }
 
         const response = await fetch(

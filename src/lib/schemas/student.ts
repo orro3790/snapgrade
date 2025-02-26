@@ -1,5 +1,6 @@
 // File: src/lib/schemas/student.ts
 import { z } from 'zod';
+import { ensureDate } from '../utils/dateUtils';
 
 /**
  * Student schema
@@ -19,10 +20,9 @@ export const studentSchema = z.object({
   status: z.enum(['active', 'archived']).default('active'),
   id: z.string(),
   metadata: z.object({
-    createdAt: z.date(),
-    updatedAt: z.date(),
+    createdAt: z.preprocess(ensureDate, z.date()),
+    updatedAt: z.preprocess(ensureDate, z.date()),
   }),
-
 });
 
 export type Student = z.infer<typeof studentSchema>;

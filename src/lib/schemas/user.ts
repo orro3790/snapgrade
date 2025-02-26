@@ -15,7 +15,7 @@ export const userSchema = z.object({
   id: z.string(),
   classes: z.array(z.string()).default([]),
   metadata: z.object({
-    accountStatus: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
+    accountStatus: z.enum(['active', 'inactive', 'suspended']),
   }),
   photoUrl: z.string().optional(),
 });

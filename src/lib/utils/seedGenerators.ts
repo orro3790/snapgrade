@@ -26,7 +26,7 @@
 // export const generateRandomUser = (partialData: Partial<User> = {}): User => {
 //     // Build metadata with required accountStatus
 //     const metadata = {
-//         accountStatus: ['ACTIVE', 'INACTIVE', 'SUSPENDED'][Math.floor(Math.random() * 3)] as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
+//         accountStatus: ['active', 'inactive', 'suspended'][Math.floor(Math.random() * 3)] as 'active' | 'inactive' | 'suspended'
 //     };
 
 //     // Add optional metadata fields only if they should exist
@@ -254,7 +254,7 @@
 //         id: userId,
 //         classes: [classData.id],
 //         metadata: {
-//             accountStatus: 'ACTIVE' // Teachers should be active by default
+//             accountStatus: 'active' // Teachers should be active by default
 //         }
 //     });
 

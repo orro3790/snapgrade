@@ -1,4 +1,4 @@
-import { type Interaction } from '../schemas/discord-consolidated';
+import { ButtonStyle, ComponentType, type Interaction } from '../schemas/discord-consolidated';
 import {
     respondToInteraction,
     sendInteractiveMessage
@@ -242,11 +242,24 @@ const handleStartDocument = async (
         await startDocumentSession(channelId, userId, pages);
         
         console.log('Document session created, sending followup message');
-        // Now send a followup message (we've already acknowledged the interaction)
+        // Now send a followup message with buttons for next actions
         await sendInteractiveMessage(
             channelId,
-            `Started a new document session expecting ${pages} page(s). Please send the remaining images.`,
-            []
+            `Document created successfully! You can now:\n• Upload more images if you have additional pages\n• Process the document when you're ready`,
+            [
+                {
+                    type: ComponentType.Button,
+                    custom_id: "end_upload",
+                    label: "Process Document",
+                    style: ButtonStyle.Success
+                },
+                {
+                    type: ComponentType.Button,
+                    custom_id: "continue_upload",
+                    label: "I'll Add More Images",
+                    style: ButtonStyle.Secondary
+                }
+            ]
         );
         console.log('Followup message sent successfully');
     } catch (error) {
@@ -293,20 +306,13 @@ const handleEndUpload = async (
         
         // If session was successfully ended and processing started
         if (sessionId) {
-            // Send a followup message
-            await sendInteractiveMessage(
-                channelId,
-                "Your document is being processed. You will be notified when it's ready.",
-                []
-            );
-            
             // Show metadata dialog for document organization
+            // Note: The processing message is already sent by endDocumentSession
             await showMetadataDialog(channelId, userId, sessionId);
         } else {
             // Session couldn't be ended (might be expired or not found)
             console.warn('Failed to end document session for user:', userId);
-            
-            // This message is already sent by endDocumentSession, so we don't need to send it again
+            // Message already sent by endDocumentSession
         }
     } catch (error) {
         console.error('Error ending upload:', error);
@@ -347,11 +353,18 @@ const handleContinueUpload = async (interaction: Interaction): Promise<void> => 
             // Extend the session timeout
             await extendSessionTimeout(activeSession.sessionId);
             
-            // Send a message with the updated status
+            // Send a message with the updated status and buttons
             await sendInteractiveMessage(
                 interaction.channel_id,
-                `Please send more images when you're ready. Your session will remain active for 10 more minutes. (${activeSession.receivedPages} pages received so far)`,
-                []
+                `Your session has been extended! You have 10 more minutes to upload additional images.\n\nCurrent status: ${activeSession.receivedPages} page(s) received so far.`,
+                [
+                    {
+                        type: ComponentType.Button,
+                        custom_id: "end_upload",
+                        label: "Process Document Now",
+                        style: ButtonStyle.Success
+                    }
+                ]
             );
         } else {
             // No active session found
@@ -512,22 +525,20 @@ const handleStatus = async (interaction: Interaction): Promise<void> => {
  */
 const handleHelp = async (interaction: Interaction): Promise<void> => {
     const helpText = `
-**Snapgrade Bot Commands**
-
-**/start-upload [pages]** - Start a new upload session
-  - Optional: Specify number of pages expected
-
-**/end-upload** - End current upload session and process document
-
-**/status** - Check your account and upload status
-
-**/help** - Show this help message
+**Snapgrade Bot - Document Processing**
 
 **How to Use**:
-1. Start an upload session with \`/start-upload\`
-2. Send your images to the bot
-3. End the session with \`/end-upload\`
-4. View and edit your document at https://snapgrade.app/documents
+1. Send your image(s) to the bot
+2. Click the "Create Document" button
+3. Upload more images if needed or click "Process Document" when ready
+4. Assign the document to a class and student (optional)
+5. View and edit your document at https://snapgrade.app/documents
+
+**Available Commands**:
+- **/status** - Check your account and document status
+- **/help** - Show this help message
+
+**Need assistance?** Contact support at support@snapgrade.app
 `;
 
     await respondToInteraction(interaction, {

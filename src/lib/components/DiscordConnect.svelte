@@ -5,7 +5,7 @@
 </script>
 
 <div class="discord-connect" class:connected={data.isConnected}>
-	{#if data.isConnected && data.status === 'ACTIVE'}
+	{#if data.isConnected && data.status === 'active'}
 		<div class="success" role="status" aria-live="polite">
 			<span class="icon">✅</span>
 			<span>Discord account connected successfully!</span>
@@ -16,13 +16,13 @@
 				</button>
 			</form>
 		</div>
-	{:else if data.isConnected && data.status !== 'ACTIVE'}
+	{:else if data.isConnected && data.status !== 'active'}
 		<div class="warning" role="status">
 			<span class="icon">⚠️</span>
 			<span>
-				{#if data.status === 'INACTIVE'}
+				{#if data.status === 'inactive'}
 					Your Discord connection is inactive. Please reconnect your account.
-				{:else if data.status === 'SUSPENDED'}
+				{:else if data.status === 'suspended'}
 					Your Discord connection has been suspended. Please contact support.
 				{:else}
 					Your Discord connection needs attention. Please try reconnecting.

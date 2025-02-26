@@ -30,7 +30,7 @@ export const modalDataSchema = z
 		z
 			.object({
 				isConnected: z.boolean(),
-				status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).nullable()
+				status: z.enum(['active', 'inactive', 'suspended']).nullable()
 			})
 			.partial()
 	)

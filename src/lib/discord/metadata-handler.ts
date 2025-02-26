@@ -96,29 +96,63 @@ export const showMetadataDialog = async (
             });
         });
         
-        // Create class selection dropdown
-        await sendInteractiveMessage(
-            channelId,
-            "Quick document organization (can be done later):",
-            [
-                {
-                    type: ComponentType.SelectMenu,
-                    custom_id: `class_select_${sessionId}`,
-                    placeholder: "Select class",
-                    options: classes.map(c => ({
-                        label: c.name,
-                        value: c.id,
-                        description: `${c.students.length} students`
-                    }))
+        // Create class selection dropdown with proper ActionRow structure
+        // We need to use respondToInteraction directly with properly structured components
+        // because sendInteractiveMessage puts all components in a single ActionRow
+        const token = process.env.DISCORD_BOT_TOKEN;
+        if (!token) {
+            throw new Error('DISCORD_BOT_TOKEN not found in environment variables');
+        }
+
+        // Send message with properly structured components
+        const response = await fetch(
+            `https://discord.com/api/v10/channels/${channelId}/messages`,
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bot ${token}`,
+                    'Content-Type': 'application/json',
                 },
-                {
-                    type: ComponentType.Button,
-                    custom_id: `skip_metadata_${sessionId}`,
-                    label: "Skip - Organize Later",
-                    style: ButtonStyle.Secondary
-                }
-            ]
+                body: JSON.stringify({
+                    content: "Quick document organization (can be done later):",
+                    components: [
+                        {
+                            type: ComponentType.ActionRow,
+                            components: [
+                                {
+                                    type: ComponentType.SelectMenu,
+                                    custom_id: `class_select_${sessionId}`,
+                                    placeholder: "Select class",
+                                    options: classes.map(c => ({
+                                        label: c.name,
+                                        value: c.id,
+                                        description: `${c.students.length} students`
+                                    }))
+                                }
+                            ]
+                        },
+                        {
+                            type: ComponentType.ActionRow,
+                            components: [
+                                {
+                                    type: ComponentType.Button,
+                                    custom_id: `skip_metadata_${sessionId}`,
+                                    label: "Skip - Organize Later",
+                                    style: ButtonStyle.Secondary
+                                }
+                            ]
+                        }
+                    ]
+                })
+            }
         );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to send message: ${response.status} ${response.statusText}\n${errorText}`);
+        }
+
+        console.log('Metadata dialog sent successfully');
     } catch (error) {
         console.error('Error showing metadata dialog:', error);
         await sendInteractiveMessage(

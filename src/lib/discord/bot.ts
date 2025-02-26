@@ -372,10 +372,10 @@ function createDiscordBot(token: string) {
                 return;
             }
 
-            if (authStatus.status !== 'ACTIVE') {
+            if (authStatus.status !== 'active') {
                 await sendDirectMessage(
                     message.channel_id,
-                    authStatus.status === 'SUSPENDED'
+                    authStatus.status === 'suspended'
                         ? "Your account has been suspended. Please contact support."
                         : "Your subscription is inactive. Please renew your subscription to continue using Snapgrade."
                 );

@@ -238,7 +238,7 @@ export const interactionSchema = z.object({
 export const discordMappingSchema = z.object({
     discordId: z.string(),
     firebaseUid: z.string(),
-    status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
+    status: z.enum(['active', 'inactive', 'suspended']),
     createdAt: z.date(),
     lastUsed: z.date(),
     username: z.string().optional()

@@ -400,7 +400,7 @@ Key features:
 // src/lib/discord/auth-cache.ts
 type CachedAuth = {
   authenticated: boolean;
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  status: 'active' | 'inactive' | 'suspended';
   firebaseUid: string;
   timestamp: number;
 };
