@@ -9,6 +9,7 @@ import { type PendingImage, extractCdnExpiry } from '../schemas/pending-image';
 import { SUPPORTED_IMAGE_TYPES, type DocumentSession } from '../schemas/documentSession';
 import { sendInteractiveMessage } from './interactive-messages';
 import { ComponentType, ButtonStyle } from '../schemas/discord-consolidated';
+import * as llmWhisperer from '../services/llmWhispererService';
 
 /**
  * Handle image uploads and manage document sessions
@@ -203,6 +204,33 @@ export const endDocumentSession = async (
             "Your document is being processed. You will be notified when it's ready.",
             []
         );
+        
+        // Start processing in the background using LLM Whisperer service
+        llmWhisperer.processDocumentSession(session.sessionId)
+            .then(result => {
+                // Notify user when processing is complete
+                sendInteractiveMessage(
+                    channelId,
+                    `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
+                    [
+                        {
+                            type: ComponentType.Button,
+                            custom_id: `view_doc_${result.documentId}`,
+                            label: "View Document",
+                            style: ButtonStyle.Primary
+                        }
+                    ]
+                ).catch(err => console.error('Error sending completion message:', err));
+            })
+            .catch(error => {
+                console.error(`Error processing session ${session.sessionId}:`, error);
+                // Notify user of failure
+                sendInteractiveMessage(
+                    channelId,
+                    "There was an error processing your document. Please try again.",
+                    []
+                ).catch(err => console.error('Error sending failure message:', err));
+            });
         
         return session.sessionId;
     } catch (error) {

@@ -10,7 +10,6 @@ export const modalTypeSchema = z.enum([
 	'keyboard',
 	'upload',
 	'classManager',
-	'stagingArea',
 	'documentLoad',
 	'discordSettings',
 	'documentBay'

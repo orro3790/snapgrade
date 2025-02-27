@@ -125,17 +125,17 @@
 
 	/* Size variants */
 	.standard {
-		padding: var(--spacing-3) var(--spacing-6);
+		padding: var(--spacing-2) var(--spacing-4);
 		font-size: var(--font-size-sm);
 	}
-
+	
 	.small {
-		padding: var(--spacing-2) var(--spacing-4);
+		padding: var(--spacing-1) var(--spacing-3);
 		font-size: var(--font-size-xs);
 	}
-
+	
 	.large {
-		padding: var(--spacing-4) var(--spacing-8);
+		padding: var(--spacing-3) var(--spacing-6);
 		font-size: var(--font-size-base);
 	}
 

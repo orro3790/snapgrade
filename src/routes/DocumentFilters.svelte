@@ -1,133 +1,40 @@
 <!-- File: src/routes/DocumentFilters.svelte -->
 <script lang="ts">
-	import type { Class } from '$lib/schemas/class';
-	import type { Student } from '$lib/schemas/student';
+	import { documentStore } from '$lib/stores/documentStore.svelte';
+	import { DocumentStatus } from '$lib/schemas/document';
 	
-	// Props
-	let { onFilterChange, user, uid } = $props<{
-		onFilterChange: (filters: any) => void;
-		user: any;
-		uid: string;
-	}>();
+	// Derived values from store
+	let classes = $derived(documentStore.classes);
+	let students = $derived(documentStore.students);
+	let filters = $derived(documentStore.filters);
+	let isLoading = $derived(documentStore.isLoading);
 	
-	// State
-	let classes = $state<Class[]>([]);
-	let students = $state<Student[]>([]);
+	// Local state for form inputs
 	let selectedClassId = $state('');
 	let selectedStudentId = $state('');
 	let selectedStatus = $state('');
 	let startDate = $state('');
 	let endDate = $state('');
-	let isLoading = $state(true);
 	
-	import { db } from '$lib/firebase/client';
-	import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
-	
-	// Track if this is the first render to avoid unnecessary API calls
-	let isInitialRender = $state(true);
-	
-	// Load classes using Firestore
+	// Initialize local state from store filters
 	$effect(() => {
-		// Only run this effect when uid changes or on initial render
-		if (uid && isInitialRender) {
-			loadClassesFromFirestore();
-			isInitialRender = false;
-		}
-	});
-	
-	// Load students when selectedClassId changes
-	$effect(() => {
-		// This will only run when selectedClassId changes
-		if (selectedClassId) {
-			loadStudentsFromFirestore(selectedClassId);
-		} else {
-			students = [];
-		}
-	});
-	
-	async function loadClassesFromFirestore() {
-		isLoading = true;
+		selectedClassId = filters.classId;
+		selectedStudentId = filters.studentId;
+		selectedStatus = filters.status;
 		
-		try {
-			const classesQuery = query(
-				collection(db, 'classes'),
-				where('id', 'in', user.classes || [])
-			);
-			
-			const unsubscribeSnapshot = onSnapshot(
-				classesQuery,
-				(snapshot) => {
-					classes = snapshot.docs.map((doc) => ({
-						...doc.data(),
-						id: doc.id,
-						metadata: {
-							createdAt: doc.data().metadata?.createdAt,
-							updatedAt: doc.data().metadata?.updatedAt
-						}
-					})) as Class[];
-					isLoading = false;
-				},
-				(err) => {
-					console.error('Firestore error loading classes:', err);
-					isLoading = false;
-				}
-			);
-			
-			return () => unsubscribeSnapshot();
-		} catch (err) {
-			console.error('Error loading classes:', err);
-			isLoading = false;
+		// Convert Date objects to string format for input elements
+		if (filters.dateRange.start) {
+			startDate = filters.dateRange.start.toISOString().split('T')[0];
 		}
-	}
-	
-	async function loadStudentsFromFirestore(classId: string) {
-		try {
-			// First get the class document to access its students array
-			const classDoc = await getDocs(
-				query(collection(db, 'classes'), where('id', '==', classId))
-			);
-			
-			if (classDoc.empty) {
-				console.error('Class not found');
-				return;
-			}
-			
-			const classData = classDoc.docs[0].data();
-			const studentIds = classData.students || [];
-			
-			if (studentIds.length === 0) {
-				students = [];
-				return;
-			}
-			
-			// Then query for all students in that class
-			const studentsQuery = query(
-				collection(db, 'students'),
-				where('id', 'in', studentIds)
-			);
-			
-			const unsubscribeSnapshot = onSnapshot(
-				studentsQuery,
-				(snapshot) => {
-					students = snapshot.docs.map((doc) => ({
-						...doc.data(),
-						id: doc.id
-					})) as Student[];
-				},
-				(err) => {
-					console.error('Firestore error loading students:', err);
-				}
-			);
-			
-			return () => unsubscribeSnapshot();
-		} catch (err) {
-			console.error('Error loading students:', err);
+		
+		if (filters.dateRange.end) {
+			endDate = filters.dateRange.end.toISOString().split('T')[0];
 		}
-	}
+	});
 	
 	function handleClassChange(event: Event) {
 		selectedClassId = (event.target as HTMLSelectElement).value;
-		selectedStudentId = '';
+		selectedStudentId = ''; // Reset student selection when class changes
 		applyFilters();
 	}
 	
@@ -146,17 +53,15 @@
 	}
 	
 	function applyFilters() {
-		const filters = {
+		documentStore.setFilters({
 			classId: selectedClassId,
 			studentId: selectedStudentId,
 			status: selectedStatus,
 			dateRange: {
-				start: startDate ? new Date(startDate) : null,
-				end: endDate ? new Date(endDate) : null
+				start: startDate ? new Date(startDate) : undefined,
+				end: endDate ? new Date(endDate) : undefined
 			}
-		};
-		
-		onFilterChange(filters);
+		});
 	}
 	
 	function clearFilters() {
@@ -165,14 +70,19 @@
 		selectedStatus = '';
 		startDate = '';
 		endDate = '';
-		applyFilters();
+		documentStore.clearFilters();
 	}
 </script>
 
 <div class="filters-container">
 	<div class="filters-header">
 		<h2>Filters</h2>
-		<button type="button" class="clear-button" onclick={clearFilters}>
+		<button 
+			type="button" 
+			class="clear-button" 
+			onclick={clearFilters}
+			aria-label="Clear all filters"
+		>
 			Clear All
 		</button>
 	</div>
@@ -216,9 +126,9 @@
 				onchange={handleStatusChange}
 			>
 				<option value="">All Statuses</option>
-				<option value="unedited">Unedited</option>
-				<option value="edited">Edited</option>
-				<option value="completed">Completed</option>
+				<option value={DocumentStatus.unedited}>Unedited</option>
+				<option value={DocumentStatus.edited}>Edited</option>
+				<option value={DocumentStatus.completed}>Completed</option>
 			</select>
 		</div>
 		

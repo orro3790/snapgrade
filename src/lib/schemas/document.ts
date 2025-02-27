@@ -94,7 +94,29 @@ export const documentErrorSchema = z.object({
   errors: z.array(z.unknown()).optional()
 });
 
+/**
+ * Schema for document updates - used when updating class/student assignment
+ */
+export const documentUpdateSchema = z.object({
+  documentId: z.string({
+    required_error: "Document ID is required"
+  }),
+  classId: z.string({
+    required_error: "Class selection is required"
+  }),
+  className: z.string({
+    required_error: "Class name is required"
+  }),
+  studentId: z.string({
+    required_error: "Student selection is required"
+  }),
+  studentName: z.string({
+    required_error: "Student name is required"
+  })
+});
+
 // Type exports
 export type Document = z.infer<typeof documentSchema>;
 export type CreateDocument = z.infer<typeof createDocumentSchema>;
 export type DocumentError = z.infer<typeof documentErrorSchema>;
+export type DocumentUpdate = z.infer<typeof documentUpdateSchema>;

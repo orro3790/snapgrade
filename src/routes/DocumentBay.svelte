@@ -1,9 +1,9 @@
 <!-- File: src/routes/DocumentBay.svelte -->
 <script lang="ts">
 	import { modalStore } from '$lib/stores/modalStore.svelte';
-	import type { Document } from '$lib/schemas/document';
-	import type { DocumentSession } from '$lib/schemas/documentSession';
+	import { documentStore } from '$lib/stores/documentStore.svelte';
 	import type { SuperValidated } from 'sveltekit-superforms';
+	import { onMount, onDestroy } from 'svelte';
 	
 	// Props
 	let { data } = $props<{
@@ -18,20 +18,32 @@
 	import DocumentDetails from './DocumentDetails.svelte';
 	import DocumentFilters from './DocumentFilters.svelte';
 	
-	// State
-	let selectedDocument = $state<Document | null>(null);
-	let isProcessing = $state(false);
-	let filters = $state({
-		classId: '',
-		studentId: '',
-		status: '',
-		dateRange: {
-			start: null,
-			end: null
+	// Track cleanup function
+	let cleanup: (() => void) | undefined;
+	
+	// Initialize document store with user data on mount
+	onMount(() => {
+		if (data.user && data.uid) {
+			// Store the cleanup function
+			cleanup = documentStore.initializeWithUser(data.user, data.uid);
 		}
 	});
 	
+	// Clean up when component is destroyed
+	onDestroy(() => {
+		if (cleanup) {
+			cleanup();
+		}
+	});
+	
+	// Derived values from store
+	let selectedDocument = $derived(documentStore.selectedDocument);
+	let isProcessing = $derived(documentStore.isProcessing);
+	
 	function closeModal() {
+		// Reset document selection before closing modal
+		// This prevents state persistence issues on reopen
+		documentStore.selectDocument(null);
 		modalStore.close();
 	}
 	
@@ -41,66 +53,9 @@
 		}
 	}
 	
-	function handleDocumentSelect(document: Document) {
-		selectedDocument = document;
-		isProcessing = false;
-	}
-	
-	function handleFilterChange(newFilters: any) {
-		filters = { ...filters, ...newFilters };
-	}
-	
 	async function handleBatchAction(action: string, documentIds: string[]) {
-		// Handle batch actions like assign, delete, etc.
-		isProcessing = true;
-		
-		try {
-			// For assign action, we would need to get class and student details
-			// This is a simplified version - in a real implementation, you would
-			// show a selection UI for class and student before proceeding
-			let payload: any = { action, documentIds };
-			
-			if (action === 'assign') {
-				// In a real implementation, these would come from a selection UI
-				// For now, we'll just use placeholder values
-				payload = {
-					...payload,
-					classId: 'selectedClassId',
-					className: 'Selected Class',
-					studentId: 'selectedStudentId',
-					studentName: 'Selected Student'
-				};
-			}
-			
-			// Call the server action
-			const response = await fetch('?/manageDocuments', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(payload)
-			});
-			
-			const result = await response.json();
-			
-			if (result.error) {
-				console.error('Error in batch operation:', result.error);
-				// Show error notification
-			} else {
-				// Show success notification
-				console.log('Batch operation successful:', result.message);
-				
-				// Refresh document list
-				if (action === 'delete') {
-					selectedDocument = null;
-				}
-			}
-		} catch (error) {
-			console.error('Error performing batch action:', error);
-			// Show error notification
-		} finally {
-			isProcessing = false;
-		}
+		// Use the document store to perform batch actions
+		await documentStore.batchDocumentAction(action, documentIds);
 	}
 </script>
 
@@ -128,27 +83,14 @@
 
 	<div class="modal-content">
 		<!-- Column 1: Document Filters -->
-		<DocumentFilters
-			onFilterChange={handleFilterChange}
-			user={data.user}
-			uid={data.uid}
-		/>
+		<DocumentFilters />
 
 		<!-- Column 2: Document List -->
-		<DocumentList
-			onDocumentSelect={handleDocumentSelect}
-			onBatchAction={handleBatchAction}
-			filters={filters}
-			user={data.user}
-			uid={data.uid}
-		/>
+		<DocumentList />
 
 		<!-- Column 3: Document Details -->
 		{#if selectedDocument}
-			<DocumentDetails
-				document={selectedDocument}
-				isProcessing={isProcessing}
-			/>
+			<DocumentDetails />
 		{/if}
 	</div>
 </div>

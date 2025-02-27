@@ -1,68 +1,20 @@
 <!-- File: src/routes/DocumentList.svelte -->
 <script lang="ts">
 	import type { Document } from '$lib/schemas/document';
-	import { DocumentStatus } from '$lib/schemas/document';
+	import { documentStore } from '$lib/stores/documentStore.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	
-	// Props
-	let { filters, onDocumentSelect, onBatchAction, user, uid } = $props<{
-		filters: any;
-		onDocumentSelect: (document: Document) => void;
-		onBatchAction: (action: string, documentIds: string[]) => void;
-		user: any;
-		uid: string;
-	}>();
+	// Derived values from store
+	let documents = $derived(documentStore.documents);
+	let isLoading = $derived(documentStore.isLoading);
+	let isProcessing = $derived(documentStore.isProcessing);
+	let error = $derived(documentStore.error);
+	let selectedDocument = $derived(documentStore.selectedDocument);
 	
-	// State
-	let documents = $state<Document[]>([]);
+	// Local state
 	let selectedDocumentIds = $state<string[]>([]);
-	let isLoading = $state(true);
-	let isProcessing = $state(false);
-	let error = $state<string | null>(null);
-	
-	// Load documents based on filters
-	$effect(() => {
-		// Explicitly reference filter properties to track changes
-		const { classId, studentId, status, dateRange } = filters;
-		
-		// Now loadDocuments will only run when these specific properties change
-		loadDocuments();
-	});
-	
-	async function loadDocuments() {
-		isLoading = true;
-		error = null;
-		
-		try {
-			const response = await fetch('/api/documents/list', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ filters })
-			});
-			
-			if (!response.ok) {
-				throw new Error(`Error ${response.status}: ${response.statusText}`);
-			}
-			
-			const data = await response.json();
-			
-			// Convert ISO date strings back to Date objects
-			documents = data.documents.map((doc: any) => ({
-				...doc,
-				createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
-				updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : null
-			}));
-			
-		} catch (err) {
-			console.error('Error loading documents:', err);
-			error = 'Failed to load documents. Please try again.';
-		} finally {
-			isLoading = false;
-		}
-	}
+	let isDeleting = $state(false);
 	
 	function handleSelectAll(event: MouseEvent) {
 		if ((event.target as HTMLInputElement).checked) {
@@ -79,8 +31,9 @@
 			selectedDocumentIds = selectedDocumentIds.filter(id => id !== docId);
 		}
 	}
+	
 	function handleDocumentClick(doc: Document) {
-		onDocumentSelect(doc);
+		documentStore.selectDocument(doc);
 	}
 	
 	async function handleBatchAction(action: string, documentIds: string[]) {
@@ -88,43 +41,21 @@
 			if (!confirm(`Are you sure you want to delete ${documentIds.length} document(s)?`)) {
 				return;
 			}
-		}
-		
-		isProcessing = true;
-		
-		try {
-			const response = await fetch('/api/documents/batch', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					action,
-					documentIds
-				})
-			});
 			
-			if (!response.ok) {
-				throw new Error(`Error ${response.status}: ${response.statusText}`);
+			// Use local deleting state instead of the shared isProcessing
+			isDeleting = true;
+			
+			try {
+				await documentStore.batchDocumentAction(action, documentIds);
+				// Clear selection after batch action
+				selectedDocumentIds = [];
+			} finally {
+				isDeleting = false;
 			}
-			
-			const result = await response.json();
-			console.log(result.message);
-			
-			// Refresh document list
-			loadDocuments();
-			
-			// Clear selection
+		} else {
+			await documentStore.batchDocumentAction(action, documentIds);
+			// Clear selection after batch action
 			selectedDocumentIds = [];
-			
-			// Call the parent handler
-			onBatchAction(action, documentIds);
-			
-		} catch (err) {
-			console.error(`Error performing ${action}:`, err);
-			error = `Failed to ${action} documents. Please try again.`;
-		} finally {
-			isProcessing = false;
 		}
 	}
 </script>
@@ -143,12 +74,12 @@
 			
 			<div class="action-buttons">
 				<Button
-					label={isProcessing ? 'Deleting...' : 'Delete'}
+					label={isDeleting ? 'Deleting...' : 'Delete'}
 					type="secondary"
-					disabled={selectedDocumentIds.length === 0 || isProcessing}
+					disabled={selectedDocumentIds.length === 0 || isDeleting}
 					ClickFunction={() => handleBatchAction('delete', selectedDocumentIds)}
 					size="small"
-					isLoading={isProcessing}
+					isLoading={isDeleting}
 				/>
 			</div>
 		</div>
@@ -167,7 +98,7 @@
 			{#each documents as doc}
 				<div
 					class="document-item"
-					class:selected={selectedDocumentIds.includes(doc.id)}
+					class:selected={selectedDocument?.id === doc.id}
 					onclick={() => handleDocumentClick(doc)}
 					onkeydown={(e: KeyboardEvent) => {
 						if (e.key === 'Enter' || e.key === ' ') {
@@ -334,16 +265,6 @@
 		color: var(--text-muted);
 		margin-top: var(--spacing-1);
 	}
-	
-
-	
-
-	
-
-	
-
-	
-
 	
 	.loading-state,
 	.error-state,

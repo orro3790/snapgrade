@@ -12,7 +12,6 @@
 	import Analytics from '$lib/icons/Analytics.svelte';
 	import ClassManager from '$lib/icons/ClassManager.svelte';
 	import Settings from '$lib/icons/Settings.svelte';
-	import StagingArea from '$lib/icons/StagingArea.svelte';
 	import DocumentBay from '$lib/icons/DocumentBay.svelte';
 	import Login from '$lib/icons/Login.svelte';
 	import UserMenu from '$lib/components/UserMenu.svelte';
@@ -35,7 +34,6 @@
 		{ id: 'how-to-use', label: 'How to use', Icon: HowTo, group: 'base' },
 		{ id: 'files', label: 'File Manager', Icon: Files, group: 'authenticated' },
 		{ id: 'direct-upload', label: 'Upload Document', Icon: Upload, group: 'authenticated' },
-		{ id: 'staging-area', label: 'Staging Area', Icon: StagingArea, group: 'authenticated' },
 		{ id: 'document-bay', label: 'Document Bay', Icon: DocumentBay, group: 'authenticated' },
 		{ id: 'analytics', label: 'Analytics', Icon: Analytics, group: 'authenticated' },
 		{ id: 'class-manager', label: 'Class Manager', Icon: ClassManager, group: 'authenticated' },
@@ -83,8 +81,6 @@
 			modalStore.open('upload');
 		} else if (itemId === 'class-manager') {
 			modalStore.open('classManager');
-		} else if (itemId === 'staging-area') {
-			modalStore.open('stagingArea');
 		} else if (itemId === 'document-bay') {
 			modalStore.open('documentBay');
 		} else if (itemId === 'settings') {
