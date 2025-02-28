@@ -34,8 +34,9 @@ export const nodeTypeEnum = z.enum([
 
 // Used to determine the type of space needed
 export const spacerSubtypeEnum = z.enum([
-    'newline',
-    'indent',
+    'lineBreak',       // Forces content to next line (fills entire row width)
+    'indent',          // Creates indentation at start of text
+    'alignment'        // Used for text alignment (flexible width)
 ]);
 
 // Used to determine essay structures
@@ -43,7 +44,7 @@ export const structuralRole = z.enum([
     'title',
     'subtitle',
     'heading',
-    'paragraphStart',
+    'paragraph',
   ]);
 
 export const nodeMetadataSchema = z.lazy(() => z.object({

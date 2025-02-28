@@ -8,14 +8,15 @@ import {
 import {
     studentSchema
 } from '../schemas/student';
-import { 
-    sendInteractiveMessage 
+import {
+    sendInteractiveMessage
 } from './interactive-messages';
 import {
     ComponentType,
     ButtonStyle,
     type Interaction
 } from '../schemas/discord-consolidated';
+import * as llmWhisperer from '../services/llmWhispererService';
 
 /**
  * Show metadata dialog for document organization
@@ -313,11 +314,41 @@ export const handleStudentSelection = async (
             {
                 type: 7, // UPDATE_MESSAGE
                 data: {
-                    content: "Document assigned successfully! It will be available in the Document Bay when processing is complete.",
+                    content: "Document assigned successfully! Processing will begin now...",
                     components: []
                 }
             }
         );
+        
+        // Start processing now that metadata is set
+        console.log(`Starting document processing for session ${sessionId} with metadata`);
+        
+        // Start processing in the background using LLM Whisperer service
+        llmWhisperer.processDocumentSession(sessionId)
+            .then(result => {
+                // Notify user when processing is complete
+                sendInteractiveMessage(
+                    interaction.channel_id,
+                    `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
+                    [
+                        {
+                            type: ComponentType.Button,
+                            custom_id: `view_doc_${result.documentId}`,
+                            label: "View Document",
+                            style: ButtonStyle.Primary
+                        }
+                    ]
+                ).catch(err => console.error('Error sending completion message:', err));
+            })
+            .catch(error => {
+                console.error(`Error processing session ${sessionId}:`, error);
+                // Notify user of failure
+                sendInteractiveMessage(
+                    interaction.channel_id,
+                    "There was an error processing your document. Please try again.",
+                    []
+                ).catch(err => console.error('Error sending failure message:', err));
+            });
     } catch (error) {
         console.error('Error handling student selection:', error);
         await respondToInteraction(

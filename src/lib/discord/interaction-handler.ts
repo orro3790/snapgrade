@@ -8,6 +8,7 @@ import {
     endDocumentSession,
     extendSessionTimeout
 } from './document-session-handler';
+import * as llmWhisperer from '../services/llmWhispererService';
 import {
     showMetadataDialog,
     handleClassSelection as metadataHandleClassSelection,
@@ -128,10 +129,19 @@ const handleMessageComponent = async (interaction: Interaction): Promise<void> =
     // Handle button clicks
     if (customId.startsWith('start_doc_')) {
         console.log('Handling start_doc button');
-        // Extract number of pages from custom_id
-        const pages = parseInt(customId.split('_')[2]) || 1;
-        console.log(`Starting document with ${pages} pages`);
-        await handleStartDocument(interaction, userId, channelId, pages);
+        
+        // Check if this is using the new format with temp session ID
+        if (customId.startsWith('start_doc_temp_')) {
+            // This is a new format with temp session ID (format: start_doc_temp_userId_timestamp)
+            console.log('Detected temp session format for start_doc');
+            const tempSessionId = customId.substring(10); // Remove "start_doc_" prefix
+            await handleStartDocument(interaction, userId, channelId, 1, tempSessionId);
+        } else {
+            // Legacy format with just page count
+            const pages = parseInt(customId.split('_')[2]) || 1;
+            console.log(`Starting document with ${pages} pages (legacy format)`);
+            await handleStartDocument(interaction, userId, channelId, pages);
+        }
     } else if (customId === 'end_upload') {
         await handleEndUpload(interaction, userId, channelId);
     } else if (customId === 'continue_upload') {
@@ -149,6 +159,10 @@ const handleMessageComponent = async (interaction: Interaction): Promise<void> =
     } else if (customId.startsWith('skip_metadata_')) {
         // We don't need the session ID for skip metadata operation
         await handleSkipMetadata(interaction);
+    } else if (customId.startsWith('view_doc_')) {
+        // Extract document ID from custom_id
+        const documentId = customId.substring(9); // Remove "view_doc_" prefix
+        await handleViewDocument(interaction, documentId);
     } else {
         await respondToInteraction(interaction, {
             type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
@@ -220,14 +234,16 @@ const handleStartDocument = async (
     interaction: Interaction,
     userId: string,
     channelId: string,
-    pages: number
+    pages: number,
+    tempSessionId?: string
 ): Promise<void> => {
     try {
         console.log('Starting document session with params:', {
             interactionId: interaction.id,
             userId,
             channelId,
-            pages
+            pages,
+            tempSessionId
         });
         
         // First, acknowledge the interaction immediately to prevent timeout
@@ -239,9 +255,49 @@ const handleStartDocument = async (
         
         console.log('Interaction acknowledged, creating document session');
         // Then create the session (this can take longer than 3 seconds)
-        await startDocumentSession(channelId, userId, pages);
+        const session = await startDocumentSession(channelId, userId, pages);
         
-        console.log('Document session created, sending followup message');
+        // If we have a temporary session ID, associate those images with the new session
+        if (tempSessionId) {
+            console.log(`Associating orphaned images from temp session ${tempSessionId}`);
+            const batch = adminDb.batch();
+            
+            // Get all pending images with the temporary session ID
+            const pendingImagesSnapshot = await adminDb
+                .collection('pending_images')
+                .where('sessionId', '==', tempSessionId)
+                .where('userId', '==', userId)
+                .where('isOrphaned', '==', true)
+                .get();
+            
+            if (!pendingImagesSnapshot.empty) {
+                console.log(`Found ${pendingImagesSnapshot.size} orphaned images to associate`);
+                const imageRefs: string[] = [];
+                
+                // Update each image with the new session ID
+                pendingImagesSnapshot.forEach(doc => {
+                    batch.update(doc.ref, {
+                        sessionId: session.sessionId,
+                        isOrphaned: false
+                    });
+                    imageRefs.push(doc.id);
+                });
+                
+                // Update the session with the image references
+                batch.update(adminDb.collection('document_sessions').doc(session.sessionId), {
+                    receivedPages: pendingImagesSnapshot.size,
+                    pageOrder: imageRefs,
+                    updatedAt: new Date()
+                });
+                
+                await batch.commit();
+                console.log('Successfully associated orphaned images with new session');
+            } else {
+                console.log('No orphaned images found for temp session');
+            }
+        }
+        
+        console.log('Document session setup complete, sending followup message');
         // Now send a followup message with buttons for next actions
         await sendInteractiveMessage(
             channelId,
@@ -410,14 +466,112 @@ const handleStudentSelection = async (interaction: Interaction, sessionId: strin
  * Handle skip metadata button
  */
 const handleSkipMetadata = async (interaction: Interaction): Promise<void> => {
-    // We don't need the sessionId for this operation
-    await respondToInteraction(interaction, {
-        type: 7, // UPDATE_MESSAGE
-        data: {
-            content: "Document processing has started. You can organize it later in the Document Bay.",
-            components: [] // Remove buttons
+    try {
+        // Extract session ID from the custom_id (format: skip_metadata_{sessionId})
+        const customId = interaction.data?.custom_id || '';
+        const sessionId = customId.split('_')[2];
+        
+        console.log(`User ${interaction.member?.user.id} skipped metadata for session ${sessionId}`);
+        
+        if (!sessionId) {
+            console.error('No session ID found in skip metadata button');
+            await respondToInteraction(interaction, {
+                type: 7, // UPDATE_MESSAGE
+                data: {
+                    content: "Error processing document. Session ID not found.",
+                    components: [] // Remove buttons
+                }
+            });
+            return;
         }
-    });
+        
+        // Update the interaction to show processing has started
+        await respondToInteraction(interaction, {
+            type: 7, // UPDATE_MESSAGE
+            data: {
+                content: "Document processing has started. You can organize it later in the Document Bay.",
+                components: [] // Remove buttons
+            }
+        });
+        
+        // Start processing now that user has skipped metadata
+        console.log(`Starting document processing for session ${sessionId} without metadata`);
+        
+        // Start processing in the background using LLM Whisperer service
+        llmWhisperer.processDocumentSession(sessionId)
+            .then(result => {
+                // Notify user when processing is complete
+                sendInteractiveMessage(
+                    interaction.channel_id,
+                    `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
+                    [
+                        {
+                            type: ComponentType.Button,
+                            custom_id: `view_doc_${result.documentId}`,
+                            label: "View Document",
+                            style: ButtonStyle.Primary
+                        }
+                    ]
+                ).catch(err => console.error('Error sending completion message:', err));
+            })
+            .catch(error => {
+                console.error(`Error processing session ${sessionId}:`, error);
+                // Notify user of failure
+                sendInteractiveMessage(
+                    interaction.channel_id,
+                    "There was an error processing your document. Please try again.",
+                    []
+                ).catch(err => console.error('Error sending failure message:', err));
+            });
+    } catch (error) {
+        console.error('Error handling skip metadata:', error);
+        await respondToInteraction(interaction, {
+            type: 7, // UPDATE_MESSAGE
+            data: {
+                content: "An error occurred. Please try again.",
+                components: [] // Remove buttons
+            }
+        });
+    }
+};
+
+/**
+ * Handle view document button
+ * @param interaction Discord interaction
+ * @param documentId ID of the document to view
+ */
+const handleViewDocument = async (interaction: Interaction, documentId: string): Promise<void> => {
+    try {
+        console.log(`Handling view document button for document: ${documentId}`);
+        
+        // Get the application URL from environment
+        const appUrl = process.env.APP_URL || 'https://snapgrade.app';
+        const documentUrl = `${appUrl}/documents/${documentId}`;
+        
+        // Acknowledge the interaction
+        await respondToInteraction(interaction, {
+            type: 7, // UPDATE_MESSAGE
+            data: {
+                content: `You can view and edit your document at: ${documentUrl}\n\nIf the link doesn't work, please log in to ${appUrl} and find the document in your Document Bay.`,
+                components: [] // Remove buttons
+            }
+        });
+        
+        console.log(`Sent document view link for document: ${documentId}`);
+    } catch (error) {
+        console.error('Error handling view document button:', error);
+        
+        try {
+            await respondToInteraction(interaction, {
+                type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+                data: {
+                    content: "Failed to generate document link. Please go to https://snapgrade.app and find the document in your Document Bay."
+                }
+            });
+        } catch (e) {
+            console.error('Failed to send error response:', e);
+        }
+    }
 };
 
 /**

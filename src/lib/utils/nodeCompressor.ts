@@ -1,8 +1,8 @@
-// src/lib/utils/nodeSerializer.ts
+// src/lib/utils/nodeCompressor.ts
 import type { Node, NodeType, CompressedNode } from '$lib/schemas/textNode';
 
 /**
- * Serializes an array of nodes into a compressed JSON string for storage
+ * Compresses an array of nodes into a JSON string for storage
  * Compression schema:
  * i: id
  * t: type
@@ -14,7 +14,7 @@ import type { Node, NodeType, CompressedNode } from '$lib/schemas/textNode';
  *   p: pattern
  *   e: explanation
  */
-export function serializeNodes(nodes: Node[]): string {
+export function compressNodes(nodes: Node[]): string {
     const compressed = nodes.map(node => ({
         i: node.id,
         t: node.type,
@@ -34,17 +34,26 @@ export function serializeNodes(nodes: Node[]): string {
 }
 
 /**
- * Deserializes a compressed JSON string back into an array of nodes
+ * Decompresses a JSON string back into an array of nodes
  */
-export function deserializeNodes(documentBody: string): Node[] {
-    const compressed = JSON.parse(documentBody) as CompressedNode[];
-    return deserializeCompressedNodes(compressed);
+export function decompressNodes(compressedJson: string): Node[] {
+    // Parse the compressed JSON
+    const compressed = JSON.parse(compressedJson) as CompressedNode[];
+    
+    // Filter out any unwanted spacer nodes before decompressing
+    // Only keep spacer nodes with subtype 'lineBreak', 'indent', or 'alignment'
+    const filteredCompressed = compressed.filter(node =>
+        node.t !== 'spacer' || (node.s === 'lineBreak' || node.s === 'indent' || node.s === 'alignment')
+    );
+    
+    // Decompress the filtered nodes
+    return decompressCompressedNodes(filteredCompressed);
 }
 
 /**
- * Recursively deserializes compressed nodes
+ * Recursively decompresses compressed nodes
  */
-function deserializeCompressedNodes(compressed: CompressedNode[]): Node[] {
+function decompressCompressedNodes(compressed: CompressedNode[]): Node[] {
     return compressed.map((c: CompressedNode) => {
         // Create the node without groupedNodes first
         const node: Node = {
@@ -73,7 +82,7 @@ function deserializeCompressedNodes(compressed: CompressedNode[]): Node[] {
         
         // Add groupedNodes if they exist
         if (c.m?.g) {
-            node.metadata.groupedNodes = deserializeCompressedNodes(c.m.g);
+            node.metadata.groupedNodes = decompressCompressedNodes(c.m.g);
         }
         
         return node;

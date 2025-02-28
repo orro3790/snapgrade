@@ -1,9 +1,9 @@
-<!-- TextNode.svelte -->
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editorStore.svelte';
 	import type { Node as TextNodeType } from '$lib/schemas/textNode';
 	import { hoveredNodeTypeStore, statsStore } from '$lib/stores/statsStore.svelte';
 	import EditModal from './EditModal.svelte';
+	import FormattingModal from './FormattingModal.svelte';
 	import { EditorCommands } from '$lib/commands/editorCommands.svelte';
 
 	const { node, isActive = false } = $props<{
@@ -192,8 +192,14 @@
 		<div class="text-content deleted">{node.text}</div>
 	{:else if node.type === 'empty'}
 		<div class="text-content">+</div>
+	{:else if node.type === 'spacer' && node.spacerData?.subtype === 'lineBreak'}
+		<div class="spacer-content line-break-spacer">&nbsp;</div>
+	{:else if node.type === 'spacer' && node.spacerData?.subtype === 'indent'}
+		<div class="spacer-content indent-spacer">&nbsp;</div>
+	{:else if node.type === 'spacer' && node.spacerData?.subtype === 'alignment'}
+		<div class="spacer-content alignment-spacer">&nbsp;</div>
 	{:else if node.type === 'spacer'}
-		<div class="spacer-content"></div>
+		<div class="spacer-content">&nbsp;</div>
 	{:else if node.type === 'heading'}
 		<div class="text-content heading">{node.text}</div>
 	{:else if node.type === 'list'}
@@ -204,7 +210,11 @@
 </div>
 
 {#if isEditing}
-	<EditModal {node} position={modalPosition} onClose={handleEditClose} />
+	{#if editorStore.mode === 'formatting'}
+		<FormattingModal {node} position={modalPosition} onClose={handleEditClose} />
+	{:else}
+		<EditModal {node} position={modalPosition} onClose={handleEditClose} />
+	{/if}
 {/if}
 
 <style>
@@ -215,15 +225,26 @@
 	}
 
 	/* Spacer node styles */
+	/* Line break spacer - fills entire row */
+	.text-node[data-subtype='lineBreak'] {
+		width: 100%;
+		height: var(--font-size-base);
+		border: none;
+		display: block;
+		flex-basis: 100%; /* Force line break in flex container */
+	}
+
+	/* Indent spacer - fixed width for indentation */
 	.text-node[data-subtype='indent'] {
 		width: 2em;
 		min-width: 2em;
 		border: none;
 	}
 
-	.text-node[data-subtype='newline'] {
-		width: 100%;
-		height: var(--font-size-base);
+	/* Alignment spacer - flexible width for text alignment */
+	.text-node[data-subtype='alignment'] {
+		flex: 1;
+		min-width: 0;
 		border: none;
 	}
 
@@ -231,10 +252,35 @@
 		width: 100%;
 		height: 100%;
 	}
+	
+	.line-break-spacer {
+		display: block;
+		width: 100%;
+		height: 1.5em;
+		margin-bottom: var(--spacing-2);
+		flex-basis: 100%; /* Force line break in flex container */
+	}
+	
+	.indent-spacer {
+		display: inline-block;
+		width: 2em;
+		min-width: 2em;
+	}
+	
+	.alignment-spacer {
+		display: inline-block;
+		flex: 1;
+	}
+	
+	/* Large spacing variant for line breaks */
+	.text-node[data-subtype='lineBreak'][data-spacing='large'] {
+		margin-bottom: var(--spacing-4); /* More spacing for section breaks */
+	}
 
 	/* Base text node styling */
 	.text-node {
 		display: flex;
+		justify-content: center;
 		position: relative;
 		cursor: pointer;
 		user-select: none;
@@ -274,8 +320,6 @@
 	.punctuation {
 		border: none;
 		border-radius: 0;
-		display: flex;
-		justify-content: center;
 	}
 
 	/* Interactive states */
@@ -347,3 +391,4 @@
 		font-weight: var(--font-weight-bold);
 	}
 </style>
+

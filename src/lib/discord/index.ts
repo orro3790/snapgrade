@@ -1,4 +1,5 @@
 import { startBot as initBot } from './bot';
+import { initScheduledTasks } from './scheduled-tasks';
 
 /**
  * Initialize and start the Discord bot
@@ -10,6 +11,10 @@ async function startBot() {
         // Start the bot using the function from bot.ts
         const cleanup = await initBot();
         // Log is already printed in bot.ts via the WebSocket 'open' event
+
+        // Initialize scheduled tasks
+        initScheduledTasks();
+        console.log('Scheduled tasks initialized');
 
         // Handle process signals - with proper process exit
         process.on('SIGINT', async () => {

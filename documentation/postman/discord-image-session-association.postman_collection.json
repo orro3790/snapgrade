@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "5b1b9f6c-9f0b-4e3c-a8df-789c7e3bc50a",
+    "name": "Discord Image Session Association",
+    "description": "Test collection for the Discord image session association feature",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Upload Image Without Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bot {{DISCORD_BOT_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": 0,\n  \"content\": \"\",\n  \"channel_id\": \"{{CHANNEL_ID}}\",\n  \"attachments\": [\n    {\n      \"id\": \"test-attachment-1\",\n      \"filename\": \"test-image-1.jpg\",\n      \"content_type\": \"image/jpeg\",\n      \"size\": 1024,\n      \"url\": \"https://cdn.discordapp.com/attachments/123456789/test-image-1.jpg?ex=12345678\"\n    }\n  ],\n  \"author\": {\n    \"id\": \"{{USER_ID}}\",\n    \"username\": \"test_user\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{API_URL}}/api/discord/webhook/message",
+          "host": ["{{API_URL}}"],
+          "path": ["api", "discord", "webhook", "message"]
+        },
+        "description": "Simulates uploading an image to Discord without an active session"
+      }
+    },
+    {
+      "name": "2. Start Document from Temp Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bot {{DISCORD_BOT_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": 3,\n  \"data\": {\n    \"custom_id\": \"start_doc_temp_{{USER_ID}}_{{TIMESTAMP}}\",\n    \"component_type\": 2\n  },\n  \"member\": {\n    \"user\": {\n      \"id\": \"{{USER_ID}}\",\n      \"username\": \"test_user\"\n    }\n  },\n  \"channel_id\": \"{{CHANNEL_ID}}\",\n  \"token\": \"mock-interaction-token\"\n}"
+        },
+        "url": {
+          "raw": "{{API_URL}}/api/discord/webhook/interaction",
+          "host": ["{{API_URL}}"],
+          "path": ["api", "discord", "webhook", "interaction"]
+        },
+        "description": "Simulates clicking the 'Create Document' button with a temporary session ID"
+      }
+    },
+    {
+      "name": "3. Check Pending Images",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ADMIN_TOKEN}}"
+          }
+        ],
+        "url": {
+          "raw": "{{API_URL}}/api/admin/pending-images?userId={{USER_ID}}&limit=10",
+          "host": ["{{API_URL}}"],
+          "path": ["api", "admin", "pending-images"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{USER_ID}}"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Checks pending images for the test user - Confirm they're no longer orphaned"
+      }
+    },
+    {
+      "name": "4. Check Document Session",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ADMIN_TOKEN}}"
+          }
+        ],
+        "url": {
+          "raw": "{{API_URL}}/api/admin/document-sessions?userId={{USER_ID}}&limit=10",
+          "host": ["{{API_URL}}"],
+          "path": ["api", "admin", "document-sessions"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{USER_ID}}"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Checks document sessions for the test user - Confirm images are associated"
+      }
+    },
+    {
+      "name": "5. Upload Second Image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bot {{DISCORD_BOT_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": 0,\n  \"content\": \"\",\n  \"channel_id\": \"{{CHANNEL_ID}}\",\n  \"attachments\": [\n    {\n      \"id\": \"test-attachment-2\",\n      \"filename\": \"test-image-2.jpg\",\n      \"content_type\": \"image/jpeg\",\n      \"size\": 1024,\n      \"url\": \"https://cdn.discordapp.com/attachments/123456789/test-image-2.jpg?ex=12345678\"\n    }\n  ],\n  \"author\": {\n    \"id\": \"{{USER_ID}}\",\n    \"username\": \"test_user\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{API_URL}}/api/discord/webhook/message",
+          "host": ["{{API_URL}}"],
+          "path": ["api", "discord", "webhook", "message"]
+        },
+        "description": "Simulates uploading a second image to Discord with an active session"
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set current timestamp if not already set",
+          "if (!pm.environment.get('TIMESTAMP')) {",
+          "    pm.environment.set('TIMESTAMP', Date.now());",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_URL",
+      "value": "http://localhost:5173",
+      "type": "string"
+    },
+    {
+      "key": "CHANNEL_ID",
+      "value": "your_test_channel_id",
+      "type": "string"
+    },
+    {
+      "key": "USER_ID",
+      "value": "your_test_user_id",
+      "type": "string"
+    },
+    {
+      "key": "DISCORD_BOT_TOKEN",
+      "value": "your_bot_token",
+      "type": "string"
+    },
+    {
+      "key": "ADMIN_TOKEN",
+      "value": "your_admin_token",
+      "type": "string"
+    }
+  ]
+}

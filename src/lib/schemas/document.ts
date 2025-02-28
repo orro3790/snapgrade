@@ -37,6 +37,9 @@ export const documentSchema = z.object({
   subtitle: z.string().optional(),
   headings: z.array(z.string()).optional(),
   
+  // Compressed nodes for TextEditor
+  compressedNodes: z.string().optional(), // JSON string of compressed nodes
+  
   // Source metadata
   sourceMetadata: z.object({
     rawOcrOutput: z.string().optional(),
@@ -69,6 +72,9 @@ export const createDocumentSchema = z.object({
   title: z.string().optional(),
   subtitle: z.string().optional(),
   headings: z.array(z.string()).optional(),
+  
+  // Compressed nodes for TextEditor
+  compressedNodes: z.string().optional(), // JSON string of compressed nodes
   
   // Optional source metadata
   sourceMetadata: z.object({

@@ -25,10 +25,10 @@ export const pendingImageSchema = z.object({
     userId: z.string(),
     imageUrl: z.string()
         .url()
-        .refine(url => url.startsWith('https://cdn.discordapp.com/'), 
+        .refine(url => url.startsWith('https://cdn.discordapp.com/'),
             'Must be a Discord CDN URL'),
     filename: z.string()
-        .refine(name => /^[\w\-. ]+$/.test(name), 
+        .refine(name => /^[\w\-. ]+$/.test(name),
             'Filename must be alphanumeric with dashes, dots, and spaces'),
     contentType: z.enum(SUPPORTED_IMAGE_TYPES),
     size: z.number()
@@ -45,7 +45,9 @@ export const pendingImageSchema = z.object({
     // CDN URL expiry tracking
     cdnUrlExpiry: z.string()
         .regex(/^[0-9a-f]+$/, 'Must be a hex timestamp')
-        .optional()
+        .optional(),
+    // Tracking for images not yet associated with a session
+    isOrphaned: z.boolean().optional().default(false)
 });
 
 export type PendingImage = z.infer<typeof pendingImageSchema>;

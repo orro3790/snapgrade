@@ -6,23 +6,61 @@
 	import FormattingSidebar from './FormattingSidebar.svelte';
 
 	// Props and state
-	const { initialContent = '', onContentChange = (content: string) => {} } = $props<{
+	const {
+		initialContent = '',
+		compressedNodes = null,
+	} = $props<{
 		initialContent?: string;
+		compressedNodes?: string | null;
 		onContentChange?: (content: string) => void;
 	}>();
 
 	// Derive state from store
-	let paragraphsList = $derived(editorStore.paragraphs);
+	let nodes = $derived(editorStore.nodes);
 	let activeNodeId = $derived(editorStore.activeNode);
 	let editorContent = $derived(editorStore.getContent());
 	let currentMode = $derived(editorStore.mode);
 
-	$inspect(paragraphsList[0]?.corrections);
-
-	// Initialize content
+	// Initialize content from props or localStorage
 	$effect(() => {
-		if (initialContent && !editorContent) {
-			editorStore.parseContent(initialContent);
+		if (!editorContent) {
+			// First check props
+			if (compressedNodes) {
+				editorStore.loadCompressedContent(compressedNodes);
+			} else if (initialContent) {
+				editorStore.parseContent(initialContent);
+			}
+			// Then check localStorage if no content was loaded from props
+			else {
+				// Check for saved document in localStorage
+				const useCompressed = localStorage.getItem('snapgrade_editor_use_compressed');
+				const editorData = localStorage.getItem('snapgrade_editor_data');
+				
+				if (editorData) {
+					const parsedData = JSON.parse(editorData);
+					
+					// Set editor mode if saved
+					if (parsedData.mode) {
+						editorStore.mode = parsedData.mode;
+					}
+					
+					// Load content based on storage type
+					if (useCompressed === 'true') {
+						const savedNodes = localStorage.getItem('snapgrade_editor_compressed_nodes');
+						if (savedNodes) {
+							// First set document name
+							editorStore.setDocument('', parsedData.documentName || 'Saved Document');
+							// Then load compressed nodes
+							editorStore.loadCompressedContent(savedNodes);
+						}
+					} else {
+						const rawContent = localStorage.getItem('snapgrade_editor_raw_content');
+						if (rawContent) {
+							editorStore.setDocument(rawContent, parsedData.documentName || 'Saved Document');
+						}
+					}
+				}
+			}
 		}
 	});
 
@@ -50,14 +88,14 @@
 	class="editor-wrapper"
 	onkeydown={handleKeyDown}
 	onclick={(event) => {
-		// Only clear selection if clicking directly on the editor wrapper or a4-content
+		// Clear selection when clicking on background areas
 		const target = event.target as HTMLElement;
 		if (
 			target.classList.contains('editor-wrapper') ||
 			target.classList.contains('a4-content') ||
 			target.classList.contains('main-content')
 		) {
-			console.log('Clearing selection from click on:', target.className);
+			// Always clear selection regardless of mode
 			editorStore.clearSelection();
 		}
 	}}
@@ -73,13 +111,11 @@
 		{/if}
 
 		<div class="a4-content" role="complementary" aria-label="Preview">
-			{#each paragraphsList as paragraph (paragraph.id)}
-				<div class="paragraph">
-					{#each paragraph.corrections as node (node.id)}
-						<TextNode {node} isActive={node.id === activeNodeId} />
-					{/each}
-				</div>
-			{/each}
+			<div class="content-wrapper">
+				{#each nodes as node (node.id)}
+					<TextNode {node} isActive={node.id === activeNodeId} />
+				{/each}
+			</div>
 		</div>
 	</div>
 </div>
@@ -102,10 +138,11 @@
 		gap: var(--spacing-4);
 	}
 
-	.paragraph {
+	.content-wrapper {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: end;
+		width: 100%;
 	}
 
 	/* Preview section */

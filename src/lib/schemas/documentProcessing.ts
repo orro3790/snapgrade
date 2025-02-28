@@ -48,7 +48,7 @@ export type DocumentStatus = z.infer<typeof documentStatusEnum>;
  */
 export const structuralAnalysisSchema = z.array(z.object({
     position: z.number(),
-    type: z.enum(["title", "subtitle", "heading", "paragraphStart"])
+    type: z.enum(["title", "subtitle", "heading", "paragraph"])
 }));
 
 /**
@@ -80,6 +80,7 @@ export const documentProcessResponseSchema = z.object({
     text: z.string(),                     // Original LLMWhisperer text
     alternativeText: z.string().optional(), // Claude's version (if different)
     structuralAnalysis: structuralAnalysisSchema,
+    compressedNodes: z.string().optional(), // Compressed TextNodes for editor
     status: documentStatusEnum
 });
 

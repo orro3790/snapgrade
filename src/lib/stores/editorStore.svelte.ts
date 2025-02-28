@@ -5,8 +5,8 @@
  * Uses Svelte 5 runes ($state, $derived) for reactive state management.
  */
 
-import type { Node, NodeType, CorrectionData, SpacerSubtype, StructuralRole } from '$lib/schemas/textNode';
-import { serializeNodes, deserializeNodes } from '$lib/utils/nodeSerializer';
+import type { Node, NodeType, CorrectionData, SpacerSubtype } from '$lib/schemas/textNode';
+import { compressNodes, decompressNodes } from '$lib/utils/nodeCompressor';
 import { z } from 'zod';
 
 /**
@@ -137,53 +137,7 @@ const dragSelectState = $state<DragSelectState>({
 });
 
 
-/**
- * Groups an array of nodes into paragraphs. Paragraphs are delimited by 'newline' spacer nodes.
- * @param {Node[]} nodes - The array of nodes to group.
- * @returns {{ id: string; corrections: Node[] }[]} An array of paragraph objects, where each object contains a unique ID and an array of nodes belonging to that paragraph.
- */
-function groupNodesByParagraph(nodes: Node[]) {
-    const paragraphs: { id: string; corrections: Node[] }[] = [];
-    let currentParagraph: Node[] = [];
-
-    for (let i = 0; i < nodes.length; i++) {
-        const node = nodes[i];
-
-        if (node.type === 'spacer' && node.spacerData?.subtype === 'newline') {
-            // Add current paragraph (without the newline)
-            if (currentParagraph.length > 0) {
-                paragraphs.push({
-                    id: crypto.randomUUID(),
-                    corrections: [...currentParagraph]
-                });
-            }
-            currentParagraph = [];
-
-            // Handle consecutive newlines more efficiently
-            while (i + 1 < nodes.length &&
-                   nodes[i + 1].type === 'spacer' &&
-                   nodes[i + 1].spacerData?.subtype === 'newline') {
-                paragraphs.push({
-                    id: crypto.randomUUID(),
-                    corrections: [nodes[i+1]]
-                });
-                i++;
-            }
-        } else {
-            currentParagraph.push(node);
-        }
-    }
-
-    // Add final paragraph if there are remaining nodes
-    if (currentParagraph.length > 0) {
-        paragraphs.push({
-            id: crypto.randomUUID(),
-            corrections: currentParagraph
-        });
-    }
-
-    return paragraphs;
-}
+// Removed groupNodesByParagraph function as it's no longer needed
 
 /**
  * Sets both the document content and name.
@@ -233,21 +187,24 @@ function parseContent(content: string) {
     editorState.undoStack = [];
     editorState.redoStack = [];
 }
-
 /**
- * Serializes the current nodes array into a JSON string for storage.
- * @returns {string} The serialized JSON string.
+ * Compresses the current nodes array into a JSON string for storage.
+ * @returns {string} The compressed JSON string.
  */
-function getSerializedContent(): string {
-    return serializeNodes(editorState.nodes);
+function getCompressedContent(): string {
+    return compressNodes(editorState.nodes);
 }
 
 /**
- * Loads and deserializes nodes from a JSON string.
- * @param {string} serialized - The serialized JSON string.
+ * Loads and decompresses nodes from a JSON string.
+ * @param {string} compressed - The compressed JSON string.
  */
-function loadSerializedContent(serialized: string) {
-    editorState.nodes = deserializeNodes(serialized);
+function loadCompressedContent(compressed: string) {
+    // Decompress the nodes
+    const nodes = decompressNodes(compressed);
+    
+    // Assign to editor state
+    editorState.nodes = nodes;
     editorState.undoStack = [];
     editorState.redoStack = [];
 }
@@ -266,8 +223,8 @@ function updateNode(
     text: string,
     correctionData?: CorrectionData,
     spacerData?: { subtype: SpacerSubtype },
-    type: NodeType = 'normal',
-    structuralRole?: StructuralRole
+    type: NodeType = 'normal'
+    // Removed unused structuralRole parameter
 ) {
     const nodeIndex = editorState.nodes.findIndex((n: Node) => n.id === nodeId);
     if (nodeIndex === -1) return;
@@ -840,12 +797,7 @@ export const editorStore = {
     get documentName() {
         return editorState.documentName;
     },
-    /**
-     * Get the current paragraphs.
-     */
-    get paragraphs() {
-        return groupNodesByParagraph(editorState.nodes);
-    },
+
     /**
      * Get the currently selected nodes.
      */
@@ -897,13 +849,13 @@ export const editorStore = {
      */
     getContent,
     /**
-     * Serializes the current nodes array into a JSON string.
+     * Compresses the current nodes array into a JSON string.
      */
-    getSerializedContent,
+    getCompressedContent,
     /**
-     * Loads and deserializes nodes from a JSON string.
+     * Loads and decompresses nodes from a JSON string.
      */
-    loadSerializedContent,
+    loadCompressedContent,
     /**
      * Toggles the deletion state of a node.
      */

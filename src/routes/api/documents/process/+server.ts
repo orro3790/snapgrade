@@ -90,7 +90,7 @@ export const POST: RequestHandler = async ({ request }) => {
             documentName: `Untitled - ${new Date().toLocaleDateString()}`,
             documentBody: body.text,
             sourceType: 'llmwhisperer',
-            status: DocumentStatus.CORRECTING,
+            status: DocumentStatus.unedited,
             createdAt: new Date(),
             updatedAt: new Date(),
             sourceMetadata: {
@@ -151,12 +151,13 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 /**
- * Verify text accuracy using Claude
+ * Verify text accuracy using Claude with tool use
  */
 async function verifyText(image: string, text: string): Promise<TextVerification> {
     const message = await anthropic.messages.create({
         model: "claude-3-sonnet-20240229",
         max_tokens: 1024,
+        system: "You are a text verification assistant that identifies discrepancies and suggests improvements.",
         messages: [
             {
                 role: "user",
@@ -171,36 +172,91 @@ async function verifyText(image: string, text: string): Promise<TextVerification
                     },
                     {
                         type: "text",
-                        text: `Here is an image and its OCR-extracted text. Please:
-1. Compare the extracted text with the image content
-2. Only provide an alternative extraction if there are significant discrepancies
-3. Explain any important differences found
+                        text: `Here is an image and its OCR-extracted text. Please compare them and identify any discrepancies:
 
 Extracted text:
-${text}
-
-Return your analysis as a JSON object with:
-- hasDiscrepancies: boolean
-- alternativeText: string (only if significant differences found)
-- discrepancies: array of {original, suggested, explanation} (only if differences found)`
+${text}`
                     }
                 ]
             }
-        ]
+        ],
+        tools: [{
+            name: "text_verification",
+            description: "Verifies text accuracy and suggests improvements",
+            input_schema: {
+                type: "object",
+                properties: {
+                    hasDiscrepancies: {
+                        type: "boolean",
+                        description: "Whether the text has discrepancies"
+                    },
+                    alternativeText: {
+                        type: "string",
+                        description: "Corrected version of the full text (optional)"
+                    },
+                    discrepancies: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                original: {
+                                    type: "string",
+                                    description: "The original text"
+                                },
+                                suggested: {
+                                    type: "string",
+                                    description: "The suggested correction"
+                                },
+                                explanation: {
+                                    type: "string",
+                                    description: "Why this change is suggested"
+                                }
+                            },
+                            required: ["original", "suggested", "explanation"]
+                        }
+                    }
+                },
+                required: ["hasDiscrepancies"]
+            }
+        }],
+        tool_choice: {
+            type: "tool",
+            name: "text_verification"
+        }
     });
 
     // Parse Claude's response
     try {
-        const textBlock = message.content.find(block => 
-            'type' in block && block.type === 'text'
+        // First try to find a tool use response
+        const toolUseResponse = message.content.find(block =>
+            'type' in block && block.type === 'tool_use'
         );
         
-        if (!textBlock || !('text' in textBlock)) {
-            throw new Error('No text response from Claude');
+        if (toolUseResponse && 'input' in toolUseResponse) {
+            // We have a tool use response, validate it
+            const input = toolUseResponse.input as Record<string, unknown>;
+            return textVerificationSchema.parse(input);
         }
-
-        const jsonResponse = JSON.parse(textBlock.text);
-        return textVerificationSchema.parse(jsonResponse);
+        
+        // Fallback to text parsing if tool use response is not found
+        const textBlock = message.content.find(block =>
+            'type' in block && block.type === 'text' && 'text' in block
+        );
+        
+        if (textBlock && 'text' in textBlock) {
+            try {
+                // Try to extract JSON from text response
+                const jsonMatch = textBlock.text.match(/\{\s*"[\s\S]*"\s*:[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsedResponse = JSON.parse(jsonMatch[0]);
+                    return textVerificationSchema.parse(parsedResponse);
+                }
+            } catch (parseError) {
+                console.error('Failed to parse text as JSON:', parseError);
+            }
+        }
+        
+        throw new Error('No valid response received from Claude');
     } catch (err) {
         console.error('Failed to parse text verification:', err);
         throw new Error('Failed to verify text accuracy');
@@ -208,12 +264,13 @@ Return your analysis as a JSON object with:
 }
 
 /**
- * Get structural analysis from Claude
+ * Get structural analysis from Claude using tool use
  */
 async function analyzeStructure(image: string, text: string): Promise<StructuralAnalysis> {
     const message = await anthropic.messages.create({
         model: "claude-3-sonnet-20240229",
         max_tokens: 1024,
+        system: "You are a document structure analyzer that identifies structural elements in text. Be precise and thorough in your analysis.",
         messages: [
             {
                 role: "user",
@@ -231,32 +288,79 @@ async function analyzeStructure(image: string, text: string): Promise<Structural
                         text: `Here is the extracted text from this image:
 ${text}
 
-Please analyze the structural elements of this text and identify:
-1. The title (if any)
-2. Any subtitles or headings
-3. Paragraph boundaries
-
-Return the analysis as a JSON array of objects with the following properties:
-- position: number (word position in text)
-- type: "title" | "subtitle" | "heading" | "paragraphStart"`
+Please analyze the structural elements of this text.`
                     }
                 ]
             }
-        ]
+        ],
+        tools: [{
+            name: "document_structure_analyzer",
+            description: "Analyzes the structural elements of text such as titles, headings, and paragraph starts",
+            input_schema: {
+                type: "object",
+                properties: {
+                    elements: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                type: {
+                                    type: "string",
+                                    enum: ["title", "subtitle", "heading", "paragraphStart"],
+                                    description: "The type of structural element"
+                                },
+                                position: {
+                                    type: "number",
+                                    description: "Character index where the element starts"
+                                }
+                            },
+                            required: ["type", "position"]
+                        }
+                    }
+                },
+                required: ["elements"]
+            }
+        }],
+        tool_choice: {
+            type: "tool",
+            name: "document_structure_analyzer"
+        }
     });
 
     // Parse Claude's response
     try {
-        const textBlock = message.content.find(block => 
-            'type' in block && block.type === 'text'
+        // First try to find a tool use response
+        const toolUseResponse = message.content.find(block =>
+            'type' in block && block.type === 'tool_use'
         );
         
-        if (!textBlock || !('text' in textBlock)) {
-            throw new Error('No text response from Claude');
+        if (toolUseResponse && 'input' in toolUseResponse) {
+            // We have a tool use response, validate it
+            const input = toolUseResponse.input as Record<string, unknown>;
+            if (input.elements) {
+                return structuralAnalysisSchema.parse(input.elements);
+            }
         }
-
-        const jsonResponse = JSON.parse(textBlock.text);
-        return structuralAnalysisSchema.parse(jsonResponse);
+        
+        // Fallback to text parsing if tool use response is not found
+        const textBlock = message.content.find(block =>
+            'type' in block && block.type === 'text' && 'text' in block
+        );
+        
+        if (textBlock && 'text' in textBlock) {
+            try {
+                // Try to extract JSON from text response
+                const jsonMatch = textBlock.text.match(/\[\s*{[\s\S]*}\s*\]/);
+                if (jsonMatch) {
+                    const parsedResponse = JSON.parse(jsonMatch[0]);
+                    return structuralAnalysisSchema.parse(parsedResponse);
+                }
+            } catch (parseError) {
+                console.error('Failed to parse text as JSON:', parseError);
+            }
+        }
+        
+        throw new Error('No valid response received from Claude');
     } catch (err) {
         console.error('Failed to parse structural analysis:', err);
         throw new Error('Failed to analyze document structure');

@@ -9,7 +9,7 @@ import type { Document } from '$lib/schemas/document';
 import type { Class } from '$lib/schemas/class';
 import type { Student } from '$lib/schemas/student';
 import { db } from '$lib/firebase/client';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
 import { z } from 'zod';
 
 /**
@@ -154,19 +154,20 @@ function loadClassesForUser(uid: string) {
     }
     
     if (!uid || !documentState.currentUser || !documentState.currentUser.classes || documentState.currentUser.classes.length === 0) {
-        console.log('No classes found for user');
         documentState.classes = [];
         return;
     }
     
     try {
-        console.log('Loading classes from Firestore for user:', uid);
-        // Avoid logging state objects directly
-        console.log('User classes count:', documentState.currentUser.classes.length);
+        // First, add the Unassigned class to the user's classes array if not already there
+        const userClasses = [...(documentState.currentUser.classes || [])];
+        if (!userClasses.includes('Unassigned')) {
+            userClasses.push('Unassigned');
+        }
         
         const classesQuery = query(
             collection(db, 'classes'),
-            where('id', 'in', documentState.currentUser.classes || [])
+            where('id', 'in', userClasses)
         );
         
         // Store the listener for later cleanup
@@ -200,47 +201,88 @@ function loadClassesForUser(uid: string) {
  * Load students for a specific class
  * @param classId - The class ID to load students for
  */
-function loadStudentsForClass(classId: string) {
+async function loadStudentsForClass(classId: string) {
     // Clean up any existing listener first
     if (activeListeners.students) {
         activeListeners.students();
         activeListeners.students = null;
     }
     
-    if (!classId) {
-        documentState.students = [];
-        return;
-    }
-    
     try {
-        // Loading students for class
+        if (!classId) {
+            // When no class is selected, load all students including Unassigned
+            
+            // Get the Unassigned student
+            const unassignedStudentRef = doc(db, 'students', 'Unassigned');
+            const unassignedStudentDoc = await getDoc(unassignedStudentRef);
+            
+            if (unassignedStudentDoc.exists()) {
+                documentState.students = [{
+                    ...unassignedStudentDoc.data(),
+                    id: 'Unassigned'
+                }] as Student[];
+            } else {
+                documentState.students = [];
+            }
+            return;
+        }
         
-        const studentsQuery = query(
-            collection(db, 'students'),
-            where('classId', '==', classId),
-            where('status', '==', 'active')
-        );
+        // Loading students for specific class
         
-        // Store the listener for later cleanup
-        activeListeners.students = onSnapshot(
-            studentsQuery,
-            (snapshot) => {
-                documentState.students = snapshot.docs.map((doc) => ({
+        // Always include the Unassigned student
+        const queries = [
+            // Class-specific students
+            query(
+                collection(db, 'students'),
+                where('classId', '==', classId),
+                where('status', '==', 'active')
+            ),
+            // Unassigned student (as a separate query)
+            query(
+                collection(db, 'students'),
+                where('id', '==', 'Unassigned')
+            )
+        ];
+        
+        // Execute both queries
+        const [classStudentsSnapshot, unassignedStudentSnapshot] = await Promise.all([
+            getDocs(queries[0]),
+            getDocs(queries[1])
+        ]);
+        
+        // Combine results
+        const allStudents: Student[] = [];
+        
+        // Add class-specific students
+        classStudentsSnapshot.forEach(doc => {
+            allStudents.push({
+                ...doc.data(),
+                id: doc.id,
+                metadata: {
+                    createdAt: doc.data().metadata?.createdAt,
+                    updatedAt: doc.data().metadata?.updatedAt
+                }
+            } as Student);
+        });
+        
+        // Add Unassigned student if it exists
+        unassignedStudentSnapshot.forEach(doc => {
+            // Only add if not already in the list
+            if (!allStudents.some(s => s.id === doc.id)) {
+                allStudents.push({
                     ...doc.data(),
                     id: doc.id,
                     metadata: {
                         createdAt: doc.data().metadata?.createdAt,
                         updatedAt: doc.data().metadata?.updatedAt
                     }
-                })) as Student[];
-                // Students loaded from Firestore
-            },
-            (err) => {
-                console.error('Firestore error loading students:', err);
-                documentState.students = [];
-                documentState.error = 'Failed to load students. Please try again.';
+                } as Student);
             }
-        );
+        });
+        
+        documentState.students = allStudents;
+        // Set up a no-op listener cleanup function
+        activeListeners.students = () => {};
     } catch (err) {
         console.error('Error loading students from Firestore:', err);
         documentState.students = [];

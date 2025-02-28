@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Schema for managing document upload sessions
  * Tracks multi-page document uploads and their status
- * 
+ *
  * @property {string} sessionId - Unique identifier for the session
  * @property {string} userId - Discord user ID who initiated the session
  * @property {string} status - Current status of the session
@@ -15,7 +15,19 @@ import { z } from 'zod';
  * @property {Date} completedAt - When all pages were received
  * @property {string} error - Error message if session failed
  * @property {number} totalSize - Total size of all files in bytes (for 10 MiB limit)
+ * @property {object} metadata - Optional metadata for the session (class and student assignment)
  */
+/**
+ * Schema for document session metadata
+ */
+export const documentSessionMetadataSchema = z.object({
+    classId: z.string().optional(),
+    studentId: z.string().optional(),
+    assignedAt: z.date().optional(),
+});
+
+export type DocumentSessionMetadata = z.infer<typeof documentSessionMetadataSchema>;
+
 export const documentSessionSchema = z.object({
     sessionId: z.string(),
     userId: z.string(),
@@ -28,7 +40,8 @@ export const documentSessionSchema = z.object({
     completedAt: z.date().optional(),
     error: z.string().optional(),
     totalSize: z.number()  // Track total size for 10 MiB limit
-        .max(10 * 1024 * 1024, "Total file size cannot exceed 10 MiB")
+        .max(10 * 1024 * 1024, "Total file size cannot exceed 10 MiB"),
+    metadata: documentSessionMetadataSchema.optional()
 });
 
 export type DocumentSession = z.infer<typeof documentSessionSchema>;
