@@ -1,23 +1,24 @@
-<!-- File: src/routes/ClassForm.svelte -->
+<!-- File: src/routes/StudentForm.svelte -->
 <script lang="ts">
 	import { superForm } from 'sveltekit-superforms/client';
 	import type { SuperValidated } from 'sveltekit-superforms';
-	import { type Class } from '$lib/schemas/class';
+	import { type Student } from '$lib/schemas/student';
 	import StatusNotification from '$lib/components/StatusNotification.svelte';
-	import XIcon from '$lib/icons/XIcon.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import XIcon from '$lib/icons/XIcon.svelte';
 
 	// Props with proper typing
-	let { data, onCancel, isEditing = false } = $props<{
-		data: SuperValidated<Class>; // Fixed type parameter
+	let { data, onCancel, classId, isEditing = false } = $props<{
+		data: SuperValidated<Student>;
 		onCancel: () => void;
+		classId: string;
 		isEditing?: boolean;
 	}>();
 	
 	// On component initialization, log the data to see what we're getting
 	$effect(() => {
-		$inspect('ClassForm received data:', data);
-		$inspect('Is editing mode:', isEditing);
+		$inspect('StudentForm received data:', data);
+		$inspect('Is editing student mode:', isEditing);
 		$inspect('Form data name:', data.data?.name);
 		
 		// Clear message when form is opened
@@ -29,23 +30,28 @@
 		}
 	});
 	
-	// Ensure we're using the correct dataType for handling complex data
 	const { form, errors, enhance, message } = superForm(data, {
-		dataType: 'json', // Must use 'json' for nested data structures
-		id: 'class-form-editor', // Set a unique ID different from the one in ClassManager
-		onSubmit: () => {
-			// Log the current form state before cleaning
-			console.log('Form before cleaning:', JSON.stringify($form));
-			console.log('Is editing mode:', isEditing);
+		dataType: 'json', // Set dataType to 'json' to handle nested data structures
+		id: 'student-form-editor', // Set a unique ID different from the one in ClassManager
+		onSubmit: ({ formData, cancel }) => {
+			isSubmitting = true;
+			hasError = false;
+			
+			// Make sure classId is a string, not a function or derived value
+			if (typeof $form.classId === 'function') {
+				$form.classId = classId;
+			} else if (!$form.classId && classId) {
+				$form.classId = classId;
+			}
 			
 			// Log the current form state before cleaning
-			console.log('Form before cleaning:', JSON.stringify($form));
-			console.log('Is editing mode:', isEditing);
-			console.log('Original form ID:', $form.id);
+			console.log('Student form before cleaning:', JSON.stringify($form));
+			console.log('Is editing student mode:', isEditing);
+			console.log('Original student form ID:', $form.id);
 			
 			// Get the ID from the parent component's props
 			const parentData = data.data;
-			console.log('Parent data ID:', parentData?.id);
+			console.log('Parent student data ID:', parentData?.id);
 			
 			// Create a clean form data object with ALL required schema fields
 			// This ensures proper validation and update vs. create logic
@@ -54,24 +60,22 @@
 				id: isEditing ? (parentData?.id || $form.id || '') : '',
 				name: $form.name,
 				description: $form.description || '',
+				classId: $form.classId,
 				// Include all required fields from the schema
-				students: $form.students || [],
+				notes: $form.notes || [],
 				status: $form.status || 'active',
-				// Preserve metadata for existing classes
+				// Preserve metadata for existing students
 				metadata: $form.metadata || {
 					createdAt: new Date(),
 					updatedAt: new Date()
 				}
 			};
 			
-			console.log(`Submitting class form in ${isEditing ? 'EDIT' : 'CREATE'} mode`);
-			console.log('Form ID being submitted:', cleanForm.id);
+			console.log('Submitting student form in ' + (isEditing ? 'EDIT' : 'CREATE') + ' mode');
+			console.log('Student form ID being submitted:', cleanForm.id);
 			
 			// Replace the form data with our clean version
 			form.update(() => cleanForm);
-			
-			isSubmitting = true;
-			hasError = false;
 		},
 		onResult: ({ result }) => {
 			if (result.type === 'success') {
@@ -81,7 +85,8 @@
 						id: '',
 						name: '',
 						description: '',
-						students: [],
+						classId: classId,
+						notes: [],
 						status: 'active',
 						metadata: {
 							createdAt: new Date(),
@@ -96,7 +101,7 @@
 			}
 			isSubmitting = false;
 		},
-		onError: () => {
+		onError: (error) => {
 			hasError = true;
 			isSubmitting = false;
 		}
@@ -104,6 +109,17 @@
 	
 	let isSubmitting = $state(false);
 	let hasError = $state(false);
+
+	// Set classId directly when component initializes
+	$effect(() => {
+		// Only set classId if it's not already set and we have a valid classId prop
+		if (!$form.id && !$form.classId && classId) {
+			$form.classId = classId;
+		}
+		
+		// Reset message when form is initialized
+		$message = '';
+	});
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
@@ -116,9 +132,9 @@
 	<div class="form-header">
 		<h2>
 			{#if isEditing || $form.id}
-				Edit Class: {$form.name || 'Unnamed Class'}
+				Edit Student: {$form.name || 'Unnamed Student'}
 			{:else}
-				Create Class
+				Create Student
 			{/if}
 		</h2>
 		<div
@@ -140,12 +156,12 @@
 		</div>
 	</div>
 
-	<form method="POST" action="?/manageClass" use:enhance>
+	<form method="POST" action="?/manageStudent" use:enhance>
 		<!-- No need for hidden inputs when using dataType: 'json' -->
 		<!-- The entire $form object will be submitted automatically -->
 		
 		<div class="form-group">
-			<label for="name">Class Name</label>
+			<label for="name">Student Name</label>
 			<input
 				id="name"
 				name="name"
@@ -174,24 +190,24 @@
 		<div class="form-actions">
 			<Button
 				label="Cancel"
+				size="compact"
 				type="secondary"
 				ClickFunction={onCancel}
-				size="compact"
 			/>
 			<Button
 				label={isSubmitting ?
 					(isEditing || $form.id ? 'Saving...' : 'Creating...') :
-					(isEditing || $form.id ? 'Save Changes' : 'Create Class')}
+					(isEditing || $form.id ? 'Save Changes' : 'Create Student')}
+				size="compact"
 				type="primary"
 				isSubmit={true}
 				disabled={isSubmitting}
 				isLoading={isSubmitting}
-				size="compact"
 			/>
 		</div>
 	</form>
 
-	{#if $message}
+	{#if $message && $message.trim() !== '' && hasError}
 		<div class="notification-container">
 			<StatusNotification
 				type={hasError ? 'error' : 'success'}
@@ -208,15 +224,16 @@
 		width: 320px;
 		height: 100%;
 		background: var(--background-secondary);
-		border-right: 1px solid var(--background-modifier-border);
+		border-right: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		flex-direction: column;
-		animation: slideIn 0.3s ease-out;
+		animation: slideIn var(--transition-duration-300) var(--transition-timing-ease-out);
+		overflow-y: auto; /* Allow scrolling if content overflows */
 	}
 
 	.form-header {
-		padding: 1rem;
-		border-bottom: 1px solid var(--background-modifier-border);
+		padding: var(--spacing-4);
+		border-bottom: var(--border-width-thin) solid var(--background-modifier-border);
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -224,8 +241,8 @@
 
 	h2 {
 		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 600;
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
@@ -233,10 +250,10 @@
 		background: none;
 		border: none;
 		cursor: pointer;
-		padding: 0.5rem;
+		padding: var(--spacing-2);
 		color: var(--text-muted);
-		transition: all 0.2s ease;
-		border-radius: 0.25rem;
+		transition: var(--transition-all);
+		border-radius: var(--radius-base);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -248,61 +265,68 @@
 	}
 
 	form {
-		padding: 1rem;
+		padding: var(--spacing-4);
 		display: grid;
-		gap: 1.25rem;
+		gap: var(--spacing-6);
 	}
 
 	.form-group {
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--spacing-2);
 	}
 
 	label {
-		font-size: 0.875rem;
-		font-weight: 500;
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
 	input,
 	textarea {
-		padding: 0.75rem;
+		padding: var(--spacing-3);
 		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.375rem;
+		border: var(--border-width-thin) solid var(--background-modifier-border);
+		border-radius: var(--radius-base);
 		color: var(--text-normal);
-		font-size: 0.875rem;
+		font-size: var(--font-size-sm);
 		width: 100%;
-		transition: border-color 0.2s ease;
+		transition: border-color var(--transition-duration-200) var(--transition-timing-ease);
 	}
 
 	textarea {
-		min-height: 8rem;
-		resize: vertical;
+		min-height: var(--spacing-16);
+		resize: none; /* Prevent resizing */
 	}
 
 	input:focus,
 	textarea:focus {
 		outline: none;
-		border-color: var(--text-accent);
+		border-color: var(--interactive-accent);
 	}
 
 	input[aria-invalid='true'],
 	textarea[aria-invalid='true'] {
-		border-color: var(--error-color);
+		border-color: var(--status-error);
 	}
 
 	.error {
-		color: var(--error-color);
-		font-size: 0.75rem;
+		color: var(--status-error);
+		font-size: var(--font-size-xs);
 	}
 
 	.form-actions {
 		display: flex;
-		gap: 1rem;
+		gap: var(--spacing-4);
 	}
+	
 
-	/* The spinner is now handled by the Button component */
+	.notification-container {
+		margin: var(--spacing-4);
+		width: auto;
+		position: relative;
+		z-index: 1;
+		overflow: visible;
+	}
 
 	@keyframes spin {
 		0% {
@@ -311,11 +335,6 @@
 		100% {
 			transform: rotate(360deg);
 		}
-	}
-
-	.notification-container {
-		margin: 1rem;
-		width: auto;
 	}
 
 	@keyframes slideIn {

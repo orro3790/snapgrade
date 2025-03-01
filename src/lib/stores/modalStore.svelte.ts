@@ -12,7 +12,8 @@ export const modalTypeSchema = z.enum([
 	'classManager',
 	'documentLoad',
 	'discordSettings',
-	'documentBay'
+	'documentBay',
+	'activity'
 ]);
 
 /**
@@ -29,6 +30,15 @@ export const modalDataSchema = z
 		documentFilters: z.object({
 			classId: z.string().optional(),
 			studentId: z.string().optional(),
+			status: z.string().optional(),
+			dateRange: z.object({
+				start: z.date().optional(),
+				end: z.date().optional()
+			}).optional()
+		}).optional(),
+		// Activity specific data
+		sessionId: z.string().optional(),
+		activityFilter: z.object({
 			status: z.string().optional(),
 			dateRange: z.object({
 				start: z.date().optional(),

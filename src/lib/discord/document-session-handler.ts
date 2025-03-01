@@ -214,24 +214,28 @@ export const endDocumentSession = async (
             return null;
         }
         
-        // Update session status to PROCESSING
-        await adminDb
-            .collection('document_sessions')
-            .doc(session.sessionId)
-            .update({
-                status: 'PROCESSING',
-                updatedAt: new Date()
-            });
-        
+        // Show confirmation message with session details
         await sendInteractiveMessage(
             channelId,
-            "Your document is being processed. You will be notified when it's ready.",
-            []
+            `Ready to process your document with ${session.receivedPages} page(s). This will start the OCR process and may take several minutes. Do you want to continue?`,
+            [
+                {
+                    type: ComponentType.Button,
+                    custom_id: `confirm_process_${session.sessionId}`,
+                    label: "Yes, Process Document",
+                    style: ButtonStyle.Success
+                },
+                {
+                    type: ComponentType.Button,
+                    custom_id: `cancel_process_${session.sessionId}`,
+                    label: "No, Cancel",
+                    style: ButtonStyle.Danger
+                }
+            ]
         );
         
-        // DO NOT start processing here - it will happen after metadata is collected
-        // Note: We'll start processing in metadata-handler.ts after metadata is saved
-        // or in handleSkipMetadata if the user skips metadata selection
+        // We'll handle the confirmation/cancellation in interaction-handler.ts
+        // Note: Processing will start after confirmation in metadata-handler.ts
         
         return session.sessionId;
     } catch (error) {

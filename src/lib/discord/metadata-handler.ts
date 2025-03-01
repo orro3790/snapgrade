@@ -323,6 +323,21 @@ export const handleStudentSelection = async (
         // Start processing now that metadata is set
         console.log(`Starting document processing for session ${sessionId} with metadata`);
         
+        // Notify user that processing has started and provide status check button
+        const appUrl = process.env.APP_URL || 'https://snapgrade.app';
+        sendInteractiveMessage(
+            interaction.channel_id,
+            "Document processing has started. This may take several minutes depending on the number of pages.",
+            [
+                {
+                    type: ComponentType.Button,
+                    label: "Check Processing Status",
+                    style: ButtonStyle.Primary,
+                    url: `${appUrl}/?modal=activity&sessionId=${sessionId}`
+                }
+            ]
+        ).catch(err => console.error('Error sending status check message:', err));
+        
         // Start processing in the background using LLM Whisperer service
         llmWhisperer.processDocumentSession(sessionId)
             .then(result => {

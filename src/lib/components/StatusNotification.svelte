@@ -1,56 +1,93 @@
-<!-- src/lib/components/StatusNotification.svelte -->
 <script lang="ts">
+	import CheckIcon from '$lib/icons/CheckIcon.svelte';
+	import XIcon from '$lib/icons/XIcon.svelte';
+	import AlertTriangleIcon from '$lib/icons/AlertTriangleIcon.svelte';
+	import InfoIcon from '$lib/icons/InfoIcon.svelte';
+
 	/**
 	 * Type of notification - affects styling
 	 */
-	const { type = 'info', showIcon = true, icon = null, children } = $props<{
+	const { type = 'info', showIcon = true, icon = null, children, onDismiss = null } = $props<{
 		type?: 'success' | 'error' | 'warning' | 'info';
 		showIcon?: boolean;
 		icon?: { component: any; props?: any } | null;
 		children?: any;
+		onDismiss?: (() => void) | null;
 	}>();
+
+	// Determine if the notification is dismissible
+	const isDismissible = onDismiss !== null;
+
+	// Handle click to dismiss
+	function handleClick() {
+		if (isDismissible && onDismiss) {
+			onDismiss();
+		}
+	}
 </script>
 
-<div class="notification {type}" role={type === 'error' ? 'alert' : 'status'}>
-	{#if showIcon}
-		<div class="icon">
-			{#if icon}
-				<icon.component {...(icon.props || {})} />
-			{:else}
-				<!-- Default icons based on type -->
-				{#if type === 'success'}
-					<!-- Checkmark icon -->
-					<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-						<polyline points="20 6 9 17 4 12"></polyline>
-					</svg>
-				{:else if type === 'error'}
-					<!-- X icon -->
-					<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
-					</svg>
-				{:else if type === 'warning'}
-					<!-- Alert triangle -->
-					<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-						<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-						<line x1="12" y1="9" x2="12" y2="13"></line>
-						<line x1="12" y1="17" x2="12.01" y2="17"></line>
-					</svg>
+{#if isDismissible}
+	<button
+		class="notification {type} dismissible"
+		onclick={handleClick}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				handleClick();
+			}
+		}}
+		aria-label="Click to dismiss"
+	>
+		{#if showIcon}
+			<div class="icon">
+				{#if icon}
+					<icon.component {...(icon.props || {})} />
 				{:else}
-					<!-- Info icon -->
-					<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-						<circle cx="12" cy="12" r="10"></circle>
-						<line x1="12" y1="16" x2="12" y2="12"></line>
-						<line x1="12" y1="8" x2="12.01" y2="8"></line>
-					</svg>
+					<!-- Default icons based on type -->
+					{#if type === 'success'}
+						<CheckIcon size="16px" />
+					{:else if type === 'error'}
+						<XIcon size="16px" />
+					{:else if type === 'warning'}
+						<AlertTriangleIcon size="16px" />
+					{:else}
+						<InfoIcon size="16px" />
+					{/if}
 				{/if}
-			{/if}
+			</div>
+		{/if}
+		<div class="content">
+			{@render children?.()}
 		</div>
-	{/if}
-	<div class="content">
-		{@render children?.()}
+	</button>
+{:else}
+	<div
+		class="notification {type}"
+		role={type === 'error' ? 'alert' : 'status'}
+	>
+		{#if showIcon}
+			<div class="icon">
+				{#if icon}
+					<icon.component {...(icon.props || {})} />
+				{:else}
+					<!-- Default icons based on type -->
+					{#if type === 'success'}
+						<CheckIcon size="16px" />
+					{:else if type === 'error'}
+						<XIcon size="16px" />
+					{:else if type === 'warning'}
+						<AlertTriangleIcon size="16px" />
+					{:else}
+						<InfoIcon size="16px" />
+					{/if}
+				{/if}
+			</div>
+		{/if}
+		<div class="content">
+			{@render children?.()}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.notification {
@@ -97,5 +134,14 @@
 		background-color: rgba(var(--interactive-accent-rgb), 0.1);
 		border-left-color: var(--interactive-accent);
 		color: var(--interactive-accent);
+	}
+
+	.dismissible {
+		cursor: pointer;
+		transition: opacity 0.2s ease;
+	}
+
+	.dismissible:hover {
+		opacity: 0.8;
 	}
 </style>

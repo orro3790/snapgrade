@@ -41,7 +41,9 @@
 	>
 		<div class="content-wrapper">
 			{#if isLoading}
-				<div class="spinner"></div>
+				<div class="spinner-container">
+					<div class="spinner"></div>
+				</div>
 			{:else}
 				{#if icon}
 					<div class="icon">
@@ -67,7 +69,9 @@
 	>
 		<div class="content-wrapper">
 			{#if isLoading}
-				<div class="spinner"></div>
+				<div class="spinner-container">
+					<div class="spinner"></div>
+				</div>
 			{:else}
 				{#if icon}
 					<div class="icon">
@@ -91,6 +95,7 @@
 		cursor: pointer;
 		transition: var(--transition-all);
 		text-decoration: none;
+		min-width: 80px; /* Ensure minimum width for buttons */
 	}
 
 	/* Rounded variants using the theme border-radius */
@@ -132,6 +137,11 @@
 	.small {
 		padding: var(--spacing-1) var(--spacing-3);
 		font-size: var(--font-size-xs);
+	}
+	
+	.compact {
+		padding: 0.25rem 0.5rem;
+		font-size: 0.75rem;
 	}
 	
 	.large {
@@ -209,6 +219,20 @@
 	.ghost:hover {
 		background-color: var(--background-modifier-hover);
 	}
+	
+	.danger-ghost {
+		background-color: transparent;
+		color: var(--text-muted);
+		border: var(--border-width-thin) solid transparent;
+		transition: var(--transition-all);
+		margin-bottom: var(--spacing-4);
+	}
+	
+	.danger-ghost:hover {
+		color: var(--status-error);
+		border-color: var(--status-error);
+		background-color: transparent;
+	}
 
 	.danger {
 		background-color: var(--status-error);
@@ -232,6 +256,15 @@
 	}
 
 	/* Loading spinner */
+	.spinner-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-width: 100%;
+		/* Force the spinner container to maintain the same width as the text */
+		width: 100%;
+	}
+	
 	.spinner {
 		width: var(--icon-sm);
 		height: var(--icon-sm);

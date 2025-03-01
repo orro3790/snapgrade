@@ -6,7 +6,6 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
-	import DocumentLoadModal from '$lib/components/DocumentLoadModal.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 
 	let {
@@ -52,17 +51,6 @@
 		></button>
 		<div class="modal-content">
 			<KeyboardControls />
-		</div>
-	</div>
-{:else if $modalStore?.type === 'documentLoad'}
-	<div class="modal-overlay" role="dialog" aria-modal="true">
-		<button type="button" class="overlay-button" aria-label="Close modal" onclick={handleModalClose}
-		></button>
-		<div class="modal-content">
-			<DocumentLoadModal
-				documentToLoad={$modalStore.data?.documentToLoad ?? ''}
-				documentName={$modalStore.data?.documentName ?? ''}
-			/>
 		</div>
 	</div>
 {/if}

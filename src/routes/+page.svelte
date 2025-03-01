@@ -15,6 +15,8 @@
 	import Pencil from '$lib/icons/Pencil.svelte';
 	import Paragraph from '$lib/icons/Paragraph.svelte';
 	import DocumentBay from './DocumentBay.svelte';
+	import Activity from './Activity.svelte';
+	import { browser } from '$app/environment';
 
 	let { data } = $props<{ data: PageData }>();
 
@@ -37,6 +39,22 @@
 				error: data.modal.error,
 				discord: data.modal.discord
 			});
+		}
+		
+		// Check URL parameters for modal and sessionId
+		if (browser) {
+			const url = new URL(window.location.href);
+			const modalParam = url.searchParams.get('modal');
+			const sessionId = url.searchParams.get('sessionId');
+			
+			if (modalParam === 'activity' && sessionId) {
+				modalStore.open('activity', { sessionId });
+				
+				// Clean up URL parameters
+				url.searchParams.delete('modal');
+				url.searchParams.delete('sessionId');
+				window.history.replaceState({}, '', url.toString());
+			}
 		}
 	});
 
@@ -138,6 +156,13 @@
 					user: data.user,
 					uid: data.uid
 				}}
+			/>
+		{:else if $modalStore?.type === 'activity'}
+			<Activity
+				form={data.activityForm}
+				user={data.user}
+				uid={data.uid}
+				sessionId={$modalStore?.data?.sessionId}
 			/>
 		{/if}
 	</main>

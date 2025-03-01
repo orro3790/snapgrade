@@ -28,22 +28,28 @@ const whispererClient = createWhispererClient();
 /**
  * Process a single image URL
  * @param imageUrl URL of the image to process
+ * @param textQuality Text quality (printed or handwriting)
  * @param options Processing options
  * @returns Processing result or whisper hash for async processing
  */
 export const processImage = async (
   imageUrl: string,
+  textQuality: string = 'printed',
   options: Partial<WhisperOptions> = {}
 ): Promise<WhisperResult> => {
   try {
-    console.log(`Processing image with LLM Whisperer: ${imageUrl}`);
+    console.log(`Processing image with LLM Whisperer: ${imageUrl}, quality: ${textQuality}`);
+    
+    // Set OCR parameters based on text quality
+    const mode = textQuality === 'handwriting' ? 'handwriting' : 'high_quality';
     
     const result = await whispererClient.whisper({
       url: imageUrl,
-      mode: options.mode || 'high_quality',
+      mode: options.mode || mode,
       outputMode: options.outputMode || 'text',
       waitForCompletion: options.waitForCompletion || false,
-      waitTimeout: 60 // 1 minute timeout before switching to async
+      waitTimeout: 60, // 1 minute timeout before switching to async
+      includeConfidence: true // Request confidence metadata
     });
     
     return result as WhisperResult;
@@ -60,18 +66,65 @@ export const processImage = async (
  */
 export const processPendingImage = async (image: PendingImage) => {
   try {
-    // Process with LLM Whisperer
-    const whisperResult = await processImage(image.imageUrl, {
-      mode: 'high_quality',
-      outputMode: 'text',
-      waitForCompletion: true
-    });
+    // Get text quality from session if available
+    let textQuality = 'printed'; // Default to printed
+    
+    if (image.sessionId) {
+      try {
+        const sessionDoc = await adminDb.collection('document_sessions').doc(image.sessionId).get();
+        if (sessionDoc.exists) {
+          const sessionData = sessionDoc.data();
+          if (sessionData && sessionData.textQuality) {
+            textQuality = sessionData.textQuality;
+          }
+        }
+      } catch (error) {
+        console.warn('Error getting text quality from session:', error);
+      }
+    }
+    
+    // Process with LLM Whisperer using the appropriate mode
+    const whisperResult = await processImage(
+      image.imageUrl,
+      textQuality,
+      {
+        outputMode: 'text',
+        waitForCompletion: true
+      }
+    );
     
     // Extract text from result
     const extractedText = whisperResult.extraction.result_text;
     
+    // Extract confidence metadata for low-confidence words
+    const confidenceMetadata = whisperResult.confidence_metadata || [];
+    const lowConfidenceWords: Array<{text: string, confidence: string, lineIndex: number}> = [];
+    
+    // Process confidence metadata to identify low-confidence words
+    if (Array.isArray(confidenceMetadata)) {
+      confidenceMetadata.forEach((line, lineIndex) => {
+        if (Array.isArray(line)) {
+          line.forEach(wordData => {
+            if (wordData.confidence && parseFloat(wordData.confidence) < 0.8) {
+              lowConfidenceWords.push({
+                text: wordData.text || '',
+                confidence: wordData.confidence || '0',
+                lineIndex: lineIndex
+              });
+            }
+          });
+        }
+      });
+    }
+    
     // Analyze structure with Claude and get compressed nodes
-    const { structuralAnalysis, compressedNodes } = await claude.analyzeStructure(extractedText);
+    // Pass the original image URL, low confidence words, and text quality to Claude
+    const { structuralAnalysis, compressedNodes } = await claude.analyzeStructure(
+      extractedText,
+      image.imageUrl,
+      lowConfidenceWords.length > 0 ? lowConfidenceWords : undefined,
+      textQuality
+    );
     
     // If Claude didn't provide compressed nodes, generate them ourselves
     const finalCompressedNodes = compressedNodes ||
@@ -192,6 +245,28 @@ const updateSessionStatus = async (
 };
 
 /**
+ * Calculate estimated time remaining based on processing history
+ * @param processingTimes Array of previous processing times in milliseconds
+ * @param remainingItems Number of items remaining to process
+ * @returns Estimated time remaining in milliseconds
+ */
+const calculateEstimatedTimeRemaining = (
+  processingTimes: number[],
+  remainingItems: number
+): number => {
+  if (processingTimes.length === 0 || remainingItems <= 0) {
+    return 0;
+  }
+  
+  // Calculate average processing time
+  const sum = processingTimes.reduce((acc, time) => acc + time, 0);
+  const average = sum / processingTimes.length;
+  
+  // Return estimated time for remaining items
+  return Math.round(average * remainingItems);
+};
+
+/**
  * Process a document session
  * @param sessionId Document session ID
  * @returns Processing status
@@ -203,9 +278,18 @@ export const processDocumentSession = async (sessionId: string) => {
     // Get session data
     const sessionData = await getSessionData(sessionId);
     
-    // Update session status to processing
+    const processingStartTime = new Date();
+    
+    // Initialize processing progress in QUEUED stage
     await updateSessionStatus(sessionId, 'PROCESSING', {
-      processingStartedAt: new Date()
+      processingStartedAt: processingStartTime,
+      processingProgress: {
+        current: 0,
+        total: sessionData.receivedPages,
+        stage: 'queued',
+        startedAt: processingStartTime,
+        pageProcessingTimes: []
+      }
     });
     
     // Get all pending images for session
@@ -214,19 +298,35 @@ export const processDocumentSession = async (sessionId: string) => {
     // Process each image
     const batch = adminDb.batch();
     const imageResults = [];
+    const pageProcessingTimes: number[] = [];
     
     for (const { ref, data: imageData, index } of sessionImages) {
       try {
-        // Update progress
+        const pageStartTime = Date.now();
+        
+        // Update progress to OCR_PROCESSING stage
+        const estimatedTimeRemaining = calculateEstimatedTimeRemaining(
+          pageProcessingTimes,
+          sessionImages.length - index
+        );
+        
         await updateSessionStatus(sessionId, 'PROCESSING', {
           processingProgress: {
             current: index + 1,
-            total: sessionImages.length
+            total: sessionImages.length,
+            stage: 'ocr_processing',
+            startedAt: processingStartTime,
+            estimatedTimeRemaining,
+            pageProcessingTimes
           }
         });
         
         // Process the image
         const result = await processPendingImage(imageData);
+        
+        // Record processing time for this page
+        const pageProcessingTime = Date.now() - pageStartTime;
+        pageProcessingTimes.push(pageProcessingTime);
         
         imageResults.push({
           index,
@@ -237,7 +337,23 @@ export const processDocumentSession = async (sessionId: string) => {
         // Mark image as processed
         batch.update(ref, {
           status: 'COMPLETED',
-          processedAt: new Date()
+          processedAt: new Date(),
+          processingTimeMs: pageProcessingTime
+        });
+        
+        // Update progress to show completion of this page
+        await updateSessionStatus(sessionId, 'PROCESSING', {
+          processingProgress: {
+            current: index + 1,
+            total: sessionImages.length,
+            stage: 'ocr_processing',
+            startedAt: processingStartTime,
+            estimatedTimeRemaining: calculateEstimatedTimeRemaining(
+              pageProcessingTimes,
+              sessionImages.length - (index + 1)
+            ),
+            pageProcessingTimes
+          }
         });
       } catch (error) {
         console.error(`Error processing image ${index + 1}/${sessionImages.length}:`, error);
@@ -258,6 +374,30 @@ export const processDocumentSession = async (sessionId: string) => {
         throw error;
       }
     }
+    
+    // Update progress to STRUCTURE_ANALYSIS stage
+    await updateSessionStatus(sessionId, 'PROCESSING', {
+      processingProgress: {
+        current: sessionImages.length,
+        total: sessionImages.length,
+        stage: 'structure_analysis',
+        startedAt: processingStartTime,
+        estimatedTimeRemaining: 10000, // Estimate 10 seconds for structure analysis
+        pageProcessingTimes
+      }
+    });
+    
+    // Update progress to DOCUMENT_CREATION stage
+    await updateSessionStatus(sessionId, 'PROCESSING', {
+      processingProgress: {
+        current: sessionImages.length,
+        total: sessionImages.length,
+        stage: 'document_creation',
+        startedAt: processingStartTime,
+        estimatedTimeRemaining: 5000, // Estimate 5 seconds for document creation
+        pageProcessingTimes
+      }
+    });
     
     // Combine results
     const combinedText = imageResults
@@ -424,22 +564,36 @@ export const processDocumentSession = async (sessionId: string) => {
       sourceMetadata: {
         rawOcrOutput: combinedText,
         llmProcessed: true,
-        llmProcessedAt: new Date()
+        llmProcessedAt: new Date(),
+        textQuality: sessionData.textQuality
       }
     });
+    
+    // Calculate total processing time
+    const totalProcessingTime = Date.now() - processingStartTime.getTime();
     
     // Update session status
     batch.update(adminDb.collection('document_sessions').doc(sessionId), {
       status: 'COMPLETED',
       documentId: docRef.id,
-      processingCompletedAt: new Date()
+      processingCompletedAt: new Date(),
+      processingProgress: {
+        current: sessionImages.length,
+        total: sessionImages.length,
+        stage: 'document_creation',
+        startedAt: processingStartTime,
+        estimatedTimeRemaining: 0,
+        pageProcessingTimes
+      },
+      totalProcessingTimeMs: totalProcessingTime
     });
     
     await batch.commit();
     
     return {
       success: true,
-      documentId: docRef.id
+      documentId: docRef.id,
+      processingTimeMs: totalProcessingTime
     };
   } catch (error) {
     console.error('Error processing document session:', error);

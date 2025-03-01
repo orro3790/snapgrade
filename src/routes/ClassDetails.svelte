@@ -1,119 +1,77 @@
 <!-- File: src/routes/ClassDetails.svelte -->
 <script lang="ts">
-	import { db } from '$lib/firebase/client';
-	import { collection, query, where, onSnapshot } from 'firebase/firestore';
-	import type { Class } from '$lib/schemas/class';
-	import type { Student } from '$lib/schemas/student';
-	import type { Document } from '$lib/schemas/document';
 	import Pencil from '$lib/icons/Pencil.svelte';
+	import TrashIcon from '$lib/icons/TrashIcon.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import type { Student } from '$lib/schemas/student';
+	import { classManagerStore } from '$lib/stores/classManagerStore.svelte';
 
-	// Add proper type for metadata
-	interface Metadata {
-		id: string;
-		createdAt: Date;
-		updatedAt: Date;
-	}
+	// Use derived values from the store
+	const selectedClass = $derived(classManagerStore.selectedClass);
+	const students = $derived(classManagerStore.students); 
+	const selectedStudent = $derived(classManagerStore.selectedStudent);
+	const documentCounts = $derived(classManagerStore.documentCounts);
+	const isLoading = $derived(classManagerStore.isLoading);
+	const error = $derived(classManagerStore.error);
+	
+	// Track selected student ID
+	let selectedStudentId = $derived(selectedStudent?.id || null);
 
-	interface StudentWithMetadata extends Student {
-		metadata: Metadata;
-	}
+	// Create a derived key that changes when selectedClass changes
+	// This helps force re-rendering when class data updates
+	let classKey = $derived(`class-${selectedClass?.id}-${selectedClass?.name}`);
 
-	let { selectedClass, onStudentSelect, onEditClass, onAddStudent } = $props<{
-		selectedClass: Class;
-		onStudentSelect: (student: StudentWithMetadata) => void;
-		onEditClass: () => void;
-		onAddStudent: () => void;
-	}>();
-
-	// State
-	let students = $state<Student[]>([]);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
-	let selectedStudentId = $state<string | null>(null);
-	let documentCounts = $state<Record<string, number>>({});
-
-	$effect(() => {
-		if (!selectedClass) return;
-
-		const studentsQuery = query(
-			collection(db, 'students'),
-			where('classId', '==', selectedClass.id),
-			where('status', '==', 'active')
-		);
-
-		const documentsQuery = query(collection(db, 'documents'), where('status', '!=', 'staged'));
-
-		const unsubscribeStudents = onSnapshot(
-			studentsQuery,
-			(snapshot) => {
-				students = snapshot.docs.map((doc) => doc.data() as Student);
-				isLoading = false;
-			},
-			handleError
-		);
-
-		const unsubscribeDocuments = onSnapshot(
-			documentsQuery,
-			(snapshot) => {
-				// Count documents per student, but only for students in this class
-				const newCounts: Record<string, number> = {};
-				snapshot.docs.forEach((doc) => {
-					const document = doc.data() as Document;
-					// Only count documents for students in this class
-					if (students.some((student) => student.id === document.studentId)) {
-						newCounts[document.studentId] = (newCounts[document.studentId] || 0) + 1;
-					}
-				});
-				documentCounts = newCounts;
-			},
-			handleError
-		);
-
-		return () => {
-			unsubscribeStudents();
-			unsubscribeDocuments();
-		};
-	});
-
-	function handleError(err: Error) {
-		console.error('Error fetching data:', err);
-		error = 'Failed to load data';
-		isLoading = false;
-	}
-
-	function handleStudentClick(student: StudentWithMetadata) {
-		selectedStudentId = student.id;
-		onStudentSelect(student);
+	function handleStudentClick(student: Student) {
+		classManagerStore.selectStudent(student);
 	}
 
 	function handleKeyDown(event: KeyboardEvent, student: Student) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			handleStudentClick(student as StudentWithMetadata);
+			handleStudentClick(student);
 		}
 	}
 </script>
 
-<div class="class-details-container" role="region" aria-label="Class details">
+<!-- Use key directive to force re-rendering when classKey changes -->
+{#key classKey}
+<div class="class-details-container" role="region" aria-label="Class details" >
 	<div class="header">
 		<div class="title-section">
-			<h2>{selectedClass.name}</h2>
-			{#if selectedClass.description}
-				<p class="description">{selectedClass.description}</p>
+			<h2>{selectedClass?.name}</h2>
+			{#if selectedClass?.description}
+				<p class="description">{selectedClass?.description}</p>
 			{/if}
 		</div>
-		<button type="button" class="edit-button" onclick={onEditClass} aria-label="Edit class details">
-			<Pencil size="var(--icon-sm)" />
-		</button>
+		<div class="action-buttons">
+			<button 
+				type="button" 
+				class="icon-button" 
+				onclick={() => classManagerStore.editClass(selectedClass)} 
+				aria-label="Edit class details"
+			>
+				<Pencil size="var(--icon-sm)" stroke="var(--text-muted)" />
+			</button>
+			<button 
+				type="button" 
+				class="icon-button" 
+				onclick={() => classManagerStore.showDeleteClassDialog()} 
+				aria-label="Delete class"
+			>
+				<TrashIcon size="var(--icon-sm)" stroke="var(--text-muted)" />
+			</button>
+		</div>
 	</div>
 
 	<div class="students-section">
 		<div class="section-header">
 			<h3>Students</h3>
-			<button type="button" class="add-button" onclick={onAddStudent} aria-label="Add new student">
-				<Pencil size="var(--icon-sm)" />
-				<span>Add Student</span>
-			</button>
+			<Button
+				label="Add Student"
+				size="compact"
+				type="secondary"
+				ClickFunction={() => classManagerStore.addStudent()}
+			/>
 		</div>
 
 		{#if isLoading}
@@ -130,7 +88,7 @@
 							type="button"
 							class="student-item"
 							class:selected={selectedStudentId === student.id}
-							onclick={() => handleStudentClick(student as StudentWithMetadata)}
+							onclick={() => handleStudentClick(student)}
 							onkeydown={(e) => handleKeyDown(e, student)}
 						>
 							<span class="student-name">{student.name}</span>
@@ -146,7 +104,7 @@
 		{/if}
 	</div>
 </div>
-
+{/key}
 <style>
 	.class-details-container {
 		width: 320px;
@@ -189,7 +147,12 @@
 		color: var(--text-muted);
 	}
 
-	.edit-button {
+	.action-buttons {
+		display: flex;
+		gap: var(--spacing-1);
+	}
+
+	.icon-button {
 		background: none;
 		border: none;
 		padding: 0.5rem;
@@ -197,9 +160,12 @@
 		cursor: pointer;
 		border-radius: 0.375rem;
 		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
-	.edit-button:hover {
+	.icon-button:hover {
 		color: var(--text-normal);
 		background: var(--background-modifier-hover);
 	}
@@ -217,24 +183,6 @@
 		justify-content: space-between;
 		align-items: center;
 		border-bottom: 1px solid var(--background-modifier-border);
-	}
-
-	.add-button {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		background: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: 0.375rem;
-		color: var(--text-normal);
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.add-button:hover {
-		background: var(--background-modifier-hover);
 	}
 
 	.student-list {

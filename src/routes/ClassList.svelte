@@ -1,66 +1,29 @@
 <!-- File: src/routes/ClassList.svelte -->
 <script lang="ts">
-	import { db } from '$lib/firebase/client';
-	import { collection, query, where, onSnapshot } from 'firebase/firestore';
+	import Button from '$lib/components/Button.svelte';
 	import type { Class } from '$lib/schemas/class';
-	import Pencil from '$lib/icons/Pencil.svelte';
-	import Settings from '$lib/icons/Settings.svelte';
+	import { classManagerStore } from '$lib/stores/classManagerStore.svelte';
 
-	// Props
-	let { onClassSelect, onAddClass, user, uid } = $props<{
-		onClassSelect: (classData: Class) => void;
-		onAddClass: () => void;
-		user: App.Locals['user'];
-		uid: App.Locals['uid'];
-	}>();
-
-	// State
-	let classes = $state<Class[]>([]);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
-	let selectedClassId = $state<string | null>(null);
-
-	// Subscribe to classes collection using uid from server
-	$effect(() => {
-		if (!uid) {
-			error = 'Please sign in to view your classes';
-			isLoading = false;
-			classes = [];
-			return;
-		}
-
-		const classesQuery = query(
-			collection(db, 'classes'),
-			where('id', 'in', user.classes || [])
-			// where('status', '==', 'active')
-		);
-
-		const unsubscribeSnapshot = onSnapshot(
-			classesQuery,
-			(snapshot) => {
-				classes = snapshot.docs.map((doc) => ({
-					...doc.data(),
-					id: doc.id,
-					metadata: {
-						createdAt: doc.data().metadata?.createdAt,
-						updatedAt: doc.data().metadata?.updatedAt
-					}
-				})) as Class[];
-				isLoading = false;
-			},
-			(err) => {
-				console.error('Firestore error:', err);
-				error = 'Failed to load classes';
-				isLoading = false;
-			}
-		);
-
-		return () => unsubscribeSnapshot();
+	// Use derived reactive values from store
+	const classes = $derived(classManagerStore.classes);
+	const selectedClass = $derived(classManagerStore.selectedClass);
+	const isLoading = $derived(classManagerStore.isLoading);
+	const error = $derived(classManagerStore.error);
+	
+	// Keep track of the selected class ID
+	let selectedClassId = $derived(selectedClass?.id || null);
+	
+	// Create a derived key that changes when classes array changes
+	// This will force re-rendering when classes are added or removed
+	// Using a more robust key derivation strategy similar to ClassDetails.svelte
+	let classesKey = $derived(() => {
+		// Include a string representation of all class IDs to detect any changes
+		const classIds = classes.map(c => c.id).join(',');
+		return `classes-${classes.length}-${classIds}`;
 	});
 
 	function handleClassClick(classData: Class) {
-		selectedClassId = classData.id;
-		onClassSelect(classData);
+		classManagerStore.selectClass(classData);
 	}
 
 	function handleKeyDown(event: KeyboardEvent, classData: Class) {
@@ -69,15 +32,22 @@
 			handleClassClick(classData);
 		}
 	}
+	
+	function handleCreateClass() {
+		classManagerStore.editClass(null);
+	}
 </script>
 
+{#key classesKey}
 <div class="class-list-container" role="navigation" aria-label="Class list">
 	<div class="header">
 		<h2>Classes</h2>
-		<button type="button" class="add-button" onclick={onAddClass} aria-label="Add new class">
-			<Pencil size="var(--icon-sm)" />
-			<span>New Class</span>
-		</button>
+		<Button
+			label="Create Class"
+			size="compact"
+			type="secondary"
+			ClickFunction={handleCreateClass}
+		/>
 	</div>
 
 	{#if isLoading}
@@ -88,7 +58,7 @@
 		<div class="empty-state">No classes found</div>
 	{:else}
 		<ul class="class-list">
-			{#each classes as classData}
+			{#each classes as classData (classData.id)}
 				<li>
 					<button
 						type="button"
@@ -98,13 +68,14 @@
 						onkeydown={(e) => handleKeyDown(e, classData)}
 					>
 						<span class="class-name">{classData.name}</span>
-						<span class="student-count">{classData.students.length} students</span>
+						<span class="student-count">{classData.students?.length || 0} students</span>
 					</button>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 </div>
+{/key}
 
 <style>
 	.class-list-container {
@@ -129,21 +100,6 @@
 		font-size: var(--font-size-xl);
 		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
-	}
-
-	.add-button {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-3);
-		background: var(--interactive-normal);
-		color: var(--text-normal);
-		font-size: var(--font-size-sm);
-		border-radius: var(--radius-base);
-	}
-
-	.add-button:hover {
-		background: var(--interactive-hover);
 	}
 
 	.class-list {

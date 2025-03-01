@@ -245,6 +245,22 @@ leap/
 - **Implementation**:
   - **Reference File**: `Pointer.svelte`
 
+### 5.1.1 Status Notifications
+
+- **Component**: `StatusNotification.svelte`
+- **Usage**: For displaying error, success, warning, and info messages
+- **Props**:
+  - `type`: 'success' | 'error' | 'warning' | 'info'
+  - `showIcon`: boolean (default: true)
+  - `icon`: optional custom icon
+  - `children`: content to display
+- **Example**:
+  ```svelte
+  <StatusNotification type="error">
+    An error occurred while processing your request.
+  </StatusNotification>
+  ```
+
 ### 5.2 Accessibility Requirements
 
 #### 5.2.1 Interactive Elements
@@ -302,13 +318,6 @@ When converting a non-interactive element (like a div) to be interactive:
 </div>
 ```
 
-#### 5.2.3 Preferred Alternatives
-
-In order of preference:
-
-1. Native `<button type="button">` element
-2. Native `<a>` element for navigation
-3. Enhanced `<div>` with full ARIA attributes only when necessary
 
 #### 5.2.4 ARIA Guidelines
 

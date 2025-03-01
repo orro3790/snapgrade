@@ -16,7 +16,9 @@ import { z } from 'zod';
  * @property {string} error - Error message if session failed
  * @property {number} totalSize - Total size of all files in bytes (for 10 MiB limit)
  * @property {object} metadata - Optional metadata for the session (class and student assignment)
+ * @property {object} processingProgress - Detailed progress tracking for processing stage
  */
+
 /**
  * Schema for document session metadata
  */
@@ -28,10 +30,39 @@ export const documentSessionMetadataSchema = z.object({
 
 export type DocumentSessionMetadata = z.infer<typeof documentSessionMetadataSchema>;
 
+/**
+ * Enum for processing stages
+ */
+export const ProcessingStageEnum = {
+    QUEUED: 'queued',
+    OCR_PROCESSING: 'ocr_processing',
+    STRUCTURE_ANALYSIS: 'structure_analysis',
+    DOCUMENT_CREATION: 'document_creation'
+} as const;
+
+/**
+ * Schema for processing progress tracking
+ */
+export const processingProgressSchema = z.object({
+    current: z.number(),
+    total: z.number(),
+    stage: z.enum([
+        ProcessingStageEnum.QUEUED,
+        ProcessingStageEnum.OCR_PROCESSING,
+        ProcessingStageEnum.STRUCTURE_ANALYSIS,
+        ProcessingStageEnum.DOCUMENT_CREATION
+    ]),
+    startedAt: z.date(),
+    estimatedTimeRemaining: z.number().optional(),
+    pageProcessingTimes: z.array(z.number()).optional() // Track processing times for estimation
+});
+
+export type ProcessingProgress = z.infer<typeof processingProgressSchema>;
+
 export const documentSessionSchema = z.object({
     sessionId: z.string(),
     userId: z.string(),
-    status: z.enum(['COLLECTING', 'PROCESSING', 'COMPLETED', 'FAILED']),
+    status: z.enum(['COLLECTING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED']),
     pageCount: z.number().min(1).max(10),
     receivedPages: z.number().default(0),
     pageOrder: z.array(z.string()),  // Array of pending image IDs in order
@@ -41,7 +72,15 @@ export const documentSessionSchema = z.object({
     error: z.string().optional(),
     totalSize: z.number()  // Track total size for 10 MiB limit
         .max(10 * 1024 * 1024, "Total file size cannot exceed 10 MiB"),
-    metadata: documentSessionMetadataSchema.optional()
+    metadata: documentSessionMetadataSchema.optional(),
+    processingProgress: processingProgressSchema.optional(),
+    textQuality: z.enum([
+        'printed',
+        'handwriting'
+    ]).optional(),
+    processingStartedAt: z.date().optional(),
+    processingCompletedAt: z.date().optional(),
+    documentId: z.string().optional()
 });
 
 export type DocumentSession = z.infer<typeof documentSessionSchema>;

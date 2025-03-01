@@ -14,6 +14,7 @@ import {
     handleClassSelection as metadataHandleClassSelection,
     handleStudentSelection as metadataHandleStudentSelection
 } from './metadata-handler';
+import { handleTextQualitySelection } from './quality-selection-handler';
 import { getActiveSession } from '../services/documentSession';
 import { adminDb } from '../firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -163,6 +164,25 @@ const handleMessageComponent = async (interaction: Interaction): Promise<void> =
         // Extract document ID from custom_id
         const documentId = customId.substring(9); // Remove "view_doc_" prefix
         await handleViewDocument(interaction, documentId);
+    } else if (customId.startsWith('confirm_process_')) {
+        // Extract session ID from custom_id
+        const sessionId = customId.split('_')[2];
+        await handleConfirmProcess(interaction, sessionId);
+    } else if (customId.startsWith('cancel_process_')) {
+        // Extract session ID from custom_id
+        const sessionId = customId.split('_')[2];
+        await handleCancelProcess(interaction, sessionId);
+    } else if (customId.startsWith('text_quality_')) {
+        // Extract session ID from custom_id
+        const sessionId = customId.split('_')[2];
+        const textQuality = interaction.data?.values?.[0];
+        
+        if (!textQuality) {
+            console.error('No text quality selected');
+            return;
+        }
+        
+        await handleTextQualitySelection(interaction, sessionId, textQuality);
     } else {
         await respondToInteraction(interaction, {
             type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
@@ -701,4 +721,104 @@ const handleHelp = async (interaction: Interaction): Promise<void> => {
             content: helpText
         }
     });
+};
+
+/**
+ * Handle confirmation to process document
+ * @param interaction Discord interaction
+ * @param sessionId Document session ID
+ */
+const handleConfirmProcess = async (
+  interaction: Interaction,
+  sessionId: string
+): Promise<void> => {
+  try {
+    // Update the interaction to show text quality selection
+    await respondToInteraction(interaction, {
+      type: 7, // UPDATE_MESSAGE
+      data: {
+        content: "Please select the text quality to help improve processing accuracy:",
+        components: [
+          {
+            type: ComponentType.ActionRow,
+            components: [
+              {
+                type: ComponentType.SelectMenu,
+                custom_id: `text_quality_${sessionId}`,
+                placeholder: "Select text quality",
+                options: [
+                  {
+                    label: "Printed Text",
+                    value: "printed",
+                    description: "Typed or clearly printed text"
+                  },
+                  {
+                    label: "Handwriting",
+                    value: "handwriting",
+                    description: "Any form of handwritten text"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error confirming process:', error);
+    await respondToInteraction(interaction, {
+      type: 7, // UPDATE_MESSAGE
+      data: {
+        content: "An error occurred. Please try again.",
+        components: [] // Remove buttons
+      }
+    });
+  }
+};
+
+/**
+ * Handle cancellation of document processing
+ * @param interaction Discord interaction
+ * @param sessionId Document session ID
+ */
+const handleCancelProcess = async (
+  interaction: Interaction,
+  sessionId: string
+): Promise<void> => {
+  try {
+    // Get user ID safely (needed for future operations)
+    const userId = interaction.member?.user.id || interaction.user?.id;
+    
+    if (!userId) {
+      console.error('Missing user ID in interaction');
+      throw new Error('User ID not found in interaction');
+    }
+    
+    // Update session status to CANCELLED
+    await adminDb
+      .collection('document_sessions')
+      .doc(sessionId)
+      .update({
+        status: 'CANCELLED',
+        updatedAt: new Date()
+      });
+    
+    // Update the interaction to show cancellation
+    await respondToInteraction(interaction, {
+      type: 7, // UPDATE_MESSAGE
+      data: {
+        content: "Document processing has been cancelled. Your images are still saved and you can process them later.",
+        components: [] // Remove buttons
+      }
+    });
+  } catch (error) {
+    console.error('Error cancelling process:', error);
+    await respondToInteraction(interaction, {
+      type: 7, // UPDATE_MESSAGE
+      data: {
+        content: "An error occurred while cancelling. Please try again.",
+        components: [] // Remove buttons
+      }
+    });
+  }
 };
