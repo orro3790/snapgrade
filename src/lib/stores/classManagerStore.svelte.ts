@@ -702,6 +702,7 @@ async function saveStudent(studentData: Partial<Student>) {
 
 /**
  * Delete the selected class with optimistic updates
+ * Also deletes all associated students
  */
 async function deleteClass() {
     if (!classState.selectedClass) return false;
@@ -742,6 +743,19 @@ async function deleteClass() {
         
         // Delete from Firestore (background)
         const batch = writeBatch(db);
+        
+        // First, get all students belonging to this class
+        const studentsQuery = query(
+            collection(db, 'students'),
+            where('classId', '==', classId)
+        );
+        
+        const studentsSnapshot = await getDocs(studentsQuery);
+        
+        // Delete all students associated with this class
+        studentsSnapshot.forEach((studentDoc) => {
+            batch.delete(doc(db, 'students', studentDoc.id));
+        });
         
         // Delete the class document
         batch.delete(doc(db, 'classes', classId));
