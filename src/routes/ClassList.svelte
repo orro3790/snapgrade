@@ -13,14 +13,7 @@
 	// Keep track of the selected class ID
 	let selectedClassId = $derived(selectedClass?.id || null);
 	
-	// Create a derived key that changes when classes array changes
-	// This will force re-rendering when classes are added or removed
-	// Using a more robust key derivation strategy similar to ClassDetails.svelte
-	let classesKey = $derived(() => {
-		// Include a string representation of all class IDs to detect any changes
-		const classIds = classes.map(c => c.id).join(',');
-		return `classes-${classes.length}-${classIds}`;
-	});
+	// No need for derived key with client-first approach
 
 	function handleClassClick(classData: Class) {
 		classManagerStore.selectClass(classData);
@@ -38,7 +31,6 @@
 	}
 </script>
 
-{#key classesKey}
 <div class="class-list-container" role="navigation" aria-label="Class list">
 	<div class="header">
 		<h2>Classes</h2>
@@ -75,7 +67,6 @@
 		</ul>
 	{/if}
 </div>
-{/key}
 
 <style>
 	.class-list-container {

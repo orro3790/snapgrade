@@ -24,21 +24,11 @@
 	import { classManagerStore } from '$lib/stores/classManagerStore.svelte';
 	import ClassList from './ClassList.svelte';
 
-	// Track cleanup function
-	let cleanup: (() => void) | undefined;
-	
 	// Initialize the class manager store on mount, not with $effect
-	onMount(() => {
+	onMount(async () => {
 		if (data.user && data.uid) {
-			// Store the cleanup function
-			cleanup = classManagerStore.initializeWithUser(data.user, data.uid);
-		}
-	});
-	
-	// Clean up when component is destroyed
-	onDestroy(() => {
-		if (cleanup) {
-			cleanup();
+			// Initialize the store with user data
+			classManagerStore.initializeWithUser(data.user, data.uid);
 		}
 	});
 	

@@ -3,7 +3,6 @@
 	import { editorStore, EditorMode } from '$lib/stores/editorStore.svelte';
 	import { sidebarStore } from '$lib/stores/sidebarStore.svelte';
 	import TextNode from './TextNode.svelte';
-	import FormattingSidebar from './FormattingSidebar.svelte';
 
 	// Props and state
 	const {
@@ -105,11 +104,6 @@
 	role="textbox"
 >
 	<div class="main-content" class:sidebar-expanded={sidebarStore.state.state === 'expanded'}>
-		<!-- Show formatting sidebar only in formatting mode -->
-		{#if currentMode === EditorMode.FORMATTING}
-			<FormattingSidebar />
-		{/if}
-
 		<div class="a4-content" role="complementary" aria-label="Preview">
 			<div class="content-wrapper">
 				{#each nodes as node (node.id)}

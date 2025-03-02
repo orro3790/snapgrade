@@ -6,6 +6,7 @@
 	import StatusNotification from '$lib/components/StatusNotification.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import XIcon from '$lib/icons/XIcon.svelte';
+	import { classManagerStore } from '$lib/stores/classManagerStore.svelte';
 
 	// Props with proper typing
 	let { data, onCancel, classId, isEditing = false } = $props<{
@@ -30,58 +31,63 @@
 		}
 	});
 	
-	const { form, errors, enhance, message } = superForm(data, {
+	const { form, errors, message } = superForm(data, {
 		dataType: 'json', // Set dataType to 'json' to handle nested data structures
-		id: 'student-form-editor', // Set a unique ID different from the one in ClassManager
-		onSubmit: ({ formData, cancel }) => {
-			isSubmitting = true;
-			hasError = false;
-			
-			// Make sure classId is a string, not a function or derived value
-			if (typeof $form.classId === 'function') {
-				$form.classId = classId;
-			} else if (!$form.classId && classId) {
-				$form.classId = classId;
+		id: 'student-form-editor' // Set a unique ID different from the one in ClassManager
+	});
+	
+	// Handle form submission with client-first approach
+	async function handleSubmit(event: Event) {
+		event.preventDefault();
+		
+		isSubmitting = true;
+		hasError = false;
+		
+		// Make sure classId is a string, not a function or derived value
+		if (typeof $form.classId === 'function') {
+			$form.classId = classId;
+		} else if (!$form.classId && classId) {
+			$form.classId = classId;
+		}
+		
+		// Log the current form state before cleaning
+		console.log('Student form before cleaning:', JSON.stringify($form));
+		console.log('Is editing student mode:', isEditing);
+		console.log('Original student form ID:', $form.id);
+		
+		// Get the ID from the parent component's props
+		const parentData = data.data;
+		console.log('Parent student data ID:', parentData?.id);
+		
+		// Create a clean form data object with ALL required schema fields
+		// This ensures proper validation and update vs. create logic
+		const cleanForm = {
+			// CRITICAL: Preserve the ID for editing mode - use parent data ID if available
+			id: isEditing ? (parentData?.id || $form.id || '') : '',
+			name: $form.name,
+			description: $form.description || '',
+			classId: $form.classId,
+			// Include all required fields from the schema
+			notes: $form.notes || [],
+			status: $form.status || 'active',
+			// Preserve metadata for existing students
+			metadata: $form.metadata || {
+				createdAt: new Date(),
+				updatedAt: new Date()
 			}
+		};
+		
+		console.log('Submitting student form in ' + (isEditing ? 'EDIT' : 'CREATE') + ' mode');
+		console.log('Student form ID being submitted:', cleanForm.id);
+		
+		try {
+			// Use the classManagerStore to save the student with client-first approach
+			const success = await classManagerStore.saveStudent(cleanForm);
 			
-			// Log the current form state before cleaning
-			console.log('Student form before cleaning:', JSON.stringify($form));
-			console.log('Is editing student mode:', isEditing);
-			console.log('Original student form ID:', $form.id);
-			
-			// Get the ID from the parent component's props
-			const parentData = data.data;
-			console.log('Parent student data ID:', parentData?.id);
-			
-			// Create a clean form data object with ALL required schema fields
-			// This ensures proper validation and update vs. create logic
-			const cleanForm = {
-				// CRITICAL: Preserve the ID for editing mode - use parent data ID if available
-				id: isEditing ? (parentData?.id || $form.id || '') : '',
-				name: $form.name,
-				description: $form.description || '',
-				classId: $form.classId,
-				// Include all required fields from the schema
-				notes: $form.notes || [],
-				status: $form.status || 'active',
-				// Preserve metadata for existing students
-				metadata: $form.metadata || {
-					createdAt: new Date(),
-					updatedAt: new Date()
-				}
-			};
-			
-			console.log('Submitting student form in ' + (isEditing ? 'EDIT' : 'CREATE') + ' mode');
-			console.log('Student form ID being submitted:', cleanForm.id);
-			
-			// Replace the form data with our clean version
-			form.update(() => cleanForm);
-		},
-		onResult: ({ result }) => {
-			if (result.type === 'success') {
+			if (success) {
 				// Clear form state on success
 				if (!isEditing) {
-					form.update(() => ({
+					$form = {
 						id: '',
 						name: '',
 						description: '',
@@ -92,20 +98,23 @@
 							createdAt: new Date(),
 							updatedAt: new Date()
 						}
-					}));
+					};
 				}
 				
+				message.set(isEditing ? 'Student updated successfully' : 'Student created successfully');
 				onCancel(); // Close the form
 			} else {
 				hasError = true;
+				message.set('Failed to save student. Please try again.');
 			}
-			isSubmitting = false;
-		},
-		onError: (error) => {
+		} catch (err) {
+			console.error('Error saving student:', err);
 			hasError = true;
+			message.set('An unexpected error occurred');
+		} finally {
 			isSubmitting = false;
 		}
-	});
+	}
 	
 	let isSubmitting = $state(false);
 	let hasError = $state(false);
@@ -156,7 +165,10 @@
 		</div>
 	</div>
 
-	<form method="POST" action="?/manageStudent" use:enhance>
+	<form onsubmit={(event) => {
+		event.preventDefault();
+		handleSubmit(event);
+	}}>
 		<!-- No need for hidden inputs when using dataType: 'json' -->
 		<!-- The entire $form object will be submitted automatically -->
 		
@@ -207,7 +219,7 @@
 		</div>
 	</form>
 
-	{#if $message && $message.trim() !== '' && hasError}
+	{#if $message && $message.trim() !== ''}
 		<div class="notification-container">
 			<StatusNotification
 				type={hasError ? 'error' : 'success'}

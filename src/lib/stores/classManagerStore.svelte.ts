@@ -1,7 +1,8 @@
 /**
  * @module classManagerStore
  * @description Central state management for the Class Manager feature.
- * Handles classes, students, and their interactions in a reactive way.
+ * Uses a client-first approach where UI updates happen immediately,
+ * and Firestore operations run in the background.
  * Uses Svelte 5 runes ($state, $derived, $effect) for reactivity.
  */
 
@@ -9,17 +10,18 @@ import type { Class } from '$lib/schemas/class';
 import type { Student } from '$lib/schemas/student';
 import type { Document } from '$lib/schemas/document';
 import { db } from '$lib/firebase/client';
-import { 
-    collection, 
-    query, 
-    where, 
-    onSnapshot, 
-    doc, 
-    updateDoc, 
-    addDoc, 
-    deleteDoc, 
+import {
+    collection,
+    query,
+    where,
+    doc,
+    updateDoc,
+    addDoc,
     serverTimestamp,
     Timestamp,
+    getDocs,
+    writeBatch,
+    documentId
 } from 'firebase/firestore';
 
 /**
@@ -42,6 +44,7 @@ const classState = $state({
     // UI state
     isLoading: false,
     isProcessing: false,
+    isRefreshing: false,
     error: null as string | null,
     
     // Form states
@@ -58,59 +61,26 @@ const classState = $state({
     currentUid: null as string | null
 });
 
-// Track active listeners for proper cleanup
-const activeListeners = {
-    classes: null as (() => void) | null,
-    students: null as (() => void) | null,
-    documents: null as (() => void) | null
-};
-
-/**
- * Clean up all active listeners
- */
-function cleanupListeners() {
-    Object.keys(activeListeners).forEach((key) => {
-        const typedKey = key as keyof typeof activeListeners;
-        if (activeListeners[typedKey]) {
-            activeListeners[typedKey]!();
-            activeListeners[typedKey] = null;
-        }
-    });
-}
-
 /**
  * Initialize the store with user data
  * @param user - The current user
  * @param uid - The current user's UID
- * @returns A cleanup function to unsubscribe all listeners
  */
 function initializeWithUser(user: App.Locals['user'], uid: string) {
-    // Clean up any existing listeners first
-    cleanupListeners();
-    
     // Store user data
     classState.currentUser = user;
     classState.currentUid = uid;
     
     // Load classes for the user
     loadClassesForUser(uid);
-    
-    // Return cleanup function
-    return cleanupListeners;
 }
 
 /**
  * Load classes for the current user
  * @param uid - The user ID to load classes for
  */
-function loadClassesForUser(uid: string) {
-    // Clean up any existing listener
-    if (activeListeners.classes) {
-        activeListeners.classes();
-        activeListeners.classes = null;
-    }
-    
-    if (!uid || !classState.currentUser?.classes || classState.currentUser.classes.length === 0) {
+async function loadClassesForUser(uid: string) {
+    if (!uid) {
         classState.classes = [];
         classState.isLoading = false;
         return;
@@ -123,14 +93,14 @@ function loadClassesForUser(uid: string) {
         // Log the classes array for debugging
         console.log('Loading classes for user:', {
             uid,
-            classesCount: classState.currentUser.classes.length,
-            classes: classState.currentUser.classes
+            classesCount: classState.currentUser?.classes?.length || 0,
+            classes: classState.currentUser?.classes || []
         });
         
-        // Check if classes array is valid for the 'in' operator (must be an array with valid values)
-        if (!Array.isArray(classState.currentUser.classes)) {
-            console.error('Classes is not an array:', classState.currentUser.classes);
-            classState.error = 'Invalid classes data. Please try again.';
+        // Check if classes array exists and is valid
+        if (!classState.currentUser?.classes || !Array.isArray(classState.currentUser.classes)) {
+            console.log('No classes array or invalid array:', classState.currentUser?.classes);
+            classState.classes = [];
             classState.isLoading = false;
             return;
         }
@@ -142,60 +112,54 @@ function loadClassesForUser(uid: string) {
         
         // If no valid class IDs, return empty array
         if (validClassIds.length === 0) {
+            console.log('No valid class IDs found');
             classState.classes = [];
             classState.isLoading = false;
             return;
         }
         
+        console.log('Valid class IDs:', validClassIds);
+        
         // Create the query with valid class IDs
         const classesQuery = query(
             collection(db, 'classes'),
-            where('id', 'in', validClassIds)
+            where(documentId(), 'in', validClassIds)
         );
         
-        // Store the listener for later cleanup
-        activeListeners.classes = onSnapshot(
-            classesQuery,
-            (snapshot) => {
-                classState.classes = snapshot.docs.map((docSnapshot) => {
-                    const data = docSnapshot.data();
-                    return {
-                        ...data,
-                        id: docSnapshot.id,
-                        metadata: {
-                            createdAt: data.metadata?.createdAt instanceof Timestamp 
-                                ? data.metadata.createdAt.toDate() 
-                                : new Date(),
-                            updatedAt: data.metadata?.updatedAt instanceof Timestamp 
-                                ? data.metadata.updatedAt.toDate() 
-                                : new Date()
-                        }
-                    } as Class;
-                });
-                
-                classState.isLoading = false;
-                
-                // If there was a selected class that's been updated, update it
-                if (classState.selectedClass) {
-                    const updatedClass = classState.classes.find(
-                        c => c.id === classState.selectedClass?.id
-                    );
-                    if (updatedClass) {
-                        classState.selectedClass = updatedClass;
-                    }
+        // Fetch classes directly without listeners
+        const snapshot = await getDocs(classesQuery);
+        
+        console.log('Classes fetched:', snapshot.size);
+        
+        classState.classes = snapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+                ...data,
+                id: docSnapshot.id,
+                metadata: {
+                    createdAt: data.metadata?.createdAt instanceof Timestamp 
+                        ? data.metadata.createdAt.toDate() 
+                        : new Date(),
+                    updatedAt: data.metadata?.updatedAt instanceof Timestamp 
+                        ? data.metadata.updatedAt.toDate() 
+                        : new Date()
                 }
-            },
-            (err) => {
-                console.error('Firestore error:', err);
-                classState.classes = [];
-                classState.error = 'Failed to load classes. Please try again.';
-                classState.isLoading = false;
+            } as Class;
+        });
+        
+        // If there was a selected class that's been updated, update it
+        if (classState.selectedClass) {
+            const updatedClass = classState.classes.find(
+                c => c.id === classState.selectedClass?.id
+            );
+            if (updatedClass) {
+                classState.selectedClass = updatedClass;
             }
-        );
+        }
     } catch (err) {
         console.error('Error loading classes from Firestore:', err);
-        classState.classes = [];
         classState.error = 'Failed to load classes. Please try again.';
+    } finally {
         classState.isLoading = false;
     }
 }
@@ -203,13 +167,7 @@ function loadClassesForUser(uid: string) {
 /**
  * Load students for the selected class
  */
-function loadStudentsForClass() {
-    // Clean up any existing student listener
-    if (activeListeners.students) {
-        activeListeners.students();
-        activeListeners.students = null;
-    }
-    
+async function loadStudentsForClass() {
     // If no class is selected, clear students and return
     if (!classState.selectedClass) {
         classState.students = [];
@@ -225,52 +183,41 @@ function loadStudentsForClass() {
             where('status', '==', 'active')
         );
         
-        // Store the listener for later cleanup
-        activeListeners.students = onSnapshot(
-            studentsQuery,
-            (snapshot) => {
-                classState.students = snapshot.docs.map((docSnapshot) => {
-                    const data = docSnapshot.data();
-                    return {
-                        ...data,
-                        id: docSnapshot.id,
-                        metadata: {
-                            createdAt: data.metadata?.createdAt instanceof Timestamp 
-                                ? data.metadata.createdAt.toDate() 
-                                : new Date(),
-                            updatedAt: data.metadata?.updatedAt instanceof Timestamp 
-                                ? data.metadata.updatedAt.toDate() 
-                                : new Date()
-                        }
-                    } as Student;
-                });
-                
-                classState.isLoading = false;
-                
-                // Update document counts after loading students
-                updateDocumentCounts();
-                
-                // If there was a selected student that's been updated, update it
-                if (classState.selectedStudent) {
-                    const updatedStudent = classState.students.find(
-                        s => s.id === classState.selectedStudent?.id
-                    );
-                    if (updatedStudent) {
-                        classState.selectedStudent = updatedStudent;
-                    }
+        // Fetch students directly without listeners
+        const snapshot = await getDocs(studentsQuery);
+        
+        classState.students = snapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+                ...data,
+                id: docSnapshot.id,
+                metadata: {
+                    createdAt: data.metadata?.createdAt instanceof Timestamp 
+                        ? data.metadata.createdAt.toDate() 
+                        : new Date(),
+                    updatedAt: data.metadata?.updatedAt instanceof Timestamp 
+                        ? data.metadata.updatedAt.toDate() 
+                        : new Date()
                 }
-            },
-            (err) => {
-                console.error('Firestore error:', err);
-                classState.students = [];
-                classState.error = 'Failed to load students. Please try again.';
-                classState.isLoading = false;
+            } as Student;
+        });
+        
+        // Update document counts after loading students
+        await updateDocumentCounts();
+        
+        // If there was a selected student that's been updated, update it
+        if (classState.selectedStudent) {
+            const updatedStudent = classState.students.find(
+                s => s.id === classState.selectedStudent?.id
+            );
+            if (updatedStudent) {
+                classState.selectedStudent = updatedStudent;
             }
-        );
+        }
     } catch (err) {
         console.error('Error loading students from Firestore:', err);
-        classState.students = [];
         classState.error = 'Failed to load students. Please try again.';
+    } finally {
         classState.isLoading = false;
     }
 }
@@ -278,13 +225,7 @@ function loadStudentsForClass() {
 /**
  * Load documents for the selected student
  */
-function loadDocumentsForStudent() {
-    // Clean up any existing document listener
-    if (activeListeners.documents) {
-        activeListeners.documents();
-        activeListeners.documents = null;
-    }
-    
+async function loadDocumentsForStudent() {
     // If no student is selected, clear documents and return
     if (!classState.selectedStudent) {
         classState.documents = [];
@@ -298,44 +239,36 @@ function loadDocumentsForStudent() {
             where('status', '==', 'completed')
         );
         
-        // Store the listener for later cleanup
-        activeListeners.documents = onSnapshot(
-            documentsQuery,
-            (snapshot) => {
-                classState.documents = snapshot.docs.map((docSnapshot) => {
-                    const data = docSnapshot.data();
-                    return {
-                        ...data,
-                        id: docSnapshot.id,
-                        createdAt: data.createdAt instanceof Timestamp 
-                            ? data.createdAt.toDate() 
-                            : new Date(),
-                        updatedAt: data.updatedAt instanceof Timestamp 
-                            ? data.updatedAt.toDate() 
-                            : new Date()
-                    } as Document;
-                });
-                
-                // Also update document counts
-                updateDocumentCounts();
-            },
-            (err) => {
-                console.error('Error fetching documents:', err);
-                classState.error = 'Failed to load documents. Please try again.';
-                classState.documents = [];
-            }
-        );
+        // Fetch documents directly without listeners
+        const snapshot = await getDocs(documentsQuery);
+        
+        classState.documents = snapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+                ...data,
+                id: docSnapshot.id,
+                createdAt: data.createdAt instanceof Timestamp 
+                    ? data.createdAt.toDate() 
+                    : new Date(),
+                updatedAt: data.updatedAt instanceof Timestamp 
+                    ? data.updatedAt.toDate() 
+                    : new Date()
+            } as Document;
+        });
+        
+        // Also update document counts
+        await updateDocumentCounts();
     } catch (err) {
         console.error('Error loading documents from Firestore:', err);
-        classState.documents = [];
         classState.error = 'Failed to load documents. Please try again.';
+        classState.documents = [];
     }
 }
 
 /**
  * Update document counts for all students in the selected class
  */
-function updateDocumentCounts() {
+async function updateDocumentCounts() {
     if (classState.students.length === 0) {
         classState.documentCounts = {};
         return;
@@ -351,29 +284,20 @@ function updateDocumentCounts() {
             where('status', '!=', 'staged')
         );
         
-        // One-time listener for document counts
-        const unsubscribe = onSnapshot(
-            documentsQuery,
-            (snapshot) => {
-                const documents = snapshot.docs.map((doc) => doc.data() as Document);
-                const studentIds = classState.students.map(student => student.id);
-                const counts: Record<string, number> = {};
-                
-                for (const doc of documents) {
-                    if (studentIds.includes(doc.studentId)) {
-                        counts[doc.studentId] = (counts[doc.studentId] || 0) + 1;
-                    }
-                }
-                
-                classState.documentCounts = counts;
-                
-                // Cleanup this one-time listener
-                unsubscribe();
-            },
-            (err) => {
-                console.error('Error fetching documents for counts:', err);
+        // Fetch documents directly without listeners
+        const snapshot = await getDocs(documentsQuery);
+        
+        const documents = snapshot.docs.map((doc) => doc.data() as Document);
+        const studentIds = classState.students.map(student => student.id);
+        const counts: Record<string, number> = {};
+        
+        for (const doc of documents) {
+            if (studentIds.includes(doc.studentId)) {
+                counts[doc.studentId] = (counts[doc.studentId] || 0) + 1;
             }
-        );
+        }
+        
+        classState.documentCounts = counts;
     } catch (err) {
         console.error('Error updating document counts:', err);
     }
@@ -500,23 +424,83 @@ function cancelDelete() {
 }
 
 /**
- * Create or update a class
+ * Create or update a class with optimistic updates
  * @param classData - The class data to save
  */
 async function saveClass(classData: Partial<Class>) {
     classState.isProcessing = true;
     
+    // For new classes, generate a temporary ID that we'll use for both optimistic update and rollback
+    const tempId = !classData.id ? `temp_${Date.now()}` : null;
+    
+    // Store original state for potential rollback
+    const originalClasses = [...classState.classes];
+    const originalSelectedClass = classState.selectedClass ? { ...classState.selectedClass } : null;
+    const originalCurrentUser = classState.currentUser ? { ...classState.currentUser } : null;
+    
     try {
         if (classData.id) {
-            // Update existing class
-            await updateDoc(doc(db, 'classes', classData.id), {
+            // Update existing class - optimistic update
+            const existingClassIndex = classState.classes.findIndex(c => c.id === classData.id);
+            
+            if (existingClassIndex !== -1) {
+                // Create updated class object
+                const updatedClass = {
+                    ...classState.classes[existingClassIndex],
+                    ...classData,
+                    metadata: {
+                        ...classState.classes[existingClassIndex].metadata,
+                        updatedAt: new Date()
+                    }
+                };
+                
+                // Update local state immediately
+                const updatedClasses = [...classState.classes];
+                updatedClasses[existingClassIndex] = updatedClass as Class;
+                classState.classes = updatedClasses;
+                
+                // If this is the selected class, update it too
+                if (classState.selectedClass?.id === classData.id) {
+                    classState.selectedClass = updatedClass as Class;
+                }
+                
+                // Create a clean update object without undefined values
+                // Using Partial<Class> with a special metadata.updatedAt field
+                const updateData: Partial<Omit<Class, 'metadata'>> & {
+                    'metadata.updatedAt'?: FirebaseFirestore.FieldValue;
+                } = {};
+                
+                // Only include defined fields
+                if (classData.name !== undefined) updateData.name = classData.name;
+                if (classData.description !== undefined) updateData.description = classData.description;
+                if (classData.status !== undefined) updateData.status = classData.status;
+                
+                // Always update the updatedAt timestamp
+                updateData['metadata.updatedAt'] = serverTimestamp();
+                
+                // Update in Firestore (background)
+                await updateDoc(doc(db, 'classes', classData.id), updateData);
+            }
+        } else if (tempId) {
+            // Create new class with temporary ID for immediate UI update
+            const newClass = {
                 ...classData,
-                'metadata.updatedAt': serverTimestamp()
-            });
-        } else {
-            // Create new class
+                id: tempId,
+                students: [],
+                status: 'active',
+                metadata: {
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
+            } as Class;
+            
+            // Update local state immediately
+            classState.classes = [...classState.classes, newClass];
+            
+            // Create in Firestore (background)
             const newClassRef = await addDoc(collection(db, 'classes'), {
                 ...classData,
+                id: '', // This will be updated with the document ID after creation
                 students: [],
                 status: 'active',
                 metadata: {
@@ -525,7 +509,12 @@ async function saveClass(classData: Partial<Class>) {
                 }
             });
             
-            // Also update user's classes array
+            // Update the document with its own ID
+            await updateDoc(doc(db, 'classes', newClassRef.id), {
+                id: newClassRef.id
+            });
+            
+            // Update user's classes array in Firestore
             if (classState.currentUser && classState.currentUid) {
                 const userRef = doc(db, 'users', classState.currentUid);
                 
@@ -540,10 +529,15 @@ async function saveClass(classData: Partial<Class>) {
                     ...classState.currentUser,
                     classes: updatedClasses
                 };
-                
-                // No need to force reload classes - the Firestore listener will handle updates
-                // This matches the pattern used for students, which works correctly
             }
+            
+            // Replace temporary class with real one
+            classState.classes = classState.classes.map(c =>
+                c.id === tempId ? {
+                    ...c,
+                    id: newClassRef.id
+                } : c
+            );
         }
         
         // Exit edit mode
@@ -554,6 +548,12 @@ async function saveClass(classData: Partial<Class>) {
     } catch (err) {
         console.error('Error saving class:', err);
         classState.error = 'Failed to save class. Please try again.';
+        
+        // Rollback to original state
+        classState.classes = originalClasses;
+        classState.selectedClass = originalSelectedClass;
+        classState.currentUser = originalCurrentUser;
+        
         return false;
     } finally {
         classState.isProcessing = false;
@@ -561,23 +561,83 @@ async function saveClass(classData: Partial<Class>) {
 }
 
 /**
- * Create or update a student
+ * Create or update a student with optimistic updates
  * @param studentData - The student data to save
  */
 async function saveStudent(studentData: Partial<Student>) {
     classState.isProcessing = true;
     
+    // For new students, generate a temporary ID that we'll use for both optimistic update and rollback
+    const tempId = !studentData.id ? `temp_${Date.now()}` : null;
+    
+    // Store original state for potential rollback
+    const originalStudents = [...classState.students];
+    const originalSelectedStudent = classState.selectedStudent ? { ...classState.selectedStudent } : null;
+    const originalSelectedClass = classState.selectedClass ? { ...classState.selectedClass } : null;
+    
     try {
         if (studentData.id) {
-            // Update existing student
-            await updateDoc(doc(db, 'students', studentData.id), {
+            // Update existing student - optimistic update
+            const existingStudentIndex = classState.students.findIndex(s => s.id === studentData.id);
+            
+            if (existingStudentIndex !== -1) {
+                // Create updated student object
+                const updatedStudent = {
+                    ...classState.students[existingStudentIndex],
+                    ...studentData,
+                    metadata: {
+                        ...classState.students[existingStudentIndex].metadata,
+                        updatedAt: new Date()
+                    }
+                };
+                
+                // Update local state immediately
+                const updatedStudents = [...classState.students];
+                updatedStudents[existingStudentIndex] = updatedStudent as Student;
+                classState.students = updatedStudents;
+                
+                // If this is the selected student, update it too
+                if (classState.selectedStudent?.id === studentData.id) {
+                    classState.selectedStudent = updatedStudent as Student;
+                }
+                
+                // Create a clean update object without undefined values
+                const updateData: Partial<Omit<Student, 'metadata'>> & {
+                    'metadata.updatedAt'?: FirebaseFirestore.FieldValue;
+                } = {};
+                
+                // Only include defined fields
+                if (studentData.name !== undefined) updateData.name = studentData.name;
+                if (studentData.description !== undefined) updateData.description = studentData.description;
+                if (studentData.status !== undefined) updateData.status = studentData.status;
+                if (studentData.notes !== undefined) updateData.notes = studentData.notes;
+                
+                // Always update the updatedAt timestamp
+                updateData['metadata.updatedAt'] = serverTimestamp();
+                
+                // Update in Firestore (background)
+                await updateDoc(doc(db, 'students', studentData.id), updateData);
+            }
+        } else if (tempId) {
+            // Create new student with temporary ID for immediate UI update
+            const newStudent = {
                 ...studentData,
-                'metadata.updatedAt': serverTimestamp()
-            });
-        } else {
-            // Create new student
+                id: tempId,
+                notes: [],
+                status: 'active',
+                metadata: {
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
+            } as Student;
+            
+            // Update local state immediately
+            classState.students = [...classState.students, newStudent];
+            
+            // Create in Firestore (background)
             const newStudentRef = await addDoc(collection(db, 'students'), {
                 ...studentData,
+                id: '', // This will be updated with the document ID after creation
                 notes: [],
                 status: 'active',
                 metadata: {
@@ -586,13 +646,35 @@ async function saveStudent(studentData: Partial<Student>) {
                 }
             });
             
-            // Update class's students array
+            // Update the document with its own ID
+            await updateDoc(doc(db, 'students', newStudentRef.id), {
+                id: newStudentRef.id
+            });
+            
+            // Update class's students array in Firestore
             if (classState.selectedClass) {
                 const classRef = doc(db, 'classes', classState.selectedClass.id);
+                
+                // Update the class document in Firestore
+                const updatedStudents = [...(classState.selectedClass.students || []), newStudentRef.id];
                 await updateDoc(classRef, {
-                    students: [...(classState.selectedClass.students || []), newStudentRef.id]
+                    students: updatedStudents
                 });
+                
+                // Update the local class object to ensure reactivity
+                classState.selectedClass = {
+                    ...classState.selectedClass,
+                    students: updatedStudents
+                };
             }
+            
+            // Replace temporary student with real one
+            classState.students = classState.students.map(s =>
+                s.id === tempId ? {
+                    ...s,
+                    id: newStudentRef.id
+                } : s
+            );
         }
         
         // Exit edit mode
@@ -604,6 +686,12 @@ async function saveStudent(studentData: Partial<Student>) {
     } catch (err) {
         console.error('Error saving student:', err);
         classState.error = 'Failed to save student. Please try again.';
+        
+        // Rollback to original state
+        classState.students = originalStudents;
+        classState.selectedStudent = originalSelectedStudent;
+        classState.selectedClass = originalSelectedClass;
+        
         return false;
     } finally {
         classState.isProcessing = false;
@@ -611,40 +699,36 @@ async function saveStudent(studentData: Partial<Student>) {
 }
 
 /**
- * Delete the selected class
+ * Delete the selected class with optimistic updates
  */
 async function deleteClass() {
     if (!classState.selectedClass) return false;
     
     classState.isProcessing = true;
     
+    // Store original state for potential rollback
+    const originalClasses = [...classState.classes];
+    const originalSelectedClass = classState.selectedClass ? { ...classState.selectedClass } : null;
+    const originalSelectedStudent = classState.selectedStudent ? { ...classState.selectedStudent } : null;
+    const originalStudents = [...classState.students];
+    const originalDocuments = [...classState.documents];
+    const originalCurrentUser = classState.currentUser ? { ...classState.currentUser } : null;
+    const originalShowDeleteClassConfirm = classState.showDeleteClassConfirm;
+    
     try {
-        // Delete the class document
-        await deleteDoc(doc(db, 'classes', classState.selectedClass.id));
+        const classId = classState.selectedClass.id;
         
-        // Remove from user's classes array
+        // Update local state immediately
+        classState.classes = classState.classes.filter(c => c.id !== classId);
+        
+        // Update local user object
         if (classState.currentUser && classState.currentUid) {
-            const userRef = doc(db, 'users', classState.currentUid);
-            const updatedClasses = classState.currentUser.classes?.filter(
-                (id: string) => id !== classState.selectedClass?.id
-            ) || [];
-            
-            // Update Firestore user document
-            await updateDoc(userRef, {
-                classes: updatedClasses
-            });
-            
-            // Update local user object to ensure reactivity
             classState.currentUser = {
                 ...classState.currentUser,
-                classes: updatedClasses
+                classes: classState.currentUser.classes?.filter(
+                    (id: string) => id !== classId
+                ) || []
             };
-            
-            console.log('Updated user classes after deletion:', {
-                deletedClassId: classState.selectedClass?.id,
-                updatedClassesCount: updatedClasses.length,
-                updatedClasses
-            });
         }
         
         // Reset state
@@ -653,12 +737,42 @@ async function deleteClass() {
         classState.students = [];
         classState.documents = [];
         classState.showDeleteClassConfirm = false;
-        classState.error = null;
         
+        // Delete from Firestore (background)
+        const batch = writeBatch(db);
+        
+        // Delete the class document
+        batch.delete(doc(db, 'classes', classId));
+        
+        // Remove from user's classes array
+        if (classState.currentUid) {
+            const userRef = doc(db, 'users', classState.currentUid);
+            const updatedClasses = classState.currentUser?.classes?.filter(
+                (id: string) => id !== classId
+            ) || [];
+            
+            batch.update(userRef, {
+                classes: updatedClasses
+            });
+        }
+        
+        await batch.commit();
+        
+        classState.error = null;
         return true;
     } catch (err) {
         console.error('Error deleting class:', err);
         classState.error = 'Failed to delete class. Please try again.';
+        
+        // Rollback to original state
+        classState.classes = originalClasses;
+        classState.selectedClass = originalSelectedClass;
+        classState.selectedStudent = originalSelectedStudent;
+        classState.students = originalStudents;
+        classState.documents = originalDocuments;
+        classState.currentUser = originalCurrentUser;
+        classState.showDeleteClassConfirm = originalShowDeleteClassConfirm;
+        
         return false;
     } finally {
         classState.isProcessing = false;
@@ -666,42 +780,119 @@ async function deleteClass() {
 }
 
 /**
- * Delete the selected student
+ * Delete the selected student with optimistic updates
  */
 async function deleteStudent() {
     if (!classState.selectedStudent) return false;
     
     classState.isProcessing = true;
     
+    // Store original state for potential rollback
+    const originalStudents = [...classState.students];
+    const originalSelectedStudent = classState.selectedStudent ? { ...classState.selectedStudent } : null;
+    const originalSelectedClass = classState.selectedClass ? { ...classState.selectedClass } : null;
+    const originalDocuments = [...classState.documents];
+    const originalShowDeleteStudentConfirm = classState.showDeleteStudentConfirm;
+    
     try {
-        // Delete the student document
-        await deleteDoc(doc(db, 'students', classState.selectedStudent.id));
+        const studentId = classState.selectedStudent.id;
         
-        // Remove from class's students array
+        // Update local state immediately
+        classState.students = classState.students.filter(s => s.id !== studentId);
+        
+        // Update local class object
         if (classState.selectedClass) {
-            const classRef = doc(db, 'classes', classState.selectedClass.id);
-            const updatedStudents = classState.selectedClass.students?.filter(
-                id => id !== classState.selectedStudent?.id
-            ) || [];
-            
-            await updateDoc(classRef, {
-                students: updatedStudents
-            });
+            classState.selectedClass = {
+                ...classState.selectedClass,
+                students: classState.selectedClass.students?.filter(
+                    id => id !== studentId
+                ) || []
+            };
         }
         
         // Reset state
         classState.selectedStudent = null;
         classState.documents = [];
         classState.showDeleteStudentConfirm = false;
-        classState.error = null;
         
+        // Delete from Firestore (background)
+        const batch = writeBatch(db);
+        
+        // Delete the student document
+        batch.delete(doc(db, 'students', studentId));
+        
+        // Remove from class's students array
+        if (classState.selectedClass) {
+            const classRef = doc(db, 'classes', classState.selectedClass.id);
+            const updatedStudents = classState.selectedClass.students?.filter(
+                id => id !== studentId
+            ) || [];
+            
+            batch.update(classRef, {
+                students: updatedStudents
+            });
+        }
+        
+        await batch.commit();
+        
+        classState.error = null;
         return true;
     } catch (err) {
         console.error('Error deleting student:', err);
         classState.error = 'Failed to delete student. Please try again.';
+        
+        // Rollback to original state
+        classState.students = originalStudents;
+        classState.selectedStudent = originalSelectedStudent;
+        classState.selectedClass = originalSelectedClass;
+        classState.documents = originalDocuments;
+        classState.showDeleteStudentConfirm = originalShowDeleteStudentConfirm;
+        
         return false;
     } finally {
         classState.isProcessing = false;
+    }
+}
+
+/**
+ * Refresh classes data
+ */
+async function refreshClasses() {
+    if (!classState.currentUid) return;
+    
+    classState.isRefreshing = true;
+    try {
+        await loadClassesForUser(classState.currentUid);
+    } finally {
+        classState.isRefreshing = false;
+    }
+}
+
+/**
+ * Refresh students data
+ */
+async function refreshStudents() {
+    if (!classState.selectedClass) return;
+    
+    classState.isRefreshing = true;
+    try {
+        await loadStudentsForClass();
+    } finally {
+        classState.isRefreshing = false;
+    }
+}
+
+/**
+ * Refresh documents data
+ */
+async function refreshDocuments() {
+    if (!classState.selectedStudent) return;
+    
+    classState.isRefreshing = true;
+    try {
+        await loadDocumentsForStudent();
+    } finally {
+        classState.isRefreshing = false;
     }
 }
 
@@ -739,6 +930,9 @@ export const classManagerStore = {
     },
     get isProcessing() {
         return classState.isProcessing;
+    },
+    get isRefreshing() {
+        return classState.isRefreshing;
     },
     get error() {
         return classState.error;
@@ -806,5 +1000,10 @@ export const classManagerStore = {
     cancelOperation,
     showDeleteClassDialog,
     showDeleteStudentDialog,
-    cancelDelete
+    cancelDelete,
+    
+    // Refresh operations
+    refreshClasses,
+    refreshStudents,
+    refreshDocuments
 };

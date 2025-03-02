@@ -13,9 +13,7 @@
 	const isLoading = $derived(classManagerStore.isLoading);
 	const error = $derived(classManagerStore.error);
 	
-	// Create a derived key that changes when selectedStudent changes
-	// This helps force re-rendering when student data updates
-	let studentKey = $derived(`student-${selectedStudent?.id}-${selectedStudent?.name}`);
+	// No need for derived key with client-first approach
 
 	/**
 	 * Handles document selection and loading
@@ -50,8 +48,6 @@
 	}
 </script>
 
-<!-- Use key directive to force re-rendering when studentKey changes -->
-{#key studentKey}
 <div class="documents-container" role="region" aria-label="Student documents">
 	<div class="student-header">
 		<div>
@@ -61,18 +57,18 @@
 			{/if}
 		</div>
 		<div class="student-actions">
-			<button 
-				type="button" 
-				class="icon-button" 
-				onclick={() => selectedStudent && classManagerStore.editStudent(selectedStudent)} 
+			<button
+				type="button"
+				class="icon-button"
+				onclick={() => selectedStudent && classManagerStore.editStudent(selectedStudent)}
 				aria-label="Edit student"
 			>
 				<Pencil size="var(--icon-sm)" stroke="var(--text-muted)" />
 			</button>
-			<button 
-				type="button" 
-				class="icon-button" 
-				onclick={() => classManagerStore.showDeleteStudentDialog()} 
+			<button
+				type="button"
+				class="icon-button"
+				onclick={() => classManagerStore.showDeleteStudentDialog()}
 				aria-label="Delete student"
 			>
 				<TrashIcon size="var(--icon-sm)" stroke="var(--text-muted)" />
@@ -112,7 +108,6 @@
 		{/if}
 	</div>
 </div>
-{/key}
 
 <style>
 	.documents-container {

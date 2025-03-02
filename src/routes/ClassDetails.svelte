@@ -17,9 +17,7 @@
 	// Track selected student ID
 	let selectedStudentId = $derived(selectedStudent?.id || null);
 
-	// Create a derived key that changes when selectedClass changes
-	// This helps force re-rendering when class data updates
-	let classKey = $derived(`class-${selectedClass?.id}-${selectedClass?.name}`);
+	// No need for derived key with client-first approach
 
 	function handleStudentClick(student: Student) {
 		classManagerStore.selectStudent(student);
@@ -33,8 +31,6 @@
 	}
 </script>
 
-<!-- Use key directive to force re-rendering when classKey changes -->
-{#key classKey}
 <div class="class-details-container" role="region" aria-label="Class details" >
 	<div class="header">
 		<div class="title-section">
@@ -44,18 +40,18 @@
 			{/if}
 		</div>
 		<div class="action-buttons">
-			<button 
-				type="button" 
-				class="icon-button" 
-				onclick={() => classManagerStore.editClass(selectedClass)} 
+			<button
+				type="button"
+				class="icon-button"
+				onclick={() => classManagerStore.editClass(selectedClass)}
 				aria-label="Edit class details"
 			>
 				<Pencil size="var(--icon-sm)" stroke="var(--text-muted)" />
 			</button>
-			<button 
-				type="button" 
-				class="icon-button" 
-				onclick={() => classManagerStore.showDeleteClassDialog()} 
+			<button
+				type="button"
+				class="icon-button"
+				onclick={() => classManagerStore.showDeleteClassDialog()}
 				aria-label="Delete class"
 			>
 				<TrashIcon size="var(--icon-sm)" stroke="var(--text-muted)" />
@@ -104,7 +100,6 @@
 		{/if}
 	</div>
 </div>
-{/key}
 <style>
 	.class-details-container {
 		width: 320px;
