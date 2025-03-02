@@ -623,6 +623,7 @@ async function saveStudent(studentData: Partial<Student>) {
             const newStudent = {
                 ...studentData,
                 id: tempId,
+                description: studentData.description || '', // Explicitly include description field
                 notes: [],
                 status: 'active',
                 metadata: {
@@ -638,6 +639,7 @@ async function saveStudent(studentData: Partial<Student>) {
             const newStudentRef = await addDoc(collection(db, 'students'), {
                 ...studentData,
                 id: '', // This will be updated with the document ID after creation
+                description: studentData.description || '', // Explicitly include description field
                 notes: [],
                 status: 'active',
                 metadata: {
