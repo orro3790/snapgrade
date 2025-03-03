@@ -18,6 +18,9 @@ async function fetchImageAsBase64(imageUrl: string): Promise<{
     mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp"
 }> {
     try {
+        const startTime = Date.now();
+        console.log(`[PERF] Starting image fetch from URL: ${imageUrl}`);
+        
         // Check if the URL has expired
         const expiryMatch = imageUrl.match(/[?&]ex=([0-9a-f]+)/);
         if (expiryMatch) {
@@ -28,7 +31,12 @@ async function fetchImageAsBase64(imageUrl: string): Promise<{
         }
 
         // Fetch the image
+        const fetchStartTime = Date.now();
+        console.log(`[PERF] Sending fetch request for image`);
         const response = await fetch(imageUrl);
+        const fetchTime = Date.now() - fetchStartTime;
+        console.log(`[PERF] Fetch request completed in ${fetchTime}ms`);
+        
         if (!response.ok) {
             throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
         }
@@ -44,9 +52,16 @@ async function fetchImageAsBase64(imageUrl: string): Promise<{
         }
         
         // Convert to buffer and then to base64
+        const encodeStartTime = Date.now();
+        console.log(`[PERF] Starting image encoding to base64`);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64Data = buffer.toString('base64');
+        const encodeTime = Date.now() - encodeStartTime;
+        console.log(`[PERF] Image encoding completed in ${encodeTime}ms (${buffer.length} bytes)`);
+        
+        const totalTime = Date.now() - startTime;
+        console.log(`[PERF] Total image fetch and encode time: ${totalTime}ms`);
 
         return {
             data: base64Data,
@@ -60,32 +75,22 @@ async function fetchImageAsBase64(imageUrl: string): Promise<{
 
 // Initialize client with API key
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+  apiKey: process.env.ANTHROPIC_ANALYSIS_API_KEY
 });
 
 // Maximum chunk size for text processing (approximately 4000 tokens)
 const MAX_CHUNK_SIZE = 4000;
 
 /**
- * Helper function to get text quality instructions
- * @param textQuality Text quality identifier
- * @returns Instructions for Claude based on text quality
+ * Get standard text processing instructions
+ * @returns Instructions for Claude for text processing
  */
-function getTextQualityInstructions(textQuality?: string): string {
-  if (textQuality === 'handwriting') {
-    return `
-      This text was extracted from handwritten work, produced by second language learners.
-      Focus on ACCURATE EXTRACTION ONLY, preserving all spelling, grammar, and punctuation exactly as written.
-      The text may include unusual letter forms, inconsistent spacing, and many errors.
-      Do not attempt to correct or standardize anything - preserve all errors exactly as written.
-      If you're uncertain about any text, reference the original image to verify.
-    `;
-  }
-  
-  // Default instructions for printed text
+function getTextProcessingInstructions(): string {
   return `
     Focus on ACCURATE EXTRACTION ONLY, preserving all spelling, grammar, and punctuation exactly as written.
-    Do not correct anything, even if it appears to be an error.
+    The text may include unusual letter forms, inconsistent spacing, and many errors.
+    Do not attempt to correct or standardize anything - preserve all errors exactly as written.
+    If you're uncertain about any text, reference the original image to verify.
   `;
 }
 
@@ -101,15 +106,17 @@ function getTextQualityInstructions(textQuality?: string): string {
 export const analyzeStructure = async (
   text: string,
   imageUrl?: string,
-  lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>,
-  textQuality?: string
+  lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>
 ): Promise<{
   structuralAnalysis: StructuralAnalysis;
   compressedNodes?: string;
 }> => {
     try {
-        // Get text quality instructions
-        const textQualityInstructions = getTextQualityInstructions(textQuality);
+        const totalStartTime = Date.now();
+        console.log(`[PERF] Starting Claude structure analysis: ${text.length} chars of text${imageUrl ? ', with image' : ', without image'}${lowConfidenceWords?.length ? `, ${lowConfidenceWords.length} low confidence words` : ''}`);
+        
+        // Get text processing instructions
+        const textProcessingInstructions = getTextProcessingInstructions();
         
         // Format low confidence words if provided
         let lowConfidenceWordsText = '';
@@ -383,10 +390,16 @@ It is CRITICAL that you return the complete compressed nodes array without trunc
         }
 
         // Create Claude API request
+        const apiStartTime = Date.now();
+        console.log(`[PERF] Sending request to Claude API`);
         const response = await client.messages.create({
             model: "claude-3-7-sonnet-20250219",
             max_tokens: 20000,
-            system: `You are a document structure analyzer that identifies structural elements in text and generates compressed TextNodes for the editor. Be precise and thorough in your analysis. NEVER truncate your response, even for large documents. If the document is too large, focus on providing accurate structural analysis for the content you can process. ${textQualityInstructions}`,
+            system: `You are a document structure analyzer that identifies structural elements in text and generates compressed TextNodes for the editor. Be precise and thorough in your analysis. NEVER truncate your response, even for large documents. If the document is too large, focus on providing accurate structural analysis for the content you can process.
+
+The text may be from printed documents or handwritten work, all of which produced by second language learners. Focus on ACCURATE EXTRACTION ONLY, preserving all spelling, grammar, and punctuation exactly as written. The text may include unusual letter forms, inconsistent spacing, and errors - preserve all of these exactly as written. If you're uncertain about any text and an image is provided, reference the original image to verify.
+
+${textProcessingInstructions}`,
             messages: [{
                 role: "user",
                 content: requestContent
@@ -428,8 +441,12 @@ It is CRITICAL that you return the complete compressed nodes array without trunc
                 name: "document_structure_analyzer"
             }
         });
+        const apiTime = Date.now() - apiStartTime;
+        console.log(`[PERF] Claude API response received in ${apiTime}ms`);
 
         // Validate response format
+        const parseStartTime = Date.now();
+        console.log(`[PERF] Parsing Claude response`);
         const validatedResponse = anthropicResponseSchema.parse(response);
         
         // Extract the tool use response
@@ -464,6 +481,14 @@ It is CRITICAL that you return the complete compressed nodes array without trunc
         // Extract the structural analysis and compressed nodes
         const structuralAnalysis = structuralAnalysisSchema.parse(toolUse.input.elements);
         const compressedNodes = toolUse.input.compressedNodes as string | undefined;
+        
+        const parseTime = Date.now() - parseStartTime;
+        console.log(`[PERF] Claude response parsed in ${parseTime}ms`);
+        
+        const totalTime = Date.now() - totalStartTime;
+        console.log(`[PERF] Total Claude structure analysis time: ${totalTime}ms`);
+        console.log(`[PERF] Breakdown - API call: ${apiTime}ms (${Math.round(apiTime/totalTime*100)}%), ` +
+                    `Response parsing: ${parseTime}ms (${Math.round(parseTime/totalTime*100)}%)`);
         
         return {
             structuralAnalysis,
@@ -544,25 +569,30 @@ function adjustElementPositions(elements: StructuralAnalysis, offset: number): S
  * @param text Text to analyze
  * @param imageUrl Optional URL of the original image
  * @param lowConfidenceWords Optional array of words with low OCR confidence
- * @param textQuality Optional quality of the text (printed or handwriting)
  * @returns Structural analysis and compressed nodes
  */
 export const analyzeStructureInChunks = async (
   text: string,
   imageUrl?: string,
-  lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>,
-  textQuality?: string
+  lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>
 ): Promise<{
   structuralAnalysis: StructuralAnalysis;
   compressedNodes?: string;
 }> => {
+    const totalStartTime = Date.now();
+    console.log(`[PERF] Starting chunked structure analysis: ${text.length} chars of text, ${text.length > MAX_CHUNK_SIZE ? 'splitting into chunks' : 'using single chunk'}`);
+    
     // For small texts, use the regular method with all parameters
     if (text.length <= MAX_CHUNK_SIZE) {
-        return analyzeStructure(text, imageUrl, lowConfidenceWords, textQuality);
+        return analyzeStructure(text, imageUrl, lowConfidenceWords);
     }
     
     // Split text into manageable chunks
+    const splitStartTime = Date.now();
+    console.log(`[PERF] Splitting text into chunks`);
     const chunks = splitTextIntoChunks(text, MAX_CHUNK_SIZE);
+    const splitTime = Date.now() - splitStartTime;
+    console.log(`[PERF] Text split into ${chunks.length} chunks in ${splitTime}ms`);
     
     let allNodes: CompressedNode[] = [];
     let structuralElements: StructuralAnalysis = [];
@@ -574,15 +604,18 @@ export const analyzeStructureInChunks = async (
         
         // Only pass the image URL and text quality for the first chunk
         // Filter low confidence words that belong to this chunk
-        const chunkLowConfidenceWords = lowConfidenceWords?.filter(
-            word => word.lineIndex >= position && word.lineIndex < position + chunk.length
-        );
+        // For the first chunk, include all low confidence words if the image is provided
+        // This helps Claude verify uncertain words against the image
+        const chunkLowConfidenceWords = i === 0 && imageUrl
+            ? lowConfidenceWords
+            : lowConfidenceWords?.filter(
+                word => word.lineIndex >= position && word.lineIndex < position + chunk.length
+              );
         
         const result = await analyzeStructure(
             chunk,
             i === 0 ? imageUrl : undefined,
-            chunkLowConfidenceWords,
-            i === 0 ? textQuality : undefined
+            chunkLowConfidenceWords
         );
         
         // Parse nodes and adjust positions
@@ -604,10 +637,22 @@ export const analyzeStructureInChunks = async (
     }
     
     // Combine results
-    return {
+    const combineStartTime = Date.now();
+    console.log(`[PERF] Combining chunk results`);
+    const result = {
         structuralAnalysis: structuralElements,
         compressedNodes: JSON.stringify(allNodes)
     };
+    const combineTime = Date.now() - combineStartTime;
+    console.log(`[PERF] Results combined in ${combineTime}ms`);
+    
+    const totalTime = Date.now() - totalStartTime;
+    console.log(`[PERF] Total chunked structure analysis time: ${totalTime}ms`);
+    console.log(`[PERF] Chunked analysis breakdown - Splitting: ${splitTime}ms (${Math.round(splitTime/totalTime*100)}%), ` +
+                `Chunk processing: ${totalTime - splitTime - combineTime}ms (${Math.round((totalTime - splitTime - combineTime)/totalTime*100)}%), ` +
+                `Combining: ${combineTime}ms (${Math.round(combineTime/totalTime*100)}%)`);
+    
+    return result;
 };
 
 /**
@@ -618,6 +663,11 @@ export const analyzeStructureInChunks = async (
  */
 export const verifyText = async (text: string): Promise<TextVerification> => {
     try {
+        const totalStartTime = Date.now();
+        console.log(`[PERF] Starting text verification with Claude: ${text.length} chars of text`);
+        
+        const apiStartTime = Date.now();
+        console.log(`[PERF] Sending verification request to Claude API`);
         const response = await client.messages.create({
             model: "claude-3-7-sonnet-20250219", // Upgraded to Claude 3.7 Sonnet
             max_tokens: 4096, // Increased token limit
@@ -672,8 +722,12 @@ ${text}`
                 name: "text_verification"
             }
         });
+        const apiTime = Date.now() - apiStartTime;
+        console.log(`[PERF] Claude API verification response received in ${apiTime}ms`);
 
         // Validate response format
+        const parseStartTime = Date.now();
+        console.log(`[PERF] Parsing verification response`);
         const validatedResponse = anthropicResponseSchema.parse(response);
         
         // Extract the tool use response
@@ -719,6 +773,14 @@ ${text}`
         }
         
         // Validate the transformed response against our schema
+        const parseTime = Date.now() - parseStartTime;
+        console.log(`[PERF] Verification response parsed in ${parseTime}ms`);
+        
+        const totalTime = Date.now() - totalStartTime;
+        console.log(`[PERF] Total text verification time: ${totalTime}ms`);
+        console.log(`[PERF] Verification breakdown - API call: ${apiTime}ms (${Math.round(apiTime/totalTime*100)}%), ` +
+                    `Response parsing: ${parseTime}ms (${Math.round(parseTime/totalTime*100)}%)`);
+        
         return textVerificationSchema.parse(result);
     } catch (error) {
         if (error instanceof Error) {
@@ -802,11 +864,10 @@ export const verifyTextInChunks = async (text: string): Promise<TextVerification
 export const analyzeStructureWithRetry = (
     text: string,
     imageUrl?: string,
-    lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>,
-    textQuality?: string
+    lowConfidenceWords?: Array<{text: string, confidence: string, lineIndex: number}>
 ) => withRetry(() => text.length > MAX_CHUNK_SIZE ?
-    analyzeStructureInChunks(text, imageUrl, lowConfidenceWords, textQuality) :
-    analyzeStructure(text, imageUrl, lowConfidenceWords, textQuality));
+    analyzeStructureInChunks(text, imageUrl, lowConfidenceWords) :
+    analyzeStructure(text, imageUrl, lowConfidenceWords));
 
 export const verifyTextWithRetry = (text: string) =>
     withRetry(() => text.length > MAX_CHUNK_SIZE ?

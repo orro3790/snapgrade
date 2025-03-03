@@ -28,20 +28,19 @@ const whispererClient = createWhispererClient();
 /**
  * Process a single image URL
  * @param imageUrl URL of the image to process
- * @param textQuality Text quality (printed or handwriting)
  * @param options Processing options
  * @returns Processing result or whisper hash for async processing
  */
 export const processImage = async (
   imageUrl: string,
-  textQuality: string = 'printed',
   options: Partial<WhisperOptions> = {}
 ): Promise<WhisperResult> => {
   try {
-    console.log(`Processing image with LLM Whisperer: ${imageUrl}, quality: ${textQuality}`);
+    const startTime = Date.now();
+    console.log(`[PERF] Starting LLM Whisperer processing for image: ${imageUrl}`);
     
-    // Set OCR parameters based on text quality
-    const mode = textQuality === 'handwriting' ? 'handwriting' : 'high_quality';
+    // Always use high_quality mode which supports both printed and handwritten text
+    const mode = 'high_quality';
     
     const result = await whispererClient.whisper({
       url: imageUrl,
@@ -49,8 +48,12 @@ export const processImage = async (
       outputMode: options.outputMode || 'text',
       waitForCompletion: options.waitForCompletion || false,
       waitTimeout: 60, // 1 minute timeout before switching to async
-      includeConfidence: true // Request confidence metadata
+      includeConfidence: true, // Request confidence metadata
+      includeOriginalImage: true // Include original image URL in response
     });
+    
+    const processingTime = Date.now() - startTime;
+    console.log(`[PERF] LLM Whisperer processing completed in ${processingTime}ms`);
     
     return result as WhisperResult;
   } catch (error) {
@@ -66,37 +69,29 @@ export const processImage = async (
  */
 export const processPendingImage = async (image: PendingImage) => {
   try {
-    // Get text quality from session if available
-    let textQuality = 'printed'; // Default to printed
+    const totalStartTime = Date.now();
+    console.log(`[PERF] Starting processing for pending image: ${image.discordMessageId}`);
     
-    if (image.sessionId) {
-      try {
-        const sessionDoc = await adminDb.collection('document_sessions').doc(image.sessionId).get();
-        if (sessionDoc.exists) {
-          const sessionData = sessionDoc.data();
-          if (sessionData && sessionData.textQuality) {
-            textQuality = sessionData.textQuality;
-          }
-        }
-      } catch (error) {
-        console.warn('Error getting text quality from session:', error);
-      }
-    }
-    
-    // Process with LLM Whisperer using the appropriate mode
+    // Process with LLM Whisperer
+    const ocrStartTime = Date.now();
+    console.log(`[PERF] Starting OCR processing`);
     const whisperResult = await processImage(
       image.imageUrl,
-      textQuality,
       {
         outputMode: 'text',
         waitForCompletion: true
       }
     );
+    const ocrTime = Date.now() - ocrStartTime;
+    console.log(`[PERF] OCR processing completed in ${ocrTime}ms`);
     
     // Extract text from result
     const extractedText = whisperResult.extraction.result_text;
+    console.log(`[PERF] Extracted ${extractedText.length} characters of text`);
     
     // Extract confidence metadata for low-confidence words
+    const metadataStartTime = Date.now();
+    console.log(`[PERF] Starting confidence metadata processing`);
     const confidenceMetadata = whisperResult.confidence_metadata || [];
     const lowConfidenceWords: Array<{text: string, confidence: string, lineIndex: number}> = [];
     
@@ -117,20 +112,32 @@ export const processPendingImage = async (image: PendingImage) => {
       });
     }
     
+    const metadataTime = Date.now() - metadataStartTime;
+    console.log(`[PERF] Found ${lowConfidenceWords.length} low confidence words in ${metadataTime}ms`);
+    
     // Analyze structure with Claude and get compressed nodes
-    // Pass the original image URL, low confidence words, and text quality to Claude
+    const claudeStartTime = Date.now();
+    console.log(`[PERF] Starting Claude structural analysis`);
+    // Pass the original image URL and low confidence words to Claude
     const { structuralAnalysis, compressedNodes } = await claude.analyzeStructure(
       extractedText,
       image.imageUrl,
-      lowConfidenceWords.length > 0 ? lowConfidenceWords : undefined,
-      textQuality
+      lowConfidenceWords.length > 0 ? lowConfidenceWords : undefined
     );
+    const claudeTime = Date.now() - claudeStartTime;
+    console.log(`[PERF] Claude structural analysis completed in ${claudeTime}ms`);
     
     // If Claude didn't provide compressed nodes, generate them ourselves
+    const nodesStartTime = Date.now();
+    console.log(`[PERF] Starting node processing`);
     const finalCompressedNodes = compressedNodes ||
       processTextWithAnalysis(extractedText, structuralAnalysis).serialized;
+    const nodesTime = Date.now() - nodesStartTime;
+    console.log(`[PERF] Node processing completed in ${nodesTime}ms`);
     
     // Verify text accuracy with fallback
+    const verifyStartTime = Date.now();
+    console.log(`[PERF] Starting text verification`);
     let verification;
     try {
       verification = await claude.verifyText(extractedText);
@@ -143,6 +150,16 @@ export const processPendingImage = async (image: PendingImage) => {
         alternativeText: extractedText
       };
     }
+    const verifyTime = Date.now() - verifyStartTime;
+    console.log(`[PERF] Text verification completed in ${verifyTime}ms`);
+    
+    const totalTime = Date.now() - totalStartTime;
+    console.log(`[PERF] Total processing time: ${totalTime}ms`);
+    console.log(`[PERF] Breakdown - OCR: ${ocrTime}ms (${Math.round(ocrTime/totalTime*100)}%), ` +
+                `Metadata: ${metadataTime}ms (${Math.round(metadataTime/totalTime*100)}%), ` +
+                `Claude: ${claudeTime}ms (${Math.round(claudeTime/totalTime*100)}%), ` +
+                `Nodes: ${nodesTime}ms (${Math.round(nodesTime/totalTime*100)}%), ` +
+                `Verify: ${verifyTime}ms (${Math.round(verifyTime/totalTime*100)}%)`);
     
     // Return combined results
     return documentProcessResponseSchema.parse({
@@ -273,14 +290,21 @@ const calculateEstimatedTimeRemaining = (
  */
 export const processDocumentSession = async (sessionId: string) => {
   try {
-    console.log(`Processing document session: ${sessionId}`);
+    const totalStartTime = Date.now();
+    console.log(`[PERF] Starting document session processing: ${sessionId}`);
     
     // Get session data
+    const sessionStartTime = Date.now();
+    console.log(`[PERF] Fetching session data`);
     const sessionData = await getSessionData(sessionId);
+    const sessionTime = Date.now() - sessionStartTime;
+    console.log(`[PERF] Session data fetched in ${sessionTime}ms`);
     
     const processingStartTime = new Date();
     
     // Initialize processing progress in QUEUED stage
+    const updateStartTime = Date.now();
+    console.log(`[PERF] Updating session status to PROCESSING`);
     await updateSessionStatus(sessionId, 'PROCESSING', {
       processingStartedAt: processingStartTime,
       processingProgress: {
@@ -291,9 +315,15 @@ export const processDocumentSession = async (sessionId: string) => {
         pageProcessingTimes: []
       }
     });
+    const updateTime = Date.now() - updateStartTime;
+    console.log(`[PERF] Session status updated in ${updateTime}ms`);
     
     // Get all pending images for session
+    const imagesStartTime = Date.now();
+    console.log(`[PERF] Fetching session images`);
     const sessionImages = await getSessionImages(sessionId);
+    const imagesTime = Date.now() - imagesStartTime;
+    console.log(`[PERF] Fetched ${sessionImages.length} images in ${imagesTime}ms`);
     
     // Process each image
     const batch = adminDb.batch();
@@ -564,8 +594,7 @@ export const processDocumentSession = async (sessionId: string) => {
       sourceMetadata: {
         rawOcrOutput: combinedText,
         llmProcessed: true,
-        llmProcessedAt: new Date(),
-        textQuality: sessionData.textQuality
+        llmProcessedAt: new Date()
       }
     });
     
@@ -588,7 +617,21 @@ export const processDocumentSession = async (sessionId: string) => {
       totalProcessingTimeMs: totalProcessingTime
     });
     
+    const batchStartTime = Date.now();
+    console.log(`[PERF] Committing batch updates to Firestore`);
     await batch.commit();
+    const batchTime = Date.now() - batchStartTime;
+    console.log(`[PERF] Batch updates committed in ${batchTime}ms`);
+    
+    const totalTime = Date.now() - totalStartTime;
+    console.log(`[PERF] Total document session processing time: ${totalTime}ms`);
+    console.log(`[PERF] Session processing breakdown:
+      - Session data fetch: ${sessionTime}ms (${Math.round(sessionTime/totalTime*100)}%)
+      - Status updates: ${updateTime}ms (${Math.round(updateTime/totalTime*100)}%)
+      - Image fetching: ${imagesTime}ms (${Math.round(imagesTime/totalTime*100)}%)
+      - OCR & Claude processing: ${totalProcessingTime}ms (${Math.round(totalProcessingTime/totalTime*100)}%)
+      - Batch commit: ${batchTime}ms (${Math.round(batchTime/totalTime*100)}%)
+    `);
     
     return {
       success: true,

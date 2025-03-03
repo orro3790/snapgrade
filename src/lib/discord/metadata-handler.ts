@@ -16,7 +16,6 @@ import {
     ButtonStyle,
     type Interaction
 } from '../schemas/discord-consolidated';
-import * as llmWhisperer from '../services/llmWhispererService';
 
 /**
  * Show metadata dialog for document organization
@@ -308,62 +307,53 @@ export const handleStudentSelection = async (
                 }
             });
         
-        // Confirm assignment
+        // Get class and student names for confirmation message
+        let className = "Selected Class";
+        let studentName = "Selected Student";
+        
+        try {
+            const classDoc = await adminDb.collection('classes').doc(classId).get();
+            if (classDoc.exists) {
+                className = classDoc.data()?.name || "Selected Class";
+            }
+            
+            const studentDoc = await adminDb.collection('students').doc(studentId).get();
+            if (studentDoc.exists) {
+                studentName = studentDoc.data()?.name || "Selected Student";
+            }
+        } catch (error) {
+            console.warn('Error getting class/student names:', error);
+        }
+        
+        // Show final confirmation dialog
         await respondToInteraction(
             interaction,
             {
                 type: 7, // UPDATE_MESSAGE
                 data: {
-                    content: "Document assigned successfully! Processing will begin now...",
-                    components: []
+                    content: `Document will be assigned to ${studentName} in ${className}. Ready to process?`,
+                    components: [
+                        {
+                            type: ComponentType.ActionRow,
+                            components: [
+                                {
+                                    type: ComponentType.Button,
+                                    custom_id: `confirm_final_process_${sessionId}`,
+                                    label: "Yes, Process Document",
+                                    style: ButtonStyle.Success
+                                },
+                                {
+                                    type: ComponentType.Button,
+                                    custom_id: `cancel_process_${sessionId}`,
+                                    label: "Cancel",
+                                    style: ButtonStyle.Danger
+                                }
+                            ]
+                        }
+                    ]
                 }
             }
         );
-        
-        // Start processing now that metadata is set
-        console.log(`Starting document processing for session ${sessionId} with metadata`);
-        
-        // Notify user that processing has started and provide status check button
-        const appUrl = process.env.APP_URL || 'https://snapgrade.app';
-        sendInteractiveMessage(
-            interaction.channel_id,
-            "Document processing has started. This may take several minutes depending on the number of pages.",
-            [
-                {
-                    type: ComponentType.Button,
-                    label: "Check Processing Status",
-                    style: ButtonStyle.Primary,
-                    url: `${appUrl}/?modal=activity&sessionId=${sessionId}`
-                }
-            ]
-        ).catch(err => console.error('Error sending status check message:', err));
-        
-        // Start processing in the background using LLM Whisperer service
-        llmWhisperer.processDocumentSession(sessionId)
-            .then(result => {
-                // Notify user when processing is complete
-                sendInteractiveMessage(
-                    interaction.channel_id,
-                    `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
-                    [
-                        {
-                            type: ComponentType.Button,
-                            custom_id: `view_doc_${result.documentId}`,
-                            label: "View Document",
-                            style: ButtonStyle.Primary
-                        }
-                    ]
-                ).catch(err => console.error('Error sending completion message:', err));
-            })
-            .catch(error => {
-                console.error(`Error processing session ${sessionId}:`, error);
-                // Notify user of failure
-                sendInteractiveMessage(
-                    interaction.channel_id,
-                    "There was an error processing your document. Please try again.",
-                    []
-                ).catch(err => console.error('Error sending failure message:', err));
-            });
     } catch (error) {
         console.error('Error handling student selection:', error);
         await respondToInteraction(

@@ -214,28 +214,11 @@ export const endDocumentSession = async (
             return null;
         }
         
-        // Show confirmation message with session details
-        await sendInteractiveMessage(
-            channelId,
-            `Ready to process your document with ${session.receivedPages} page(s). This will start the OCR process and may take several minutes. Do you want to continue?`,
-            [
-                {
-                    type: ComponentType.Button,
-                    custom_id: `confirm_process_${session.sessionId}`,
-                    label: "Yes, Process Document",
-                    style: ButtonStyle.Success
-                },
-                {
-                    type: ComponentType.Button,
-                    custom_id: `cancel_process_${session.sessionId}`,
-                    label: "No, Cancel",
-                    style: ButtonStyle.Danger
-                }
-            ]
-        );
+        // Skip the confirmation prompt and directly proceed to metadata dialog
+        // The metadata dialog will be shown by the caller (handleEndUpload in interaction-handler.ts)
+        console.log(`Proceeding directly to metadata dialog for session ${session.sessionId}`);
         
-        // We'll handle the confirmation/cancellation in interaction-handler.ts
-        // Note: Processing will start after confirmation in metadata-handler.ts
+        // Note: Processing will start after metadata selection in metadata-handler.ts
         
         return session.sessionId;
     } catch (error) {

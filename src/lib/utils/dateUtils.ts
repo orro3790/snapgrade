@@ -23,6 +23,6 @@ export function ensureDate(value: unknown): Date {
     return value.toDate();
   }
   
-  // Default fallback
-  return new Date();
+  // Otherwise try to create a Date from it
+  return new Date(String(value));
 }

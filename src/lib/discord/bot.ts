@@ -429,15 +429,6 @@ function createDiscordBot(token: string) {
             // Use the document session handler to process images
             const { handleImageUpload } = await import('./document-session-handler.js');
             await handleImageUpload(message.channel_id, message.author.id, attachmentsForUpload);
-            
-            // Log processing
-            for (const image of images) {
-                console.log('Processing image:', {
-                    id: image.id,
-                    filename: image.filename,
-                    contentType: image.content_type
-                });
-            }
         } catch (error) {
             console.error('Error storing image information:', error);
             await sendDirectMessage(
@@ -452,13 +443,8 @@ function createDiscordBot(token: string) {
      */
     const connect = async (): Promise<void> => {
         try {
-            console.log('Starting bot connection...');
             const gatewayUrl = await getGatewayUrl();
-            console.log('Using Gateway URL:', gatewayUrl);
-
-            console.log('Establishing WebSocket connection...');
             ws = new WebSocket(`${gatewayUrl}?v=10&encoding=json`);
-
             ws.on('open', () => console.log('Connected to Discord Gateway'));
             ws.on('message', handleMessage);
             ws.on('close', handleClose);

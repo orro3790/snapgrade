@@ -1,4 +1,4 @@
-import { ButtonStyle, ComponentType, type Interaction } from '../schemas/discord-consolidated';
+import { ButtonStyle, ComponentType, type Interaction, type AuthResult } from '../schemas/discord-consolidated';
 import {
     respondToInteraction,
     sendInteractiveMessage
@@ -8,41 +8,77 @@ import {
     endDocumentSession,
     extendSessionTimeout
 } from './document-session-handler';
-import * as llmWhisperer from '../services/llmWhispererService';
 import {
-    showMetadataDialog,
     handleClassSelection as metadataHandleClassSelection,
     handleStudentSelection as metadataHandleStudentSelection
 } from './metadata-handler';
-import { handleTextQualitySelection } from './quality-selection-handler';
 import { getActiveSession } from '../services/documentSession';
 import { adminDb } from '../firebase/admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { ensureDate } from '../utils/dateUtils';
 
 /**
- * Safely convert a Firestore timestamp or any date-like value to a JavaScript Date
- * @param dateValue The value to convert (could be Date, Firestore Timestamp, string, number)
- * @returns A JavaScript Date object
+ * Verify user authentication status from Discord ID
+ * @param discordId Discord user ID to check
+ * @returns Authentication result with status
  */
-function ensureDate(dateValue: Date | Timestamp | unknown): Date {
-    // If it's null or undefined, return current date
-    if (dateValue == null) {
-        return new Date();
+const verifyUserAuth = async (discordId: string): Promise<AuthResult> => {
+    if (!discordId) {
+        return {
+            authenticated: false,
+            error: 'Missing Discord user ID'
+        };
     }
-    
-    // If it's already a Date, return it
-    if (dateValue instanceof Date) {
-        return dateValue;
+
+    try {
+        // Query the discord_mappings collection to find the user
+        const mappingSnapshot = await adminDb
+            .collection('discord_mappings')
+            .where('discordId', '==', discordId)
+            .limit(1)
+            .get();
+
+        if (mappingSnapshot.empty) {
+            return {
+                authenticated: false,
+                error: 'Discord account not linked to Snapgrade'
+            };
+        }
+
+        // Get the raw mapping data directly
+        const rawData = mappingSnapshot.docs[0].data();
+        
+        // Extract the status and firebaseUid directly from the raw data
+        const status = rawData.status as 'active' | 'inactive' | 'suspended';
+        const firebaseUid = rawData.firebaseUid as string;
+
+        // Check if the user's status is active
+        if (status !== 'active') {
+            return {
+                authenticated: false,
+                status: status,
+                firebaseUid: firebaseUid,
+                error: `Account status is ${status}`
+            };
+        }
+
+        // Update the lastUsed timestamp
+        await mappingSnapshot.docs[0].ref.update({
+            lastUsed: new Date()
+        });
+
+        return {
+            authenticated: true,
+            status: 'active',
+            firebaseUid: firebaseUid
+        };
+    } catch (error) {
+        console.error('Error verifying Discord user auth:', error);
+        return {
+            authenticated: false,
+            error: 'Authentication verification failed'
+        };
     }
-    
-    // If it's a Firestore Timestamp
-    if (dateValue instanceof Timestamp) {
-        return dateValue.toDate();
-    }
-    
-    // Otherwise try to create a Date from it
-    return new Date(String(dateValue));
-}
+};
 
 /**
  * Handle Discord interactions (button clicks, slash commands, etc.)
@@ -58,6 +94,52 @@ export const handleInteraction = async (interaction: Interaction): Promise<void>
                 component_type: interaction.data.component_type
             } : 'No data'
         });
+        
+        // Get the user ID from the interaction
+        const userId = interaction.member?.user.id || interaction.user?.id;
+        
+        if (!userId) {
+            console.error('Missing user ID in interaction');
+            await respondToInteraction(interaction, {
+                type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+                data: {
+                    content: "Sorry, we couldn't identify your Discord account."
+                }
+            });
+            return;
+        }
+        
+        // Verify user authentication before proceeding
+        const authResult = await verifyUserAuth(userId);
+        
+        if (!authResult.authenticated) {
+            console.warn(`Unauthorized Discord interaction attempt: ${authResult.error}`, {
+                userId,
+                interactionId: interaction.id,
+                status: authResult.status
+            });
+            
+            let errorMessage = "Sorry, you need to link your Discord account to Snapgrade to use this feature.";
+            
+            if (authResult.status) {
+                if (authResult.status === 'inactive') {
+                    errorMessage = "Your Snapgrade account is inactive. Please log in to reactivate your account.";
+                } else if (authResult.status === 'suspended') {
+                    errorMessage = "Your Snapgrade account has been suspended. Please contact support for assistance.";
+                }
+            }
+            
+            await respondToInteraction(interaction, {
+                type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+                data: {
+                    content: errorMessage
+                }
+            });
+            return;
+        }
+        
+        // User is authenticated, proceed with handling the interaction
+        console.log(`Authenticated user ${userId} with Firebase UID ${authResult.firebaseUid}`);
         
         // Handle different interaction types
         switch (interaction.type) {
@@ -167,22 +249,18 @@ const handleMessageComponent = async (interaction: Interaction): Promise<void> =
     } else if (customId.startsWith('confirm_process_')) {
         // Extract session ID from custom_id
         const sessionId = customId.split('_')[2];
-        await handleConfirmProcess(interaction, sessionId);
+        // Skip text quality selection and show metadata dialog directly
+        const { showMetadataDialog } = await import('./metadata-handler');
+        await showMetadataDialog(interaction.channel_id, userId, sessionId);
     } else if (customId.startsWith('cancel_process_')) {
         // Extract session ID from custom_id
         const sessionId = customId.split('_')[2];
         await handleCancelProcess(interaction, sessionId);
-    } else if (customId.startsWith('text_quality_')) {
+    } else if (customId.startsWith('confirm_final_process_')) {
         // Extract session ID from custom_id
-        const sessionId = customId.split('_')[2];
-        const textQuality = interaction.data?.values?.[0];
-        
-        if (!textQuality) {
-            console.error('No text quality selected');
-            return;
-        }
-        
-        await handleTextQualitySelection(interaction, sessionId, textQuality);
+        const sessionId = customId.split('_')[3];
+        await handleFinalConfirmProcess(interaction, sessionId);
+    // Removed text_quality handling as we no longer ask for text quality
     } else {
         await respondToInteraction(interaction, {
             type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
@@ -380,10 +458,11 @@ const handleEndUpload = async (
         // End the session and start processing
         const sessionId = await endDocumentSession(channelId, userId);
         
-        // If session was successfully ended and processing started
+        // If session was successfully ended
         if (sessionId) {
-            // Show metadata dialog for document organization
-            // Note: The processing message is already sent by endDocumentSession
+            // Show metadata dialog directly without asking for text quality
+            // Import the showMetadataDialog function since we removed it earlier
+            const { showMetadataDialog } = await import('./metadata-handler');
             await showMetadataDialog(channelId, userId, sessionId);
         } else {
             // Session couldn't be ended (might be expired or not found)
@@ -505,44 +584,32 @@ const handleSkipMetadata = async (interaction: Interaction): Promise<void> => {
             return;
         }
         
-        // Update the interaction to show processing has started
+        // Show final confirmation dialog
         await respondToInteraction(interaction, {
             type: 7, // UPDATE_MESSAGE
             data: {
-                content: "Document processing has started. You can organize it later in the Document Bay.",
-                components: [] // Remove buttons
+                content: "You've chosen to skip document organization. Ready to process the document?",
+                components: [
+                    {
+                        type: ComponentType.ActionRow,
+                        components: [
+                            {
+                                type: ComponentType.Button,
+                                custom_id: `confirm_final_process_${sessionId}`,
+                                label: "Yes, Process Document",
+                                style: ButtonStyle.Success
+                            },
+                            {
+                                type: ComponentType.Button,
+                                custom_id: `cancel_process_${sessionId}`,
+                                label: "Cancel",
+                                style: ButtonStyle.Danger
+                            }
+                        ]
+                    }
+                ]
             }
         });
-        
-        // Start processing now that user has skipped metadata
-        console.log(`Starting document processing for session ${sessionId} without metadata`);
-        
-        // Start processing in the background using LLM Whisperer service
-        llmWhisperer.processDocumentSession(sessionId)
-            .then(result => {
-                // Notify user when processing is complete
-                sendInteractiveMessage(
-                    interaction.channel_id,
-                    `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
-                    [
-                        {
-                            type: ComponentType.Button,
-                            custom_id: `view_doc_${result.documentId}`,
-                            label: "View Document",
-                            style: ButtonStyle.Primary
-                        }
-                    ]
-                ).catch(err => console.error('Error sending completion message:', err));
-            })
-            .catch(error => {
-                console.error(`Error processing session ${sessionId}:`, error);
-                // Notify user of failure
-                sendInteractiveMessage(
-                    interaction.channel_id,
-                    "There was an error processing your document. Please try again.",
-                    []
-                ).catch(err => console.error('Error sending failure message:', err));
-            });
     } catch (error) {
         console.error('Error handling skip metadata:', error);
         await respondToInteraction(interaction, {
@@ -723,53 +790,75 @@ const handleHelp = async (interaction: Interaction): Promise<void> => {
     });
 };
 
+// Removed handleConfirmProcess function as we no longer ask for text quality
+
 /**
- * Handle confirmation to process document
+ * Handle final confirmation to process document
  * @param interaction Discord interaction
  * @param sessionId Document session ID
  */
-const handleConfirmProcess = async (
+const handleFinalConfirmProcess = async (
   interaction: Interaction,
   sessionId: string
 ): Promise<void> => {
   try {
-    // Update the interaction to show text quality selection
+    // Update session status to PROCESSING
+    await adminDb
+      .collection('document_sessions')
+      .doc(sessionId)
+      .update({
+        status: 'PROCESSING',
+        processingProgress: {
+          current: 0,
+          total: 1,
+          stage: 'queued',
+          startedAt: new Date()
+        },
+        updatedAt: new Date()
+      });
+    
+    // Update the interaction to show processing has started
     await respondToInteraction(interaction, {
       type: 7, // UPDATE_MESSAGE
       data: {
-        content: "Please select the text quality to help improve processing accuracy:",
-        components: [
-          {
-            type: ComponentType.ActionRow,
-            components: [
-              {
-                type: ComponentType.SelectMenu,
-                custom_id: `text_quality_${sessionId}`,
-                placeholder: "Select text quality",
-                options: [
-                  {
-                    label: "Printed Text",
-                    value: "printed",
-                    description: "Typed or clearly printed text"
-                  },
-                  {
-                    label: "Handwriting",
-                    value: "handwriting",
-                    description: "Any form of handwritten text"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        content: "Document processing has started. This may take several minutes depending on the number of pages.",
+        components: [] // Remove buttons
       }
     });
+    
+    // Start processing in the background using LLM Whisperer service
+    const llmWhisperer = await import('../services/llmWhispererService');
+    llmWhisperer.processDocumentSession(sessionId)
+      .then(result => {
+        // Notify user when processing is complete
+        sendInteractiveMessage(
+          interaction.channel_id,
+          `Your document has been processed and is ready for review! Document ID: ${result.documentId}`,
+          [
+            {
+              type: ComponentType.Button,
+              custom_id: `view_doc_${result.documentId}`,
+              label: "View Document",
+              style: ButtonStyle.Primary
+            }
+          ]
+        ).catch(err => console.error('Error sending completion message:', err));
+      })
+      .catch(error => {
+        console.error(`Error processing session ${sessionId}:`, error);
+        // Notify user of failure
+        sendInteractiveMessage(
+          interaction.channel_id,
+          "There was an error processing your document. Please try again.",
+          []
+        ).catch(err => console.error('Error sending failure message:', err));
+      });
   } catch (error) {
-    console.error('Error confirming process:', error);
+    console.error('Error handling final confirmation:', error);
     await respondToInteraction(interaction, {
       type: 7, // UPDATE_MESSAGE
       data: {
-        content: "An error occurred. Please try again.",
+        content: "An error occurred while starting processing. Please try again.",
         components: [] // Remove buttons
       }
     });

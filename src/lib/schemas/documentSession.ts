@@ -74,10 +74,6 @@ export const documentSessionSchema = z.object({
         .max(10 * 1024 * 1024, "Total file size cannot exceed 10 MiB"),
     metadata: documentSessionMetadataSchema.optional(),
     processingProgress: processingProgressSchema.optional(),
-    textQuality: z.enum([
-        'printed',
-        'handwriting'
-    ]).optional(),
     processingStartedAt: z.date().optional(),
     processingCompletedAt: z.date().optional(),
     documentId: z.string().optional()
