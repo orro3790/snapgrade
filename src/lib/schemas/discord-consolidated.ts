@@ -305,6 +305,40 @@ export const discordConnectionSchema = z.object({
 });
 
 // ==========================================
+// Message Component and Interaction Response Schemas
+// ==========================================
+
+/**
+ * Schema for generic Discord message component
+ */
+export const messageComponentSchema = z.object({
+    type: z.number(),
+    custom_id: z.string().optional(),
+    label: z.string().optional(),
+    style: z.number().optional(),
+    options: z.array(
+        z.object({
+            label: z.string(),
+            value: z.string(),
+            description: z.string().optional()
+        })
+    ).optional()
+}).passthrough(); // Allow additional properties for future compatibility
+
+/**
+ * Schema for Discord interaction response
+ */
+export const interactionResponseSchema = z.object({
+    type: z.number(),
+    data: z.object({
+        content: z.string().optional(),
+        components: z.array(z.record(z.string(), z.unknown())).optional(),
+        embeds: z.array(z.record(z.string(), z.unknown())).optional(),
+        flags: z.number().optional()
+    }).passthrough().optional()
+});
+
+// ==========================================
 // Transform Functions
 // ==========================================
 
@@ -353,6 +387,8 @@ export type ButtonComponent = z.infer<typeof buttonComponentSchema>;
 export type SelectMenuComponent = z.infer<typeof selectMenuComponentSchema>;
 export type ActionRow = z.infer<typeof actionRowSchema>;
 export type SelectOption = z.infer<typeof selectOptionSchema>;
+export type MessageComponent = z.infer<typeof messageComponentSchema>;
+export type InteractionResponse = z.infer<typeof interactionResponseSchema>;
 
 // Message types
 export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;

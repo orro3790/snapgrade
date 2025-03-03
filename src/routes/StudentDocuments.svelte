@@ -6,6 +6,7 @@
 	import type { Document } from '$lib/schemas/document';
 	import Pencil from '$lib/icons/Pencil.svelte';
 	import TrashIcon from '$lib/icons/TrashIcon.svelte';
+	import ConfirmationPopover from '$lib/components/ConfirmationPopover.svelte';
 
 	// Use derived values from the store
 	const selectedStudent = $derived(classManagerStore.selectedStudent);
@@ -13,29 +14,83 @@
 	const isLoading = $derived(classManagerStore.isLoading);
 	const error = $derived(classManagerStore.error);
 	
-	// No need for derived key with client-first approach
-
+	// Local state for confirmation popover
+	let showConfirmation = $state(false);
+	let selectedDocument = $state<Document | null>(null);
+	
 	/**
-	 * Handles document selection and loading
+	 * Handles document selection and shows confirmation popover
 	 */
 	function handleDocumentClick(document: Document) {
-		// Get current nodes directly from the store
-		const hasContent = editorStore.nodes.length > 0;
-
-		if (!hasContent) {
-			// If editor is empty, load directly
-			editorStore.setDocument(document.documentBody, document.documentName);
+		selectedDocument = document;
+		showConfirmation = true;
+	}
+	
+	/**
+	 * Loads the document into the editor and closes the modal
+	 */
+	function confirmLoadDocument() {
+		if (!selectedDocument) return;
+		
+		try {
+			// Set the editor mode to formatting
+			editorStore.mode = 'formatting';
+			
+			// Create editor data for localStorage
+			const editorData = {
+				documentName: selectedDocument.documentName,
+				mode: 'formatting',
+				timestamp: Date.now()
+			};
+			
+			// Save to localStorage for persistence
+			localStorage.setItem('snapgrade_editor_data', JSON.stringify(editorData));
+			
+			if (selectedDocument.compressedNodes) {
+				try {
+					// 1. First set empty document with the correct name
+					editorStore.setDocument('', selectedDocument.documentName);
+					
+					// 2. Load the compressed nodes directly into the editor
+					editorStore.loadCompressedContent(selectedDocument.compressedNodes);
+					
+					// 3. Save compressed nodes to localStorage
+					localStorage.setItem('snapgrade_editor_compressed_nodes', selectedDocument.compressedNodes);
+					localStorage.setItem('snapgrade_editor_use_compressed', 'true');
+				} catch (parseError) {
+					// Fallback to raw text if there's an error with compressed nodes
+					editorStore.setDocument(selectedDocument.documentBody, selectedDocument.documentName);
+					
+					// Save raw content to localStorage
+					localStorage.setItem('snapgrade_editor_raw_content', selectedDocument.documentBody);
+					localStorage.setItem('snapgrade_editor_use_compressed', 'false');
+				}
+			} else {
+				// For raw text, use setDocument to set both content and name
+				editorStore.setDocument(selectedDocument.documentBody, selectedDocument.documentName);
+				
+				// Save raw content to localStorage
+				localStorage.setItem('snapgrade_editor_raw_content', selectedDocument.documentBody);
+				localStorage.setItem('snapgrade_editor_use_compressed', 'false');
+			}
+			
+			// Close the modal to reveal the editor with the loaded document
 			modalStore.close();
-		} else {
-			// If editor has content, show confirmation
-			modalStore.open('documentLoad', {
-				documentToLoad: document.documentBody,
-				documentName: document.documentName,
-				showConfirmation: true,
-				confirmationMessage:
-					'Loading a new document will replace the current content. Do you want to continue?'
-			});
+		} catch (error) {
+			console.error('Error loading document:', error);
+		} finally {
+			// Reset state
+			showConfirmation = false;
+			selectedDocument = null;
 		}
+	}
+	
+	/**
+	 * Cancels document loading
+	 */
+	function cancelLoadDocument() {
+		showConfirmation = false;
+		selectedDocument = null;
 	}
 
 	/**
@@ -107,11 +162,19 @@
 			</ul>
 		{/if}
 	</div>
+	
+	{#if showConfirmation && selectedDocument}
+		<ConfirmationPopover
+			message={`Do you want to load "${selectedDocument.documentName}" into the editor?`}
+			onConfirm={confirmLoadDocument}
+			onCancel={cancelLoadDocument}
+		/>
+	{/if}
 </div>
 
 <style>
 	.documents-container {
-		width: 320px;
+		width: 300px;
 		height: 100%;
 		background: var(--background-secondary);
 		display: flex;

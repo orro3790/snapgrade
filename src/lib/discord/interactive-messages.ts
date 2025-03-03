@@ -2,24 +2,10 @@ import {
     type ActionRow,
     ComponentType,
     ButtonStyle,
-    type Interaction
+    type Interaction,
+    type MessageComponent,
+    type InteractionResponse
 } from '../schemas/discord-consolidated';
-
-/**
- * Type for Discord message component
- */
-type MessageComponent = {
-    type: number;
-    custom_id?: string;
-    label?: string;
-    style?: number;
-    options?: Array<{
-        label: string;
-        value: string;
-        description?: string;
-    }>;
-    [key: string]: unknown;
-};
 
 /**
  * Send an interactive message with buttons or other components
@@ -87,20 +73,6 @@ export const sendInteractiveMessage = async (
         console.error('Error sending interactive message:', error);
         throw error;
     }
-};
-
-/**
- * Type for Discord interaction response
- */
-type InteractionResponse = {
-    type: number;
-    data?: {
-        content?: string;
-        components?: Array<Record<string, unknown>>;
-        embeds?: Array<Record<string, unknown>>;
-        flags?: number;
-        [key: string]: unknown;
-    };
 };
 
 /**

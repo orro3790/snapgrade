@@ -9,6 +9,9 @@ import { SUPPORTED_IMAGE_TYPES, type DocumentSession } from '../schemas/document
 import { sendInteractiveMessage } from './interactive-messages';
 import { ComponentType, ButtonStyle } from '../schemas/discord-consolidated';
 
+// Maximum number of pages allowed per document
+const MAX_PAGES = 10;
+
 /**
  * Handle image uploads and manage document sessions
  * @param channelId Discord channel ID
@@ -34,6 +37,23 @@ export const handleImageUpload = async (
         const sortedAttachments = [...attachments].sort((a, b) =>
             a.filename.localeCompare(b.filename)
         );
+
+        // Check if upload would exceed the maximum page limit
+        const currentPageCount = activeSession ? activeSession.receivedPages : 0;
+        const newTotalPageCount = currentPageCount + sortedAttachments.length;
+        
+        if (newTotalPageCount > MAX_PAGES) {
+            await sendInteractiveMessage(
+                channelId,
+                `This upload would exceed the maximum limit of ${MAX_PAGES} pages per document. ` +
+                `You currently have ${currentPageCount} pages and are trying to add ${sortedAttachments.length} more. ` +
+                `Please reduce the number of pages and try again.`,
+                []
+            );
+            console.log(`[PERF] Upload rejected: would exceed ${MAX_PAGES} page limit. ` +
+                        `Current: ${currentPageCount}, Attempted to add: ${sortedAttachments.length}`);
+            return;
+        }
         
         // Create a temporary session ID if no active session
         const tempSessionId = activeSession ?

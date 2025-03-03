@@ -70,7 +70,7 @@
 
 <style>
 	.class-list-container {
-		width: 280px;
+		width: 260px;
 		height: 100%;
 		background: var(--background-secondary);
 		border-right: var(--border-width-thin) solid var(--background-modifier-border);

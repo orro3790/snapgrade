@@ -212,7 +212,7 @@
 
 <style>
 	.form-container {
-		width: 320px;
+		width: 300px;
 		height: 100%;
 		background: var(--background-secondary);
 		border-right: 1px solid var(--background-modifier-border);
@@ -231,8 +231,8 @@
 
 	h2 {
 		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 600;
+		font-size: var(--font-size-xl);
+		font-weight: var(--font-weight-medium);
 		color: var(--text-normal);
 	}
 
@@ -285,7 +285,7 @@
 
 	textarea {
 		min-height: 8rem;
-		resize: vertical;
+		resize: none;
 	}
 
 	input:focus,

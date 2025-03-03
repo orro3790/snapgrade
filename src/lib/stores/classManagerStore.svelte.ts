@@ -23,6 +23,7 @@ import {
     writeBatch,
     documentId
 } from 'firebase/firestore';
+import { documentStore } from './documentStore.svelte';
 
 /**
  * Core state containing all class management-related data.
@@ -225,6 +226,10 @@ async function loadStudentsForClass() {
 /**
  * Load documents for the selected student
  */
+/**
+ * Load documents for the selected student
+ * Uses a more inclusive query that doesn't filter by status
+ */
 async function loadDocumentsForStudent() {
     // If no student is selected, clear documents and return
     if (!classState.selectedStudent) {
@@ -232,29 +237,36 @@ async function loadDocumentsForStudent() {
         return;
     }
     
+    // Set loading state to true
+    classState.isLoading = true;
+    
     try {
+        // Query documents for the selected student without status filter
         const documentsQuery = query(
             collection(db, 'documents'),
-            where('studentId', '==', classState.selectedStudent.id),
-            where('status', '==', 'completed')
+            where('studentId', '==', classState.selectedStudent.id)
         );
         
         // Fetch documents directly without listeners
         const snapshot = await getDocs(documentsQuery);
         
-        classState.documents = snapshot.docs.map((docSnapshot) => {
+        // Map the documents and ensure proper date conversion
+        const documents = snapshot.docs.map((docSnapshot) => {
             const data = docSnapshot.data();
             return {
                 ...data,
                 id: docSnapshot.id,
-                createdAt: data.createdAt instanceof Timestamp 
-                    ? data.createdAt.toDate() 
+                createdAt: data.createdAt instanceof Timestamp
+                    ? data.createdAt.toDate()
                     : new Date(),
-                updatedAt: data.updatedAt instanceof Timestamp 
-                    ? data.updatedAt.toDate() 
+                updatedAt: data.updatedAt instanceof Timestamp
+                    ? data.updatedAt.toDate()
                     : new Date()
             } as Document;
         });
+        
+        // Update the state with the fetched documents
+        classState.documents = documents;
         
         // Also update document counts
         await updateDocumentCounts();
@@ -262,6 +274,9 @@ async function loadDocumentsForStudent() {
         console.error('Error loading documents from Firestore:', err);
         classState.error = 'Failed to load documents. Please try again.';
         classState.documents = [];
+    } finally {
+        // Always set loading state back to false
+        classState.isLoading = false;
     }
 }
 
@@ -337,12 +352,17 @@ function selectClass(classData: Class | null) {
  * @param student - The student to select
  */
 function selectStudent(student: Student | null) {
+    // Update the selected student
     classState.selectedStudent = student;
     classState.isEditingClass = false;
     classState.isAddingStudent = false;
     classState.isEditingStudent = false;
     
     if (student) {
+        // Clear documents first to avoid showing stale data
+        classState.documents = [];
+        
+        // Load documents for the selected student
         loadDocumentsForStudent();
     } else {
         classState.documents = [];
@@ -437,6 +457,7 @@ async function saveClass(classData: Partial<Class>) {
     const originalClasses = [...classState.classes];
     const originalSelectedClass = classState.selectedClass ? { ...classState.selectedClass } : null;
     const originalCurrentUser = classState.currentUser ? { ...classState.currentUser } : null;
+
     
     try {
         if (classData.id) {
@@ -543,6 +564,9 @@ async function saveClass(classData: Partial<Class>) {
         // Exit edit mode
         classState.isEditingClass = false;
         classState.error = null;
+        
+        // Refresh document store with the current user's UID
+        documentStore.loadClassesForUser(classState.currentUid || '');
         
         return true;
     } catch (err) {

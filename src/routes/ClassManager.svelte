@@ -238,6 +238,9 @@
 					/>
 				{/if}
 			</div>
+		{:else}
+			<!-- Empty placeholder to maintain width when no class is selected -->
+			<div class="class-details-placeholder"></div>
 		{/if}
 		
 		<!-- Column 3: Student Form or Documents - Now uses the store -->
@@ -263,6 +266,9 @@
 					/>
 				{/if}
 			</div>
+		{:else}
+			<!-- Empty placeholder to maintain width when no student is selected -->
+			<div class="student-documents-placeholder"></div>
 		{/if}
 	</div>
 </div>
@@ -289,8 +295,8 @@
 		border: var(--border-width-thin) solid var(--background-modifier-border);
 		box-shadow: var(--shadow-xl);
 		z-index: var(--z-modal);
-		width: 90%;
-		max-width: 1200px;
+		width: auto;
+		max-width: 900px;
 		height: 90vh;
 		display: flex;
 		flex-direction: column;
@@ -341,22 +347,31 @@
 	:global(.class-manager-modal .documents-container),
 	:global(.class-manager-modal .class-details-container),
 	.student-documents-container,
-	.class-details-wrapper {
+	.student-documents-placeholder,
+	.class-details-wrapper,
+	.class-details-placeholder {
 		animation: slideIn var(--transition-duration-300) var(--transition-timing-ease-out);
 	}
 	
-	.class-details-wrapper {
+	/* Ensure student-item has correct border radius */
+	:global(.class-manager-modal .student-item) {
+		border-radius: var(--radius-base);
+	}
+	
+	.class-details-wrapper,
+	.class-details-placeholder {
 		display: flex;
 		flex-direction: column;
-		width: 320px;
+		width: 300px;
 		height: 100%;
 		position: relative;
 		background: var(--background-secondary);
 		border-right: var(--border-width-thin) solid var(--background-modifier-border);
 	}
 
-	.student-documents-container {
-		width: 320px;
+	.student-documents-container,
+	.student-documents-placeholder {
+		width: 300px;
 		height: 100%;
 		display: flex;
 		flex-direction: column;

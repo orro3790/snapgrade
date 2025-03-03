@@ -1,6 +1,7 @@
 <!-- src/lib/components/ConfirmationPopover.svelte -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let { message, onConfirm, onCancel, children } = $props<{
 		message: string;
@@ -18,7 +19,7 @@
 	}
 </script>
 
-<div class="confirmation-backdrop" role="presentation">
+<div class="confirmation-backdrop" role="presentation" onkeydown={handleKeydown}>
 	<div
 		role="alertdialog"
 		aria-labelledby="confirmation-title"
@@ -35,12 +36,18 @@
 			{/if}
 
 			<div class="button-group">
-				<button type="button" class="button secondary" onclick={onCancel} onkeydown={handleKeydown}>
-					Cancel
-				</button>
-				<button type="button" class="button" onclick={onConfirm} onkeydown={handleKeydown}>
-					Confirm
-				</button>
+				<Button
+					label="Cancel"
+					type="secondary"
+					size="small"
+					ClickFunction={onCancel}
+				/>
+				<Button
+					label="Confirm"
+					type="primary"
+					size="small"
+					ClickFunction={onConfirm}
+				/>
 			</div>
 		</div>
 	</div>
@@ -54,6 +61,7 @@
 		right: 0;
 		bottom: 0;
 		background: var(--background-modifier-cover);
+		backdrop-filter: blur(2px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -68,6 +76,7 @@
 		width: 90%;
 		max-width: 320px;
 		z-index: calc(var(--z-modal) + 2);
+		animation: fadeIn var(--transition-duration-200) var(--transition-timing-ease-out);
 	}
 
 	.confirmation-content {
@@ -89,5 +98,16 @@
 		display: flex;
 		gap: var(--spacing-2);
 		justify-content: flex-end;
+	}
+	
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
 	}
 </style>

@@ -93,14 +93,39 @@ export const processPendingImage = async (image: PendingImage) => {
     const metadataStartTime = Date.now();
     console.log(`[PERF] Starting confidence metadata processing`);
     const confidenceMetadata = whisperResult.confidence_metadata || [];
+    
+    // Debug the actual confidence metadata received
+    console.log(`[DEBUG] Raw confidence_metadata structure:`, JSON.stringify(confidenceMetadata, null, 2).substring(0, 300) + '...');
+    console.log(`[DEBUG] confidence_metadata type:`, Array.isArray(confidenceMetadata) ? 'array' : typeof confidenceMetadata);
+    if (Array.isArray(confidenceMetadata)) {
+      console.log(`[DEBUG] confidence_metadata array length:`, confidenceMetadata.length);
+    }
+    
     const lowConfidenceWords: Array<{text: string, confidence: string, lineIndex: number}> = [];
     
     // Process confidence metadata to identify low-confidence words
     if (Array.isArray(confidenceMetadata)) {
+      // Debug some metadata about the structure
+      let nonEmptyLines = 0;
+      confidenceMetadata.forEach(line => {
+        if (Array.isArray(line) && line.length > 0) {
+          nonEmptyLines++;
+        }
+      });
+      console.log(`[DEBUG] Found ${nonEmptyLines} non-empty lines in confidence_metadata out of ${confidenceMetadata.length} total lines`);
+      
       confidenceMetadata.forEach((line, lineIndex) => {
         if (Array.isArray(line)) {
+          // Debug line content if it has words
+          if (line.length > 0) {
+            console.log(`[DEBUG] Line ${lineIndex} has ${line.length} word(s) with confidence data`);
+            console.log(`[DEBUG] Sample word data:`, line[0]);
+          }
+          
           line.forEach(wordData => {
-            if (wordData.confidence && parseFloat(wordData.confidence) < 0.8) {
+            // Lower the confidence threshold to catch more potential OCR issues
+            // LLMWhisperer only includes words with confidence < 0.9 in the metadata
+            if (wordData.confidence && parseFloat(wordData.confidence) < 0.85) {
               lowConfidenceWords.push({
                 text: wordData.text || '',
                 confidence: wordData.confidence || '0',
@@ -110,10 +135,18 @@ export const processPendingImage = async (image: PendingImage) => {
           });
         }
       });
+    } else {
+      console.warn(`[DEBUG] confidence_metadata is not an array:`, typeof confidenceMetadata);
     }
     
     const metadataTime = Date.now() - metadataStartTime;
     console.log(`[PERF] Found ${lowConfidenceWords.length} low confidence words in ${metadataTime}ms`);
+    
+    if (lowConfidenceWords.length === 0) {
+      console.log(`[WARN] No low confidence words found in what appears to be messy handwritten text. This suggests a potential issue with the OCR confidence scores.`);
+    } else {
+      console.log(`[DEBUG] Low confidence words found:`, lowConfidenceWords);
+    }
     
     // Analyze structure with Claude and get compressed nodes
     const claudeStartTime = Date.now();
@@ -140,7 +173,7 @@ export const processPendingImage = async (image: PendingImage) => {
     console.log(`[PERF] Starting text verification`);
     let verification;
     try {
-      verification = await claude.verifyText(extractedText);
+      verification = await claude.verifyDocument(extractedText);
     } catch (error) {
       console.warn('Text verification failed, using fallback:', error);
       // Use a fallback verification object if Claude verification fails

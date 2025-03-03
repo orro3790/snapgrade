@@ -102,7 +102,7 @@
 </div>
 <style>
 	.class-details-container {
-		width: 320px;
+		width: 300px;
 		height: 100%;
 		background: var(--background-secondary);
 		border-right: 1px solid var(--background-modifier-border);

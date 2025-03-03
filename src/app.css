@@ -224,8 +224,8 @@
   
   /* Composite Transitions */
   --transition-sidebar: width var(--transition-duration-200) var(--transition-timing-ease),
-                       transform var(--transition-duration-200) var(--transition-timing-ease),
-                       opacity var(--transition-duration-150) var(--transition-timing-ease);
+  transform var(--transition-duration-200) var(--transition-timing-ease),
+  opacity var(--transition-duration-150) var(--transition-timing-ease);
 }
 
 /* Base Styles */
@@ -351,65 +351,6 @@ select:focus {
 textarea {
   resize: vertical;
   min-height: 100px;
-}
-
-/* Buttons */
-button,
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--line-height-none);
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border: none;
-  border-radius: var(--radius-base);
-  padding: var(--spacing-2) var(--spacing-4);
-  cursor: pointer;
-  transition: var(--transition-colors), var(--transition-shadow);
-}
-
-button:hover,
-.button:hover {
-  background-color: var(--interactive-accent-hover);
-}
-
-button:focus,
-.button:focus {
-  outline: none;
-}
-
-button:disabled,
-.button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Secondary Button */
-button.secondary,
-.button.secondary {
-  color: var(--text-normal);
-  background-color: var(--interactive-normal);
-}
-
-button.secondary:hover,
-.button.secondary:hover {
-  background-color: var(--interactive-hover);
-}
-
-/* Ghost Button */
-button.ghost,
-.button.ghost {
-  color: var(--text-accent);
-  background-color: transparent;
-}
-
-button.ghost:hover,
-.button.ghost:hover {
-  background-color: var(--background-modifier-hover);
 }
 
 /* Selection */
